@@ -15,7 +15,13 @@ python -m venv .venv && .venv/bin/pip install -e ".[test]"   # dev install
 .venv/bin/atlaslookup serve --port 8770           # run without touching the user's 8765
 ATLASLOOKUP_HOME=/tmp/al-test .venv/bin/atlaslookup serve --port 8770   # throwaway data folder
 .venv/bin/atlaslookup query -44 18 24             # quick sanity check from the terminal
+.venv/bin/atlaslookup maps                        # the user's spmT maps (reads their results folder)
+.venv/bin/atlaslookup clusters <map> --threshold 3 --k 5 [--csv]   # labelled peak table
 ```
+
+Shared workflows live in `.claude/skills/` (`/add-atlas`, `/label-clusters`, `/release`).
+`maps` and `clusters` read the user's research results, so they are deliberately not
+pre-approved in `.claude/settings.json`; let the user approve them.
 
 The answer-matching test runs `static/quiz.js` under `node`; it skips if node is missing.
 

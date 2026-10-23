@@ -3,6 +3,13 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.7.0 (2026-10-23)
+- **Working with Claude:** `CLAUDE.md` project notes, shared skills (`/add-atlas`,
+  `/label-clusters`, `/release`), safe pre-approved commands in
+  `.claude/settings.json`, and a guide in `docs/working-with-claude.md`.
+- New CLI commands: `atlaslookup maps` lists your spmT maps;
+  `atlaslookup clusters MAP` prints the labelled cluster/peak table (`--csv` too).
+
 ## 0.6.0 (2026-10-23)
 - **Installable package** (`pip install`), with an `atlaslookup` command: on
   the first run it downloads the atlases, then it opens the app in the browser.

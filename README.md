@@ -66,6 +66,9 @@ to see what's there.
   atlaslookup query 12 45 35 --voxel --grid my-3mm
   ```
 
+  For a stat map's clusters from the terminal: `atlaslookup maps`, then
+  `atlaslookup clusters <map> --threshold 3 --k 5` (add `--csv` for a file).
+
 Each atlas card shows the label at that voxel, the probabilities (for
 probabilistic atlases), the share of each region within the chosen radius, and
 the nearest label if the point lands in a gap. The URL updates with each
@@ -145,6 +148,14 @@ Please cite the atlases you report: each card in the app shows its citation
 and DOI. The atlases are downloaded on your machine and keep their own
 licences (see `THIRD_PARTY_NOTICES.md`); Harvard-Oxford and Juelich come with
 FSL and are for non-commercial use.
+
+## Working with Claude
+
+The repository is set up for [Claude Code](https://code.claude.com/docs). Start `claude`
+in the project folder and ask in plain English, e.g. "label the clusters in my modelA map
+at T ≥ 3.5", or use `/add-atlas`, `/label-clusters` and `/release`. See
+[docs/working-with-claude.md](docs/working-with-claude.md) for setup, privacy notes, and
+how to develop the app this way.
 
 ## Development
 
