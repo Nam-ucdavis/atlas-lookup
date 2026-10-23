@@ -1,0 +1,106 @@
+# Atlas Lookup: notes for Claude
+
+A local web app and CLI that answers "which brain region is this MNI coordinate in?"
+across several atlases, shows a three-plane viewer, labels clusters in a user's SPM T
+maps, and quizzes users on regions. Python (FastAPI + nibabel/nilearn) backend,
+vanilla-JS front end, NiiVue for the viewer. Human-facing docs: `README.md`,
+`docs/working-with-claude.md`.
+
+## Commands
+
+```bash
+python -m venv .venv && .venv/bin/pip install -e ".[test]"   # dev install
+.venv/bin/atlaslookup setup          # download atlases into the data folder (needed by ~half the tests)
+.venv/bin/pytest -q                  # all tests; atlas-dependent ones skip without setup
+.venv/bin/atlaslookup serve --port 8770           # run without touching the user's 8765
+ATLASLOOKUP_HOME=/tmp/al-test .venv/bin/atlaslookup serve --port 8770   # throwaway data folder
+.venv/bin/atlaslookup query -44 18 24             # quick sanity check from the terminal
+```
+
+The answer-matching test runs `static/quiz.js` under `node`; it skips if node is missing.
+
+## Layout
+
+```
+src/atlaslookup/
+  config.py       all paths: PACKAGE_DIR/STATIC_DIR (code) vs DATA_DIR (~/.atlaslookup or $ATLASLOOKUP_HOME)
+  atlas.py        Atlas: lookup() -> label / probabilities / nearest / neighbourhood; add_atlas(); MNI resampling
+  sources.py      built-in atlas importers (nilearn) + `setup`
+  labels.py       label-file readers (tsv/csv, LUT txt, FSL xml)
+  grids.py        voxel grids (voxel index <-> mm)
+  query.py        input resolution (mm / voxel, 1-based default) + best_guess()
+  results.py      read-only access to the user's spmT maps: list, value, clusters
+  quiz.py         quiz regions, interior points, masks, brain-division mapping
+  server.py       FastAPI routes (docstring lists them all)
+  __main__.py     CLI (`atlaslookup ...`)
+  version.py      version + git commit badge
+  static/index.html   the whole lookup UI (inline module script)
+  static/quiz.js      quiz + progress UI; exports matchName() for tests
+  static/vendor/niivue-0.69.0.js   vendored NiiVue bundle; do not edit
+tests/test_lookup.py
+```
+
+## Rules that must hold
+
+**Privacy and data**
+- Nothing user-specific lives in the package or the repo. Atlases, grids, the template and
+  `settings.json` go in `config.DATA_DIR`. Never add data files, example results, or
+  machine paths to tracked files, including docs (write `/path/to/your/results`).
+- Results are read-only. All access to the results folder goes through
+  `Results.resolve()`, which refuses paths outside the folder and non-`spmT_*` files.
+  Don't add routes that open files another way, and don't cache maps to disk.
+- The server binds to 127.0.0.1 by default. Don't change that default.
+- Tests use synthetic data (`tmp_path`, fixtures such as `results_dir`) and never a real
+  user folder.
+- Atlas files are never bundled (FSL atlases are non-commercial; others have their own
+  terms). They're downloaded by `setup` via nilearn, and each keeps its citation in its
+  manifest.
+
+**Neuroimaging correctness**
+- Internally everything is MNI mm. Each atlas samples with its own affine. Voxel input is
+  converted through a registered grid and is 1-based by default (SPM/MATLAB).
+- Talairach atlases use `mm_transform` (Lancaster icbm_spm2tal). Their MNI-resampled copy
+  (`overlay_map_mni.nii.gz`) must agree with the transformed lookup; a test checks this.
+- The quiz never contradicts lookup: `quiz.point()` returns only points whose
+  `Atlas.lookup()` gives the asked region. Keep that check if you change sampling.
+- Every quizzable region must map to a brain division (`quiz.DIVISIONS` /
+  `BRODMANN_DIVISION`); a test enforces it. Watch regex substrings ("tri-angular-is"
+  once matched `angular`); use `\b` where needed.
+- Stat-map p values are uncorrected, one-sided, using the df parsed from the SPM header.
+  Say so in any UI or docs you touch.
+
+## Conventions
+
+- Match the surrounding code: small functions, sparse comments that explain *why*,
+  type hints in Python, no new dependencies without a good reason.
+- Front end: plain ES modules, no build step, no frameworks. Colours are CSS variables on
+  `:root` with a dark-mode block. Keep every new element working at 375 px wide and in
+  dark mode. Class names are global, so check for clashes (`.seg` is the segmented
+  control; progress bars use `.pseg`).
+- Browser caching: `/` and `/static/*` are sent with `Cache-Control: no-cache` so a
+  restart shows new UI. Keep it.
+- New API routes: add them to the docstring at the top of `server.py` and to the README's
+  API list.
+
+## Verifying changes
+
+- Run `pytest` and add tests for new behaviour, with synthetic data.
+- For UI changes, run the app on a spare port with a throwaway `ATLASLOOKUP_HOME` (after
+  `setup`) and check it in a browser: desktop and 375 px, light and dark, and no console
+  errors. Exercise lookup, the viewer click, quiz mode (both question types), Progress,
+  and a stat map if your change touches them.
+
+## Releasing
+
+1. Bump `__version__` in `src/atlaslookup/__init__.py` (semver; the badge reads it).
+2. Add a dated entry at the top of `CHANGELOG.md`, written for users.
+3. Run `pytest`, build (`python -m build`), and smoke-test the wheel in a fresh venv.
+4. Commit, then `git tag -a vX.Y.Z -m "Atlas Lookup X.Y.Z"`. Push only when the maintainer asks.
+
+## Updating NiiVue
+
+The vendored file is an esbuild bundle of `@niivue/niivue` (bare imports resolved). To
+update: `npm install @niivue/niivue@X esbuild` in a scratch folder, bundle
+`export * from '@niivue/niivue'` with `esbuild --bundle --format=esm --minify`, replace the
+file (keep the version in its name and update the import in `index.html`), and refresh
+`THIRD_PARTY_NOTICES.md` with the licences of NiiVue and its dependencies.
