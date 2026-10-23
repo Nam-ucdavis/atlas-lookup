@@ -10,6 +10,8 @@
   add ...                         register an atlas from a paper (NIfTI + labels)
   add-grid ID IMAGE               register a voxel grid from any NIfTI on that grid
   set-results DIR                 where your spmT maps live (saved in your data folder)
+  maps                            list the spmT maps in your results folder
+  clusters MAP [--threshold 3]    labelled cluster/peak table for one map (--csv for a file)
 """
 from __future__ import annotations
 
@@ -47,6 +49,15 @@ def main(argv=None):
 
     r = sub.add_parser("set-results", help="remember where your spmT maps live")
     r.add_argument("folder")
+
+    sub.add_parser("maps", help="list the spmT maps in your results folder")
+
+    c = sub.add_parser("clusters", help="labelled cluster/peak table for one spmT map")
+    c.add_argument("map", help="map id from `atlaslookup maps`, or a path to an spmT file")
+    c.add_argument("--threshold", type=float, default=3.0, help="|T| threshold (default 3)")
+    c.add_argument("--sign", default="both", choices=["pos", "neg", "both"])
+    c.add_argument("--k", type=int, default=5, help="minimum cluster size in voxels (default 5)")
+    c.add_argument("--csv", action="store_true", help="print CSV instead of a table")
 
     q = sub.add_parser("query", help="look up one coordinate")
     q.add_argument("xyz", nargs=3, type=float)
@@ -141,6 +152,17 @@ def main(argv=None):
             _open_when_ready(url)
         uvicorn.run("atlaslookup.server:app", host=args.host, port=args.port)
 
+    elif args.cmd == "maps":
+        from .results import Results, configured_dir
+        res = Results(configured_dir())
+        if not res.available:
+            sys.exit("No results folder set; run `atlaslookup set-results DIR`")
+        for m in res.list():
+            print(f"  {m['id']}\n      {m['contrast']}  (df {m['df']})")
+
+    elif args.cmd == "clusters":
+        _print_clusters(args)
+
     elif args.cmd == "query":
         grids = load_grids()
         grid = grids.get(args.grid) if args.grid else None
@@ -175,6 +197,45 @@ def main(argv=None):
     elif args.cmd == "add-grid":
         gr = grid_from_image(args.image, args.id, args.name or args.id, args.space)
         print(f"Registered grid {gr.id}: {gr.shape} @ {gr.voxel_size} mm -> {save_grid(gr)}")
+
+
+def _print_clusters(args) -> None:
+    """Same table as the web app: clusters, peaks, and atlas labels at each peak."""
+    import csv
+    from pathlib import Path
+
+    from .results import Results, configured_dir
+
+    path = Path(args.map).expanduser()
+    if path.is_file():  # a file given directly: read it from its own folder
+        res, map_id = Results(path.parent), path.name
+    else:
+        res, map_id = Results(configured_dir()), args.map
+    try:
+        table = res.clusters(map_id, args.threshold, args.sign, args.k)
+    except FileNotFoundError:
+        sys.exit(f"No spmT map {args.map!r}; see `atlaslookup maps`")
+    atlases = load_atlases()
+    cols = [i for i in ("harvard-oxford-cort", "harvard-oxford-sub", "juelich", "talairach-ba") if i in atlases]
+    rows = []
+    for n, cl in enumerate(table["clusters"], 1):
+        labels = {r["atlas"]["id"]: best_guess(r) or "" for r in query(atlases, cl["peak_mm"], radius_mm=5, only=cols)}
+        rows.append([n, cl["sign"], cl["voxels"], cl["peak_t"], f"{cl['peak_p']:.2g}" if cl["peak_p"] else "",
+                     *[int(round(v)) for v in cl["peak_mm"]], *[labels.get(i, "") for i in cols]])
+    header = ["cluster", "sign", "voxels", "peak_t", "p_unc", "x", "y", "z", *[atlases[i].manifest.role for i in cols]]
+    if args.csv:
+        w = csv.writer(sys.stdout)
+        w.writerow(header)
+        w.writerows(rows)
+        return
+    print(f"{table['contrast']} (df {table['df']}): {table['n_clusters']} clusters at "
+          f"|T| >= {args.threshold} ({args.sign}), k >= {args.k}; p uncorrected, one-sided")
+    for r in rows:
+        print(f"  {r[0]:>2} {'+' if r[1] == 'pos' else '-'} {r[2]:>5} vox  T={r[3]:>6.2f}  p={r[4]:<8} "
+              f"({r[5]}, {r[6]}, {r[7]})")
+        for role, label in zip(header[8:], r[8:]):
+            if label:
+                print(f"        {role}: {label}")
 
 
 def _is_set_up() -> bool:

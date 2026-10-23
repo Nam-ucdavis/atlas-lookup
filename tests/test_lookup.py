@@ -350,3 +350,18 @@ def test_user_data_lives_outside_the_package(tmp_path):
     data_dir, settings, package = map(Path, out)
     assert data_dir == tmp_path and settings.parent == tmp_path
     assert not settings.is_relative_to(package) and not data_dir.is_relative_to(package)
+
+
+def test_clusters_cli(results_dir, monkeypatch, capsys):
+    """`atlaslookup clusters` gives the same clusters as the API, by id or by path."""
+    from atlaslookup.__main__ import main
+
+    monkeypatch.setenv("ATLAS_RESULTS_DIR", str(results_dir))
+    main(["clusters", "modelA/spmT_0001.nii", "--csv"])
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert lines[0].startswith("cluster,sign,voxels,peak_t,p_unc,x,y,z")
+    assert len(lines) == 2 and lines[1].startswith("1,pos,64,6.0,")
+    main(["clusters", str(results_dir / "modelB" / "sub" / "spmT_0001.nii"), "--sign", "neg"])
+    assert "1 clusters" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        main(["clusters", "../outside/spmT_0001.nii"])
