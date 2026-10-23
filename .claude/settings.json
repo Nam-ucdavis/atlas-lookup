@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/pytest)",
+      "Bash(.venv/bin/pytest *)",
+      "Bash(.venv/bin/atlaslookup query *)",
+      "Bash(.venv/bin/atlaslookup list)",
+      "Bash(.venv/bin/atlaslookup info)",
+      "Bash(.venv/bin/atlaslookup maps)",
+      "Bash(atlaslookup query *)",
+      "Bash(atlaslookup list)",
+      "Bash(atlaslookup info)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)"
+    ],
+    "deny": [
+      "Bash(git push *)"
+    ]
+  }
+}
