@@ -460,3 +460,35 @@ def test_slice_labels():
     # i = (90 - (-44)) / 2 = 67 (0-based) -> 68; j = (18 + 126) / 2 + 1 = 73; k = (24 + 72) / 2 + 1 = 49
     assert json.loads(out.stdout) == ["z = 24 mm", "y = 18 mm", "x = −44 mm", "x = 12.5 mm",
                                       "k = 49", "j = 73", "i = 67", "z = 24 mm"]
+
+
+def test_colour_bar_ends():
+    """static/viewertools.js: colour bar labels in T, or in p when a layer uses p."""
+    import json
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    from scipy import stats
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    import atlaslookup
+
+    js = Path(atlaslookup.__file__).parent / "static" / "viewertools.js"
+    entries = [{"sign": "+", "from": 3, "to": 7, "mode": "t", "df": 24},
+               {"sign": "−", "from": 3, "to": 4.414, "mode": "t", "df": 24},
+               {"sign": "+", "from": 3.4668, "to": 7, "mode": "p", "df": 24},
+               {"sign": "−", "from": 3.4668, "to": 7, "mode": "p", "df": 24},
+               {"sign": "+", "from": 3, "to": 7, "mode": "p", "df": None}]
+    script = (f"import {{ barEnds }} from {str(js)!r};"
+              f"console.log(JSON.stringify({json.dumps(entries)}.map(barEnds)));")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    got = json.loads(out.stdout)
+    assert got[0] == {"unit": "T", "lo": "3.00", "hi": "7.00"}
+    assert got[1] == {"unit": "T", "lo": "−3.00", "hi": "−4.41"}
+    assert got[2]["unit"] == "p" and float(got[2]["lo"]) == pytest.approx(stats.t.sf(3.4668, 24), rel=0.05)
+    assert float(got[2]["hi"]) == pytest.approx(stats.t.sf(7, 24), rel=0.05)
+    assert got[3] == got[2]  # one-sided p of |T|, same for both signs
+    assert got[4]["unit"] == "T"  # no df: falls back to T

@@ -142,12 +142,16 @@ export function createOverlays({ NVImage, getNv, esc, head, list }) {
 
   // Push one layer's settings into its NiiVue volume. Hiding a sign pushes its window
   // beyond the data, as the results-folder stat map does.
-  function apply(L, redraw = true) {
-    if (!L.vol) return;
+  function range(L) {
     const thr = thresholdT(L);
     const ok = isFinite(thr) && thr > 0;
     const top = Math.max(L.maxPos, L.maxNeg, (ok ? thr : 0) + 0.01);
-    const showPos = ok && L.sign !== "neg", showNeg = ok && L.sign !== "pos";
+    return { thr, ok, top, showPos: ok && L.sign !== "neg", showNeg: ok && L.sign !== "pos" };
+  }
+
+  function apply(L, redraw = true) {
+    if (!L.vol) return;
+    const { thr, ok, top, showPos, showNeg } = range(L);
     L.vol.colormap = L.cmap;  // the setter recomputes cal_min/max, so set it first
     L.vol.cal_min = showPos ? thr : top + 1;
     L.vol.cal_max = showPos ? top : top + 2;
@@ -306,5 +310,18 @@ export function createOverlays({ NVImage, getNv, esc, head, list }) {
     else if (["sign", "cmap", "cmapNeg"].includes(k)) { L[k] = e.target.value; apply(L); }
   });
 
-  return { addFiles, sync, readout, get layers() { return layers; } };
+  // Colour bars for the visible layers, front first: one per shown sign.
+  function legend() {
+    const out = [];
+    for (const L of layers) {
+      if (!L.vol || !L.visible) continue;
+      const { thr, top, showPos, showNeg } = range(L);
+      const base = { name: L.name, from: thr, to: top, df: L.df, mode: L.mode };
+      if (showPos) out.push({ ...base, sign: "+", cmap: L.cmap });
+      if (showNeg) out.push({ ...base, sign: "−", cmap: L.cmapNeg });
+    }
+    return out;
+  }
+
+  return { addFiles, sync, readout, legend, get layers() { return layers; } };
 }

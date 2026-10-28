@@ -93,9 +93,12 @@ to see what's there.
 
 In the viewer, each slice shows its coordinate in the bottom-left corner (z
 for axial, y for coronal, x for sagittal; k, j, i in voxel mode). Untick
-**Crosshair** to hide the red lines. **scr** saves the three slices as one PNG,
-always 2400 × 800 px, in `~/.atlaslookup/image/`, named by the date and time
-(e.g. `2026-10-28_09-19-20.png`).
+**Crosshair** to hide the red lines. Each stat overlay gets a colour bar under
+the slices, from the threshold to its strongest value, in T or in p (one-sided,
+uncorrected) as you thresholded it, with separate + and − bars. **scr** saves
+the three slices and the colour bars as one PNG, always 2400 × 960 px, in
+`~/.atlaslookup/image/`, named by the date and time (e.g.
+`2026-10-28_09-19-20.png`).
 
 Each atlas card shows the label at that voxel, the probabilities (for
 probabilistic atlases), the share of each region within the chosen radius, and

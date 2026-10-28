@@ -16,8 +16,12 @@ title in the app (and at `/api/version`, or `atlaslookup --version`).
 - **Viewer:** a *Crosshair* checkbox hides the red lines (the quiz always shows
   them). Each slice shows its coordinate in the bottom-left corner: z, y or x in
   mm, or k, j or i on the reference grid in voxel mode.
-- **scr** saves the three slices as one PNG (always 2400 × 800 px, black
-  background) in the `image` folder of your data folder, named by date and time.
+- **Colour bars** under the viewer for every stat overlay, from the threshold to
+  the strongest value, labelled in T or p (as the layer is thresholded), with a
+  separate bar for + and − when both are shown.
+- **scr** saves the three slices and their colour bars as one PNG (always
+  2400 × 960 px, black background) in the `image` folder of your data folder,
+  named by date and time.
 
 ## 0.7.0 (2026-10-23)
 - **Working with Claude:** `CLAUDE.md` project notes, shared skills (`/add-atlas`,

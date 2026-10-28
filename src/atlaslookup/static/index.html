@@ -198,6 +198,13 @@
   .ov-info { margin-top: 6px; font-variant-numeric: tabular-nums; }
   .slice-labels span { position: absolute; transform: translateY(-100%); pointer-events: none;
     color: #fff; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; text-shadow: 0 0 3px #000; white-space: nowrap; }
+  .cbars { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 12px; }
+  .cbars:empty { display: none; }
+  .cbar { min-width: 0; flex: 1 1 220px; max-width: 360px; }
+  .cbar-name { display: block; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cbar-name b { color: var(--ink); }
+  .cbar-row { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cbar-row i { flex: 1; height: 10px; min-width: 40px; border-radius: 3px; }
   .glwrap.drop { outline: 2px dashed var(--accent); outline-offset: -4px; }
   .linkish { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 0; margin-top: 10px; }
 </style>
@@ -437,6 +444,7 @@ async function initViewer() {
   viewerTools = createViewerTools({
     getNv: () => nv, store, isQuiz: () => !!quizApi?.active,
     getCoords: () => ({ mode: state.mode, base: state.base, grid: state.grids.find((g) => g.id === $("grid").value) }),
+    getLegend: () => (quizApi?.active ? [] : [...overlaysApi.legend(), ...statLegend()]),
     wrap: document.querySelector(".glwrap"), toggle: $("crosshairOn"), button: $("scrBtn"), setHint: flashHint,
   });
   initDrop();
@@ -523,6 +531,16 @@ $("opacity").addEventListener("input", (e) => {
   const i = atlasVol ? nv.volumes.indexOf(atlasVol) : -1;
   if (i > 0) nv.setOpacity(i, +e.target.value);
 });
+
+// Colour bars for the results-folder map, drawn in rebuildOverlays (warm / winter).
+function statLegend() {
+  const s = state.stat;
+  if (!s?.map || !s.maxAbs) return [];
+  const name = $("statMap").selectedOptions[0]?.textContent || s.map;
+  const base = { name, from: s.threshold, to: Math.max(s.maxAbs, s.threshold + 0.01), df: s.df, mode: "t" };
+  return [...(s.sign !== "neg" ? [{ ...base, sign: "+", cmap: "warm" }] : []),
+          ...(s.sign !== "pos" ? [{ ...base, sign: "−", cmap: "winter" }] : [])];
+}
 
 // --- stat maps from your results folder (read-only, never leaves this machine) -----
 async function initStats() {
