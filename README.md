@@ -14,6 +14,10 @@ labelled cluster table. A quiz mode helps you learn the regions.
 - **Your stat maps:** point it at a folder of `spmT_*.nii` files to get a
   thresholded overlay, T and p at any point, and a cluster/peak table labelled
   by region. The maps are only read, never copied anywhere.
+- **Local overlays:** drop any NIfTI stat map from your computer on the brain.
+  Threshold each one by T or p, pick colormaps, and choose which map is in
+  front; everything updates as you drag. Files are read in the browser and
+  never uploaded.
 - **Quiz:** find regions on the brain or name the highlighted one. Regions you
   miss come back more often, and progress is broken down by brain division.
 - **Your own atlases:** add any parcellation from a paper with one command.
@@ -24,14 +28,25 @@ You need Python 3.10 or newer. [pipx](https://pipx.pypa.io) is the easiest
 way to install a command-line app:
 
 ```bash
-pipx install git+https://github.com/Nam-ucdavis/atlas-lookup
+pipx install git+https://github.com/ccn-spark/atlas-lookup
 ```
 
 Or with pip, ideally in a virtual environment:
 
 ```bash
-pip install git+https://github.com/Nam-ucdavis/atlas-lookup
+pip install git+https://github.com/ccn-spark/atlas-lookup
 ```
+
+**Windows:** install [Python](https://www.python.org/downloads/) (tick *Add
+python.exe to PATH*) and [Git](https://git-scm.com/download/win), then in
+PowerShell:
+
+```powershell
+py -m pip install --user pipx
+py -m pipx ensurepath
+```
+
+Open a new PowerShell window and run the `pipx install` line above.
 
 ## Start
 
@@ -40,6 +55,7 @@ atlaslookup
 ```
 
 `lookup` is a shorter name for the same command (`lookup`, `lookup query -44 18 24`, ...).
+Use `--port` to run on another port, e.g. `lookup serve --port 8770 --open`.
 
 The app opens in your browser at http://127.0.0.1:8765. The first run
 downloads the atlases (about 40 MB, one time). If the app is already running,
@@ -178,7 +194,7 @@ how to develop the app this way.
 ## Development
 
 ```bash
-git clone https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup
+git clone https://github.com/ccn-spark/atlas-lookup && cd atlas-lookup
 python -m venv .venv && .venv/bin/pip install -e ".[test]"
 .venv/bin/atlaslookup setup
 .venv/bin/pytest
