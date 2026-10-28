@@ -10,7 +10,8 @@ labelled cluster table. A quiz mode helps you learn the regions.
   resting-state networks (Schaefer 2018), side by side. You also get
   probabilities and a "what's within N mm" readout for borderline points.
 - **Viewer:** axial, coronal and sagittal slices of the MNI template. Click to
-  look up a point, and overlay any atlas.
+  look up a point, and overlay any atlas. Each slice shows its coordinate, the
+  crosshair can be hidden, and **scr** saves the slices as a PNG.
 - **Your stat maps:** point it at a folder of `spmT_*.nii` files to get a
   thresholded overlay, T and p at any point, and a cluster/peak table labelled
   by region. The maps are only read, never copied anywhere.
@@ -65,8 +66,8 @@ downloads the atlases (about 40 MB, one time). If the app is already running,
 the command just opens the browser. Stop it with Ctrl+C.
 
 Your data lives in `~/.atlaslookup`; set `ATLASLOOKUP_HOME` to use another
-folder. It holds the atlases, voxel grids, the viewer template and your
-settings. Nothing is stored inside the installed package. Run `atlaslookup info`
+folder. It holds the atlases, voxel grids, the viewer template, your
+settings and the images saved with **scr** (in `image/`). Nothing is stored inside the installed package. Run `atlaslookup info`
 to see what's there.
 
 ## Looking up coordinates
@@ -89,6 +90,12 @@ to see what's there.
 
   For a stat map's clusters from the terminal: `atlaslookup maps`, then
   `atlaslookup clusters <map> --threshold 3 --k 5` (add `--csv` for a file).
+
+In the viewer, each slice shows its coordinate in the bottom-left corner (z
+for axial, y for coronal, x for sagittal; k, j, i in voxel mode). Untick
+**Crosshair** to hide the red lines. **scr** saves the three slices as one PNG,
+always 2400 × 800 px, in `~/.atlaslookup/image/`, named by the date and time
+(e.g. `2026-10-28_09-19-20.png`).
 
 Each atlas card shows the label at that voxel, the probabilities (for
 probabilistic atlases), the share of each region within the chosen radius, and

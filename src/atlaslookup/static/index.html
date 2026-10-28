@@ -196,6 +196,8 @@
   .ov-opacity { display: flex; gap: 6px; align-items: center; }
   .ov-opacity input { flex: 1; min-width: 60px; }
   .ov-info { margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .slice-labels span { position: absolute; transform: translateY(-100%); pointer-events: none;
+    color: #fff; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; text-shadow: 0 0 3px #000; white-space: nowrap; }
   .glwrap.drop { outline: 2px dashed var(--accent); outline-offset: -4px; }
   .linkish { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 0; margin-top: 10px; }
 </style>
@@ -282,6 +284,8 @@
       <div class="viewer-bar">
         <label class="lookup-only">Overlay <select id="overlay"><option value="">None</option></select></label>
         <label class="lookup-only">Opacity <input type="range" id="opacity" min="0" max="1" step="0.05" value="0.4"></label>
+        <label class="lookup-only"><input type="checkbox" id="crosshairOn" checked> Crosshair</label>
+        <button type="button" class="btn small" id="scrBtn" title="Save the three slices as a PNG (same size every time) in the image folder">scr</button>
         <span class="grow"></span>
         <span class="hint" style="margin:0" id="viewerHint">Click a slice to look up that point · left = left (neurological)</span>
       </div>
@@ -318,6 +322,7 @@
 import { Niivue, NVImage, SHOW_RENDER, MULTIPLANAR_TYPE } from "/static/vendor/niivue-0.69.0.js";
 import { createQuiz } from "/static/quiz.js";
 import { createOverlays } from "/static/overlays.js";
+import { createViewerTools } from "/static/viewertools.js";
 const $ = (id) => document.getElementById(id);
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -408,6 +413,7 @@ async function init() {
 let nv = null;
 let quizApi = null;
 let overlaysApi = null;
+let viewerTools = null;
 const LOOKUP_HINT = "Click a slice to look up that point · left = left (neurological)";
 let suppressClick = 0;
 async function initViewer() {
@@ -428,6 +434,11 @@ async function initViewer() {
   await nv.loadVolumes([{ url: "/api/template.nii.gz", colormap: "gray" }]);
   nv.setSliceType(nv.sliceTypeMultiplanar);
   overlaysApi = createOverlays({ NVImage, esc, getNv: () => nv, head: $("ovHead"), list: $("ovPanel") });
+  viewerTools = createViewerTools({
+    getNv: () => nv, store, isQuiz: () => !!quizApi?.active,
+    getCoords: () => ({ mode: state.mode, base: state.base, grid: state.grids.find((g) => g.id === $("grid").value) }),
+    wrap: document.querySelector(".glwrap"), toggle: $("crosshairOn"), button: $("scrBtn"), setHint: flashHint,
+  });
   initDrop();
   let t;
   nv.onLocationChange = (d) => {
@@ -440,6 +451,13 @@ async function initViewer() {
   };
   await initStats();
   await rebuildOverlays();
+}
+let hintTimer;
+function flashHint(text) {
+  const prev = $("viewerHint").textContent;
+  $("viewerHint").textContent = text;
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => { if ($("viewerHint").textContent === text) $("viewerHint").textContent = prev; }, 8000);
 }
 function moveCrosshair(mm) {
   if (!nv?.volumes.length) return;
@@ -638,6 +656,7 @@ function render({ coordinate: c, results, stat }) {
     <div class="val ${r.best_guess ? "" : "none"}">${esc(r.best_guess || "—")}</div>
     <div class="src">${esc(r.atlas.name)}</div></div>`).join("");
   $("cards").innerHTML = results.map(card).join("");
+  viewerTools?.labels();  // the mode, base or grid may have changed
 }
 
 function bars(rows, key) {

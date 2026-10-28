@@ -13,6 +13,11 @@ title in the app (and at `/api/version`, or `atlaslookup --version`).
   and every control updates the slices as you drag. p values are one-sided and
   uncorrected.
 - `lookup` works as a short name for the `atlaslookup` command.
+- **Viewer:** a *Crosshair* checkbox hides the red lines (the quiz always shows
+  them). Each slice shows its coordinate in the bottom-left corner: z, y or x in
+  mm, or k, j or i on the reference grid in voxel mode.
+- **scr** saves the three slices as one PNG (always 2400 × 800 px, black
+  background) in the `image` folder of your data folder, named by date and time.
 
 ## 0.7.0 (2026-10-23)
 - **Working with Claude:** `CLAUDE.md` project notes, shared skills (`/add-atlas`,

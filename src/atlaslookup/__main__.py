@@ -24,7 +24,7 @@ import webbrowser
 
 from . import __version__
 from .atlas import add_atlas, load_atlases
-from .config import ATLASES_DIR, DATA_DIR, TEMPLATE_FILE
+from .config import ATLASES_DIR, DATA_DIR, IMAGE_DIR, TEMPLATE_FILE
 from .grids import grid_from_image, load_grids, save_grid
 from .query import best_guess, query, resolve_mm
 
@@ -113,6 +113,7 @@ def main(argv=None):
         print(f"  grids:          {', '.join(grids) or 'none'}")
         print(f"  viewer template: {'yes' if TEMPLATE_FILE.exists() else 'missing (run `atlaslookup setup`)'}")
         print(f"  results folder: {rd or 'not set (atlaslookup set-results DIR)'}")
+        print(f"  image folder:   {IMAGE_DIR}")
 
     elif args.cmd == "set-results":
         from .results import Results, repo_warning, save_results_dir

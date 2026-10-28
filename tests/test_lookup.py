@@ -398,3 +398,65 @@ def test_clusters_cli(results_dir, monkeypatch, capsys):
     assert "1 clusters" in capsys.readouterr().out
     with pytest.raises(SystemExit):
         main(["clusters", "../outside/spmT_0001.nii"])
+
+
+# --- viewer captures and slice labels --------------------------------------------
+
+def test_save_png_names_by_time(tmp_path):
+    from datetime import datetime
+
+    from atlaslookup.screenshots import PNG_MAGIC, save_png
+
+    t = datetime(2026, 10, 28, 9, 5, 7)
+    folder = tmp_path / "image"
+    a = save_png(PNG_MAGIC + b"a", folder, now=t)
+    b = save_png(PNG_MAGIC + b"b", folder, now=t)
+    assert (a.name, b.name) == ("2026-10-28_09-05-07.png", "2026-10-28_09-05-07_2.png")
+    assert a.read_bytes() == PNG_MAGIC + b"a"
+    with pytest.raises(ValueError):
+        save_png(b"GIF89a", folder)
+
+
+def test_screenshot_route(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from atlaslookup import server
+    from atlaslookup.screenshots import PNG_MAGIC
+
+    monkeypatch.setattr(server, "IMAGE_DIR", tmp_path / "image")
+    c = TestClient(server.app)
+    r = c.post("/api/screenshot", content=PNG_MAGIC + b"x", headers={"Content-Type": "image/png"})
+    assert r.status_code == 200, r.text
+    assert (tmp_path / "image" / r.json()["file"]).read_bytes() == PNG_MAGIC + b"x"
+    # Form-style bodies (what another website could send without a preflight) are refused.
+    assert c.post("/api/screenshot", content=PNG_MAGIC, headers={"Content-Type": "text/plain"}).status_code == 415
+    assert c.post("/api/screenshot", content=b"nope", headers={"Content-Type": "image/png"}).status_code == 400
+
+
+def test_slice_labels():
+    """static/viewertools.js: z/y/x in mm, or the matching voxel index on a grid."""
+    import json
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    import atlaslookup
+
+    js = Path(atlaslookup.__file__).parent / "static" / "viewertools.js"
+    # FSL-style 2 mm MNI grid: x is flipped (i runs right to left).
+    grid = {"affine": [[-2, 0, 0, 90], [0, 2, 0, -126], [0, 0, 2, -72], [0, 0, 0, 1]]}
+    mm = [-44, 18, 24]
+    calls = [[0, mm, {}], [1, mm, {}], [2, mm, {}], [2, [12.5, 0, 0], {}],
+             [0, mm, {"mode": "voxel", "grid": grid, "base": 1}],
+             [1, mm, {"mode": "voxel", "grid": grid, "base": 1}],
+             [2, mm, {"mode": "voxel", "grid": grid, "base": 0}],
+             [0, mm, {"mode": "voxel", "grid": None}]]
+    script = (f"import {{ sliceLabel }} from {str(js)!r};"
+              f"console.log(JSON.stringify({json.dumps(calls)}.map(([s, p, o]) => sliceLabel(s, p, o))));")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    # i = (90 - (-44)) / 2 = 67 (0-based) -> 68; j = (18 + 126) / 2 + 1 = 73; k = (24 + 72) / 2 + 1 = 49
+    assert json.loads(out.stdout) == ["z = 24 mm", "y = 18 mm", "x = −44 mm", "x = 12.5 mm",
+                                      "k = 49", "j = 73", "i = 67", "z = 24 mm"]
