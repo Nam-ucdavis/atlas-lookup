@@ -12,6 +12,7 @@ title in the app (and at `/api/version`, or `atlaslookup --version`).
   positive/negative colormaps and opacity. Voxels below threshold are transparent,
   and every control updates the slices as you drag. p values are one-sided and
   uncorrected.
+- `lookup` works as a short name for the `atlaslookup` command.
 
 ## 0.7.0 (2026-10-23)
 - **Working with Claude:** `CLAUDE.md` project notes, shared skills (`/add-atlas`,

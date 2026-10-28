@@ -39,6 +39,8 @@ pip install git+https://github.com/Nam-ucdavis/atlas-lookup
 atlaslookup
 ```
 
+`lookup` is a shorter name for the same command (`lookup`, `lookup query -44 18 24`, ...).
+
 The app opens in your browser at http://127.0.0.1:8765. The first run
 downloads the atlases (about 40 MB, one time). If the app is already running,
 the command just opens the browser. Stop it with Ctrl+C.

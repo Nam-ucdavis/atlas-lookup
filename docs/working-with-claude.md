@@ -11,7 +11,7 @@ What makes this work:
 |---|---|
 | `CLAUDE.md` | Loaded automatically. It tells Claude how the project is built, which commands to run, and the rules it must not break (privacy, correctness, releases). |
 | `.claude/skills/` | Ready-made workflows you start with a slash command: `/add-atlas`, `/label-clusters`, `/release`. |
-| `.claude/settings.json` | Lets Claude run tests and harmless look-up commands without asking each time, and stops it from running `git push`. |
+| `.claude/settings.json` | Lets Claude run tests and harmless look-up commands without asking each time, and makes it ask before every `git push`. |
 
 ## 1. Set up (once)
 
