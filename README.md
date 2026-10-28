@@ -48,6 +48,9 @@ py -m pipx ensurepath
 
 Open a new PowerShell window and run the `pipx install` line above.
 
+**Let Claude do it:** paste the prompt in [install_prompt.md](install_prompt.md) into
+Claude Code. It asks where to install, sets everything up and shows you the app running.
+
 ## Start
 
 ```bash
