@@ -3,6 +3,16 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## Unreleased
+- **Local overlays:** add any NIfTI stat map from your computer (Add NIfTI… or drop
+  it on the brain) on top of the template. The file is read in the browser and
+  never uploaded. Several maps can be stacked, and you choose which one is in front.
+- Each overlay has its own threshold, set as T or as p (converted with the df from
+  the SPM header or the NIfTI t-test intent, or a df you type in), a sign filter,
+  positive/negative colormaps and opacity. Voxels below threshold are transparent,
+  and every control updates the slices as you drag. p values are one-sided and
+  uncorrected.
+
 ## 0.7.0 (2026-10-23)
 - **Working with Claude:** `CLAUDE.md` project notes, shared skills (`/add-atlas`,
   `/label-clusters`, `/release`), safe pre-approved commands in

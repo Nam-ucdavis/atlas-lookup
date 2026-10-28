@@ -95,6 +95,22 @@ In the app, choose a map under **Stat map**:
   **k**. The table lists each peak with Harvard-Oxford, Juelich and Brodmann
   labels; click a row to jump to it.
 
+### Local overlays
+
+Next to **Local NIfTI** (under the stat map controls), click **＋ Add overlay…** (or drop `.nii` / `.nii.gz`
+files on the brain) to overlay any stat map from your computer, inside the
+results folder or not. The file is read by your browser and never uploaded,
+not even to the local server. It should be in MNI space.
+
+- **Threshold** as **T ≥** or **p <**, with a live slider. p is converted to T
+  with the df from the SPM header (`SPM{T_[df]}`) or the NIfTI t-test intent;
+  if the file has neither, type the df in.
+- **Sign** (both, positive, negative), a **colormap** for each sign, and
+  **opacity**. Voxels below threshold are transparent.
+- **Order:** the top of the list is drawn in front. Use ⤒ / ▲ / ▼ to change it,
+  or untick a layer to hide it.
+- Each layer shows its value (and p) at the crosshair.
+
 p values are **uncorrected, one-sided**. Use SPM for FWE/FDR inference; this
 is for finding your way around the map. The server only listens on 127.0.0.1,
 so your maps aren't reachable from other machines.

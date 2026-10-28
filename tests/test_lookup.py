@@ -235,6 +235,39 @@ def test_quiz_answer_matching():
     assert out.stdout.strip() == "[]", out.stdout
 
 
+
+def test_overlay_t_distribution_matches_scipy():
+    """The local-overlay p <-> T conversion (static/overlays.js) agrees with scipy."""
+    import json
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    from scipy import stats
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    import atlaslookup
+
+    js = Path(atlaslookup.__file__).parent / "static" / "overlays.js"
+    ts = [(0.5, 3), (2.0, 10), (3.17, 24), (5.0, 24), (8.0, 120), (-2.0, 10), (12.0, 7.5)]
+    ps = [(0.05, 10), (0.001, 24), (1e-6, 60), (0.01, 3.5)]
+    headers = [{"description": "SPM{T_[24.0]} - faces > houses"},
+               {"description": "", "intent_code": 3, "intent_p1": 18},
+               {"description": "SPM{F_[1.0,24.0]}"}, {}]
+    script = (f"import {{ tSf, tFromP, dfFromHeader }} from {str(js)!r};"
+              f"console.log(JSON.stringify({{sf: {json.dumps(ts)}.map(([t, d]) => tSf(t, d)),"
+              f" inv: {json.dumps(ps)}.map(([p, d]) => tFromP(p, d)),"
+              f" df: {json.dumps(headers)}.map(dfFromHeader)}}));")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    got = json.loads(out.stdout)
+    for (t, d), v in zip(ts, got["sf"]):
+        assert v == pytest.approx(stats.t.sf(t, d), rel=1e-6, abs=1e-12), (t, d)
+    for (p, d), v in zip(ps, got["inv"]):
+        assert v == pytest.approx(stats.t.isf(p, d), rel=1e-6), (p, d)
+    assert got["df"] == [24, 18, None, None]
+
 @bootstrapped
 def test_every_quiz_region_has_a_division():
     from fastapi.testclient import TestClient
