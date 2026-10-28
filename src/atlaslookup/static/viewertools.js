@@ -56,9 +56,9 @@ function fmtP(p) {
  * { sign: "+"|"−", from, to, mode: "t"|"p", df }, with from/to as |T|. p is one-sided
  * and uncorrected, so the − bar shows the same p as the + bar for the same |T|.
  */
-export function barEnds({ sign, from, to, mode, df }) {
+export function barEnds({ sign, from, to, mode, df }, minus = "−") {
   if (mode === "p" && df) return { unit: "p", lo: fmtP(tSf(from, df)), hi: fmtP(tSf(to, df)) };
-  const s = sign === "−" ? "−" : "";
+  const s = sign === "−" ? minus : "";
   return { unit: "T", lo: s + from.toFixed(2), hi: s + to.toFixed(2) };
 }
 
@@ -105,16 +105,53 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
     return Array.from({ length: n }, (_, i) => `rgb(${c[Math.round(i * 255 / (n - 1))].join(",")})`).join(",");
   };
 
+  // Colour bars with editable ends: min is the threshold, max the top of the colour
+  // range (blank = the data's strongest value). The DOM is rebuilt only when the set of
+  // bars changes, so typing in a box is never interrupted by the redraws it causes.
+  let shown = new Map(), shape = "";
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  const id = (e) => e.key + e.sign;
+
   function legend() {
-    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
-    const html = getLegend().map((e) => {
-      const { unit, lo, hi } = barEnds(e);
-      return `<div class="cbar" title="${esc(e.name)} (${e.sign})${unit === "p" ? " · p one-sided, uncorrected" : ""}">
+    const list = getLegend();
+    shown = new Map(list.map((e) => [id(e), e]));
+    const next = list.map((e) => id(e) + e.cmap).join("|");
+    if (next !== shape) {
+      shape = next;
+      bars.innerHTML = list.map((e) => `<div class="cbar" data-id="${esc(id(e))}">
         <span class="cbar-name">${esc(e.name)} <b>${e.sign}</b></span>
-        <span class="cbar-row"><span>${unit} ${lo}</span><i style="background:linear-gradient(to right,${gradient(e.cmap)})"></i><span>${hi}</span></span></div>`;
-    }).join("");
-    if (bars.innerHTML !== html) bars.innerHTML = html;
+        <span class="cbar-row"><span class="cbar-unit"></span>
+          <input type="number" step="any" data-end="from" aria-label="Colour bar minimum (threshold)">
+          <i style="background:linear-gradient(to right,${gradient(e.cmap)})"></i>
+          <input type="number" step="any" data-end="to" aria-label="Colour bar maximum">
+          <button type="button" class="linkish" data-end="auto" title="Back to the data maximum">auto</button></span></div>`).join("");
+    }
+    for (const e of list) {
+      const row = bars.querySelector(`.cbar[data-id="${CSS.escape(id(e))}"]`);
+      const { unit, lo, hi } = barEnds(e, "-");
+      row.title = `${e.name} (${e.sign})${unit === "p" ? " · p one-sided, uncorrected" : ""}`;
+      row.querySelector(".cbar-unit").textContent = unit;
+      for (const [end, v] of [["from", lo], ["to", hi]]) {
+        const input = row.querySelector(`input[data-end=${end}]`);
+        if (input !== document.activeElement) input.value = v;
+      }
+      row.querySelector("[data-end=auto]").hidden = e.auto;
+    }
   }
+
+  const edit = (ev, commit) => {
+    const end = ev.target.dataset.end, e = shown.get(ev.target.closest(".cbar")?.dataset.id);
+    if (!e || !end) return;
+    if (end === "auto") return commit && e.setTo(null);
+    const raw = ev.target.value.trim();
+    if (end === "to" && raw === "") return commit && e.setTo(null);
+    const v = +raw;
+    if (!raw || !isFinite(v) || v === 0) return;
+    end === "from" ? e.setFrom(v) : e.setTo(v);
+  };
+  bars.addEventListener("input", (ev) => edit(ev, false));
+  bars.addEventListener("change", (ev) => edit(ev, true));
+  bars.addEventListener("click", (ev) => ev.target.dataset.end === "auto" && edit(ev, true));
 
   function drawBars(ctx, y0) {
     const list = getLegend();
@@ -168,7 +205,7 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
     try {
       const r = await fetch("/api/screenshot", { method: "POST", headers: { "Content-Type": "image/png" }, body: await capture() });
       const d = await r.json();
-      setHint(r.ok ? `Saved ${d.file} in ${d.folder}` : `Could not save: ${d.detail}`);
+      setHint(r.ok ? `Saved ${d.file} in ${d.folder} (opened in your file manager)` : `Could not save: ${d.detail}`);
     } catch (e) {
       setHint(`Could not save: ${e.message}`);
     } finally {

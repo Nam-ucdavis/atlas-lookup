@@ -424,10 +424,13 @@ def test_screenshot_route(tmp_path, monkeypatch):
     from atlaslookup.screenshots import PNG_MAGIC
 
     monkeypatch.setattr(server, "IMAGE_DIR", tmp_path / "image")
+    shown = []
+    monkeypatch.setattr(server, "reveal", shown.append)  # don't open Finder during tests
     c = TestClient(server.app)
     r = c.post("/api/screenshot", content=PNG_MAGIC + b"x", headers={"Content-Type": "image/png"})
     assert r.status_code == 200, r.text
     assert (tmp_path / "image" / r.json()["file"]).read_bytes() == PNG_MAGIC + b"x"
+    assert shown == [tmp_path / "image" / r.json()["file"]]
     # Form-style bodies (what another website could send without a preflight) are refused.
     assert c.post("/api/screenshot", content=PNG_MAGIC, headers={"Content-Type": "text/plain"}).status_code == 415
     assert c.post("/api/screenshot", content=b"nope", headers={"Content-Type": "image/png"}).status_code == 400
@@ -482,7 +485,8 @@ def test_colour_bar_ends():
                {"sign": "−", "from": 3.4668, "to": 7, "mode": "p", "df": 24},
                {"sign": "+", "from": 3, "to": 7, "mode": "p", "df": None}]
     script = (f"import {{ barEnds }} from {str(js)!r};"
-              f"console.log(JSON.stringify({json.dumps(entries)}.map(barEnds)));")
+              f"const es = {json.dumps(entries)};"
+              "console.log(JSON.stringify([...es.map((e) => barEnds(e)), barEnds(es[1], '-')]));")
     out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
     assert out.returncode == 0, out.stderr
     got = json.loads(out.stdout)
@@ -492,3 +496,4 @@ def test_colour_bar_ends():
     assert float(got[2]["hi"]) == pytest.approx(stats.t.sf(7, 24), rel=0.05)
     assert got[3] == got[2]  # one-sided p of |T|, same for both signs
     assert got[4]["unit"] == "T"  # no df: falls back to T
+    assert got[5]["lo"] == "-3.00"  # ASCII minus for the number inputs

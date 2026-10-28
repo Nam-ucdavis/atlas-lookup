@@ -125,7 +125,7 @@ export function createOverlays({ NVImage, getNv, esc, head, list }) {
         const maxPos = Math.max(+vol.global_max || 0, 0), maxNeg = Math.max(-(+vol.global_min) || 0, 0);
         layers.unshift({
           id: nextId++, name: file.name, vol, df, dfFromFile: df != null, maxPos, maxNeg,
-          mode: "t", t: 3, p: 0.001, sign: maxNeg > 0 && maxPos > 0 ? "both" : maxNeg > 0 ? "neg" : "pos",
+          mode: "t", t: 3, p: 0.001, max: null, sign: maxNeg > 0 && maxPos > 0 ? "both" : maxNeg > 0 ? "neg" : "pos",
           cmap: "warm", cmapNeg: "winter", opacity: 0.9, visible: true, error: null,
         });
       } catch (e) {
@@ -145,7 +145,9 @@ export function createOverlays({ NVImage, getNv, esc, head, list }) {
   function range(L) {
     const thr = thresholdT(L);
     const ok = isFinite(thr) && thr > 0;
-    const top = Math.max(L.maxPos, L.maxNeg, (ok ? thr : 0) + 0.01);
+    // The colour range runs from the threshold to max: the data's strongest value unless
+    // set on the colour bar (L.max, as |T|).
+    const top = Math.max(L.max ?? Math.max(L.maxPos, L.maxNeg), (ok ? thr : 0) + 0.01);
     return { thr, ok, top, showPos: ok && L.sign !== "neg", showNeg: ok && L.sign !== "pos" };
   }
 
@@ -316,11 +318,25 @@ export function createOverlays({ NVImage, getNv, esc, head, list }) {
     for (const L of layers) {
       if (!L.vol || !L.visible) continue;
       const { thr, top, showPos, showNeg } = range(L);
-      const base = { name: L.name, from: thr, to: top, df: L.df, mode: L.mode };
+      const base = {
+        key: `ov${L.id}`, name: L.name, from: thr, to: top, df: L.df, mode: L.mode, auto: L.max == null,
+        // Edits from the colour bar, in the bar's unit (T, or p in p mode); null = auto max.
+        setFrom: (v) => setThreshold(L, v),
+        setTo: (v) => { L.max = v == null ? null : L.mode === "p" ? tFromP(v, L.df) : Math.abs(v); apply(L); },
+      };
       if (showPos) out.push({ ...base, sign: "+", cmap: L.cmap });
       if (showNeg) out.push({ ...base, sign: "−", cmap: L.cmapNeg });
     }
     return out;
+  }
+
+  function setThreshold(L, v) {
+    if (!(Math.abs(v) > 0)) return;
+    if (L.mode === "p") L.p = Math.min(Math.abs(v), 0.499); else L.t = Math.abs(v);
+    const input = el(L, "[data-k=value]");
+    if (input) input.value = L.mode === "p" ? L.p : L.t;
+    setSlider(L);
+    apply(L);
   }
 
   return { addFiles, sync, readout, legend, get layers() { return layers; } };

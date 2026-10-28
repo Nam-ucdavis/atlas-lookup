@@ -1,6 +1,8 @@
 """Viewer captures from the "scr" button, saved as PNGs named by date and time."""
 from __future__ import annotations
 
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -20,3 +22,18 @@ def save_png(data: bytes, folder: Path, now: datetime | None = None) -> Path:
         path, n = folder / f"{stamp}_{n}.png", n + 1
     path.write_bytes(data)
     return path
+
+
+def reveal(path: Path) -> None:
+    """Show the saved file in the file manager (the server runs on the user's own
+    machine, bound to 127.0.0.1). Best effort: a missing tool is not an error."""
+    if sys.platform == "darwin":
+        cmd = ["open", "-R", str(path)]  # Finder, with the file selected
+    elif sys.platform == "win32":
+        cmd = ["explorer", f"/select,{path}"]
+    else:
+        cmd = ["xdg-open", str(path.parent)]
+    try:
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        pass

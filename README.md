@@ -95,10 +95,13 @@ In the viewer, each slice shows its coordinate in the bottom-left corner (z
 for axial, y for coronal, x for sagittal; k, j, i in voxel mode). Untick
 **Crosshair** to hide the red lines. Each stat overlay gets a colour bar under
 the slices, from the threshold to its strongest value, in T or in p (one-sided,
-uncorrected) as you thresholded it, with separate + and − bars. **scr** saves
+uncorrected) as you thresholded it, with separate + and − bars. Type into the
+boxes at either end to set the minimum (the threshold) or the maximum of the
+colour range; **auto** resets the maximum to the strongest value in the map. **scr** saves
 the three slices and the colour bars as one PNG, always 2400 × 960 px, in
 `~/.atlaslookup/image/`, named by the date and time (e.g.
-`2026-10-28_09-19-20.png`).
+`2026-10-28_09-19-20.png`), and opens that folder in Finder (Explorer on
+Windows) with the new image selected.
 
 Each atlas card shows the label at that voxel, the probabilities (for
 probabilistic atlases), the share of each region within the chosen radius, and

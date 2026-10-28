@@ -18,10 +18,12 @@ title in the app (and at `/api/version`, or `atlaslookup --version`).
   mm, or k, j or i on the reference grid in voxel mode.
 - **Colour bars** under the viewer for every stat overlay, from the threshold to
   the strongest value, labelled in T or p (as the layer is thresholded), with a
-  separate bar for + and − when both are shown.
+  separate bar for + and − when both are shown. Type into either end of a bar to
+  set the threshold (min) or the top of the colour range (max); **auto** puts the
+  max back to the data's strongest value.
 - **scr** saves the three slices and their colour bars as one PNG (always
   2400 × 960 px, black background) in the `image` folder of your data folder,
-  named by date and time.
+  named by date and time, and shows it in Finder / Explorer.
 
 ## 0.7.0 (2026-10-23)
 - **Working with Claude:** `CLAUDE.md` project notes, shared skills (`/add-atlas`,

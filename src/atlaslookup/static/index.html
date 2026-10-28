@@ -200,11 +200,15 @@
     color: #fff; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; text-shadow: 0 0 3px #000; white-space: nowrap; }
   .cbars { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 12px; }
   .cbars:empty { display: none; }
-  .cbar { min-width: 0; flex: 1 1 220px; max-width: 360px; }
+  .cbar { min-width: 0; flex: 1 1 260px; max-width: 440px; }
   .cbar-name { display: block; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cbar-name b { color: var(--ink); }
   .cbar-row { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .cbar-row i { flex: 1; height: 10px; min-width: 40px; border-radius: 3px; }
+  .cbar-row input { width: 76px; padding: 2px 5px; font: inherit; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 5px; }
+  .cbar-row .linkish { margin: 0; }
+  .cbar-row .linkish[hidden] { display: none; }
   .glwrap.drop { outline: 2px dashed var(--accent); outline-offset: -4px; }
   .linkish { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 0; margin-top: 10px; }
 </style>
@@ -510,7 +514,7 @@ async function rebuildOverlays() {
     atlasVol = vol;
   }
   if (stat?.map && stat.maxAbs) {
-    const thr = stat.threshold, top = Math.max(stat.maxAbs, thr + 0.01);
+    const thr = stat.threshold, top = Math.max(stat.max ?? stat.maxAbs, thr + 0.01);
     const showPos = stat.sign !== "neg", showNeg = stat.sign !== "pos";
     const vol = await nv.addVolumeFromUrl({
       url: `/api/results/file/${stat.map.split("/").map(encodeURIComponent).join("/")}`,
@@ -532,12 +536,23 @@ $("opacity").addEventListener("input", (e) => {
   if (i > 0) nv.setOpacity(i, +e.target.value);
 });
 
+const timers = {};
+function debounce(key, fn, ms = 400) {
+  clearTimeout(timers[key]);
+  timers[key] = setTimeout(fn, ms);
+}
 // Colour bars for the results-folder map, drawn in rebuildOverlays (warm / winter).
 function statLegend() {
   const s = state.stat;
   if (!s?.map || !s.maxAbs) return [];
   const name = $("statMap").selectedOptions[0]?.textContent || s.map;
-  const base = { name, from: s.threshold, to: Math.max(s.maxAbs, s.threshold + 0.01), df: s.df, mode: "t" };
+  const base = {
+    key: "stat", name, from: s.threshold, to: Math.max(s.max ?? s.maxAbs, s.threshold + 0.01), df: s.df, mode: "t", auto: s.max == null,
+    // Edits from the colour bar. Both reload the map (and the threshold the cluster
+    // table), so wait for a pause in typing.
+    setFrom: (v) => debounce("stat", () => { $("statThr").value = Math.abs(v); loadStat(); }),
+    setTo: (v) => debounce("stat", () => { s.max = v == null ? null : Math.abs(v); rebuildOverlays(); }),
+  };
   return [...(s.sign !== "neg" ? [{ ...base, sign: "+", cmap: "warm" }] : []),
           ...(s.sign !== "pos" ? [{ ...base, sign: "−", cmap: "winter" }] : [])];
 }
@@ -573,7 +588,8 @@ async function loadStat() {
   const r = await fetch("/api/results/clusters?" + p);
   const d = await r.json();
   if (!r.ok) { $("statInfo").textContent = d.detail; return; }
-  state.stat = { map, threshold: d.threshold, sign: d.sign, maxAbs: d.max_abs_t, df: d.df };
+  const max = state.stat?.map === map ? state.stat.max : null;  // keep a max set on the colour bar
+  state.stat = { map, threshold: d.threshold, sign: d.sign, maxAbs: d.max_abs_t, df: d.df, max };
   $("statInfo").textContent = d.df ? `≈ p < ${fmtPText(d.threshold_p)} one-sided, uncorrected (df ${d.df})` : "";
   renderPeaks(d);
   await rebuildOverlays();

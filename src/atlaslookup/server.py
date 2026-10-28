@@ -16,7 +16,7 @@ GET /api/results/file/{id}               one map, for the viewer
 GET /api/results/clusters?map=&threshold=&sign=pos|neg|both&min_voxels=
                                          clusters + peaks, labelled by atlas
 GET /api/lookup?...&map={id}             adds the T / p value at the point
-POST /api/screenshot                     body: a PNG of the viewer; saved as image/<date_time>.png
+POST /api/screenshot                     body: a PNG of the viewer; saved as image/<date_time>.png and shown in Finder/Explorer
 
 The lookup endpoint is stateless (one coordinate in, all atlas readouts out);
 the viewer in the UI calls it on every click.
@@ -32,7 +32,7 @@ from fastapi.staticfiles import StaticFiles
 from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
 from .config import IMAGE_DIR, STATIC_DIR, TEMPLATE_FILE
 from .grids import load_grids
-from .screenshots import MAX_BYTES, save_png
+from .screenshots import MAX_BYTES, reveal, save_png
 from . import quiz
 from .results import Results, configured_dir, repo_warning
 from .query import best_guess, query, resolve_mm
@@ -84,6 +84,7 @@ async def screenshot(request: Request):
         path = save_png(data, IMAGE_DIR)
     except ValueError as e:
         raise HTTPException(400, str(e))
+    reveal(path)
     return {"file": path.name, "folder": str(path.parent)}
 
 
