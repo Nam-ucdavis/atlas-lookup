@@ -1,9 +1,3 @@
-# Install with Claude
-
-Paste the prompt below into [Claude Code](https://code.claude.com/docs) (or another
-assistant that can run commands on your computer). It asks where to install, sets up
-everything Atlas Lookup needs, shows you the app running, and ends with how to launch it.
-
 ```text
 Please set up the Atlas Lookup app on this computer, show me it running, and tell me how to launch it later.
 
