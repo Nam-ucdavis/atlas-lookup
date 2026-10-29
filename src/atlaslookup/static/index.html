@@ -90,6 +90,17 @@
   .glwrap { position: relative; width: 100%; aspect-ratio: 3 / 1.15; background: #000; border-radius: 6px; overflow: hidden; }
   .glwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
   @media (max-width: 820px) { .glwrap { aspect-ratio: 1 / 1; } }
+  /* 3D tab */
+  .glwrap3d { position: relative; width: 100%; aspect-ratio: 3 / 1.15; background: #000; border-radius: 6px; overflow: hidden; }
+  .glwrap3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  @media (max-width: 820px) { .glwrap3d { aspect-ratio: 1 / 1; } }
+  .glwrap[hidden], .glwrap3d[hidden], .v3-bar[hidden], .v3-glass[hidden] { display: none !important; }
+  .view-tabs { margin: 0; flex: 0 0 auto; }
+  .view-tabs button { padding: 4px 14px; }
+  .v3-bar .seg { margin: 0; flex: 0 0 auto; }
+  .v3-bar .seg button { padding: 4px 12px; }
+  .v3-views { display: inline-flex; gap: 4px; }
+  .v3-views .btn { min-width: 30px; padding: 4px 8px; }
   .summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 14px; }
   .summary .panel { padding: 10px 12px; }
   .summary .role { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
@@ -293,6 +304,10 @@
     </div>
     <div class="panel viewer">
       <div class="viewer-bar">
+        <div class="seg view-tabs lookup-only" id="viewTabs" role="tablist" aria-label="Viewer">
+          <button type="button" data-view="slices" class="on" role="tab">Slices</button>
+          <button type="button" data-view="3d" role="tab">3D</button>
+        </div>
         <label class="lookup-only">Overlay <select id="overlay"><option value="">None</option></select></label>
         <label class="lookup-only">Opacity <input type="range" id="opacity" min="0" max="1" step="0.05" value="0.4"></label>
         <label class="lookup-only"><input type="checkbox" id="crosshairOn" checked> Crosshair</label>
@@ -310,6 +325,22 @@
         <span class="hint" style="margin:0" id="statInfo"></span>
       </div>
       <div class="viewer-bar lookup-only" id="ovHead"></div>
+      <div class="viewer-bar v3-bar lookup-only" id="v3Bar" hidden>
+        <div class="seg" id="v3Style" role="group" aria-label="3D style">
+          <button type="button" data-style="surface" class="on">Surface</button>
+          <button type="button" data-style="glass">Glass brain</button>
+        </div>
+        <label class="v3-glass" id="v3GlassRow" hidden>Glass <input type="range" id="v3Glass" min="0.05" max="0.8" step="0.05" value="0.25" aria-label="Glass brain opacity"></label>
+        <span class="v3-views" id="v3Views" role="group" aria-label="Camera">
+          <button type="button" class="btn small" data-view="L" title="From the left">L</button>
+          <button type="button" class="btn small" data-view="R" title="From the right">R</button>
+          <button type="button" class="btn small" data-view="A" title="From the front">A</button>
+          <button type="button" class="btn small" data-view="P" title="From the back">P</button>
+          <button type="button" class="btn small" data-view="S" title="From above">S</button>
+          <button type="button" class="btn small" data-view="I" title="From below">I</button>
+        </span>
+      </div>
+      <div class="glwrap3d" id="gl3wrap" hidden><canvas id="gl3"></canvas></div>
       <div class="glwrap"><canvas id="gl"></canvas></div>
       <div class="ov-panel lookup-only" id="ovPanel" hidden></div>
     </div>
@@ -334,6 +365,7 @@ import { Niivue, NVImage, SHOW_RENDER, MULTIPLANAR_TYPE } from "/static/vendor/n
 import { createQuiz } from "/static/quiz.js";
 import { createOverlays } from "/static/overlays.js";
 import { createViewerTools } from "/static/viewertools.js";
+import { createViewer3D } from "/static/viewer3d.js";
 const $ = (id) => document.getElementById(id);
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -416,7 +448,7 @@ async function init() {
     restoreLookup: async () => { $("viewerHint").textContent = LOOKUP_HINT; await rebuildOverlays(); },
   });
   if (location.hash.includes("quiz")) quizApi.enter();
-  window.atlasApp = { get nv() { return nv; }, quiz: quizApi, overlays: overlaysApi };  // for debugging in the console
+  window.atlasApp = { get nv() { return nv; }, quiz: quizApi, overlays: overlaysApi, view3d };  // for debugging in the console
   lookup();
 }
 
@@ -450,8 +482,14 @@ async function initViewer() {
     getCoords: () => ({ mode: state.mode, base: state.base, grid: state.grids.find((g) => g.id === $("grid").value) }),
     getLegend: () => (quizApi?.active ? [] : [...overlaysApi.legend(), ...statLegend()]),
     wrap: document.querySelector(".glwrap"), toggle: $("crosshairOn"), button: $("scrBtn"), setHint: flashHint,
+    altCapture: (drawBars) => view3d?.capture(drawBars),
   });
   initDrop();
+  view3d = createViewer3D({
+    Niivue, getNv: () => nv, store, wrap: $("gl3wrap"), canvas: $("gl3"), crosshairToggle: $("crosshairOn"), setHint: flashHint,
+    controls: { bar: $("v3Bar"), style: $("v3Style"), glassRow: $("v3GlassRow"), glassOpacity: $("v3Glass"), views: $("v3Views") },
+  });
+  initViewTabs();
   let t;
   nv.onLocationChange = (d) => {
     if (Date.now() < suppressClick) return;
@@ -471,12 +509,38 @@ function flashHint(text) {
   clearTimeout(hintTimer);
   hintTimer = setTimeout(() => { if ($("viewerHint").textContent === text) $("viewerHint").textContent = prev; }, 8000);
 }
+// Slices / 3D tabs. The 3D view is lookup-only; entering the quiz goes back to slices.
+let view3d = null;
+function showView(view) {
+  const is3d = view === "3d";
+  for (const b of $("viewTabs").querySelectorAll("button")) {
+    b.classList.toggle("on", b.dataset.view === view);
+    b.setAttribute("aria-selected", b.dataset.view === view);
+  }
+  document.querySelector(".glwrap").hidden = is3d;
+  store.set("viewTab", view);
+  view3d.show(is3d);
+  if (!is3d) {
+    $("viewerHint").textContent = LOOKUP_HINT;
+    nv.resizeListener?.();
+    nv.drawScene();
+  }
+}
+function initViewTabs() {
+  $("viewTabs").addEventListener("click", (e) => e.target.dataset.view && showView(e.target.dataset.view));
+  // The quiz's own handler is registered later, so check once it has run.
+  $("quizToggle").addEventListener("click", () => setTimeout(() => {
+    if (document.body.classList.contains("quiz") && view3d.active) showView("slices");
+  }, 0));
+  if (store.get("viewTab", "slices") === "3d") showView("3d");
+}
 function moveCrosshair(mm) {
   if (!nv?.volumes.length) return;
   suppressClick = Date.now() + 250;
   nv.scene.crosshairPos = nv.mm2frac(mm);
   nv.drawScene();
   overlaysApi?.readout(mm);
+  view3d?.follow();
 }
 function initDrop() {
   const wrap = document.querySelector(".glwrap");

@@ -5,6 +5,7 @@ GET /api/atlases                         registered atlases
 GET /api/grids                           registered voxel grids
 GET /api/lookup?x=&y=&z=[&mode=voxel&grid=&base=1&radius=4&atlases=a,b]
 GET /api/template.nii.gz                 MNI152 T1 background for the viewer
+GET /api/brain_mesh.gii                  cortical surface (fsaverage5 pial) for the 3D glass brain
 GET /api/atlases/{id}/label_map.nii.gz   parcellation in MNI space, for the viewer overlay
 GET /api/atlases/{id}/colormap           NiiVue label colormap for that overlay
 GET /api/quiz/regions?atlases=a,b        quizzable regions per atlas (with brain division)
@@ -30,7 +31,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
-from .config import IMAGE_DIR, STATIC_DIR, TEMPLATE_FILE
+from .config import IMAGE_DIR, MESH_FILE, STATIC_DIR, TEMPLATE_FILE
 from .grids import load_grids
 from .screenshots import MAX_BYTES, reveal, save_png
 from . import quiz
@@ -130,6 +131,14 @@ def template():
     if not TEMPLATE_FILE.exists():
         raise HTTPException(404, "No template; run `python -m atlaslookup bootstrap`")
     return FileResponse(TEMPLATE_FILE, media_type="application/gzip")
+
+
+@app.get("/api/brain_mesh.gii")
+def brain_mesh():
+    if not MESH_FILE.exists():  # installs set up before the 3D view existed
+        from .sources import export_mesh
+        export_mesh()
+    return FileResponse(MESH_FILE, media_type="application/octet-stream")
 
 
 def _overlay_atlas(atlas_id: str):

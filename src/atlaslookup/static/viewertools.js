@@ -7,6 +7,8 @@
 // threshold to the strongest value, labelled in T or p as each layer is thresholded, with
 // one bar per shown sign. Every capture is the same size (three square tiles and a band
 // for the colour bars) whatever the window size or slice layout, so images line up.
+// `altCapture` lets another view (the 3D tab) supply the image instead; it gets
+// drawBars so its capture carries the same colour bars.
 
 import { tSf } from "./overlays.js";
 
@@ -62,7 +64,7 @@ export function barEnds({ sign, from, to, mode, df }, minus = "−") {
   return { unit: "T", lo: s + from.toFixed(2), hi: s + to.toFixed(2) };
 }
 
-export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, wrap, toggle, button, setHint }) {
+export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, wrap, toggle, button, setHint, altCapture }) {
   const nv = getNv();
   const box = document.createElement("div");
   box.className = "slice-labels";
@@ -203,7 +205,8 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
   button.addEventListener("click", async () => {
     button.disabled = true;
     try {
-      const r = await fetch("/api/screenshot", { method: "POST", headers: { "Content-Type": "image/png" }, body: await capture() });
+      const image = (await altCapture?.(drawBars)) || (await capture());
+      const r = await fetch("/api/screenshot", { method: "POST", headers: { "Content-Type": "image/png" }, body: image });
       const d = await r.json();
       setHint(r.ok ? `Saved ${d.file} in ${d.folder} (opened in your file manager)` : `Could not save: ${d.detail}`);
     } catch (e) {
@@ -214,5 +217,5 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
   });
 
   nv.drawScene();
-  return { capture, labels, legend };
+  return { capture, labels, legend, drawBars };
 }

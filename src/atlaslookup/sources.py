@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 
 from .atlas import add_atlas
-from .config import TEMPLATE_FILE
+from .config import MESH_FILE, TEMPLATE_FILE
 from .destrieux_names import readable
 from .grids import grid_from_image, save_grid
 
@@ -180,6 +180,31 @@ def export_template():
     img.to_filename(str(TEMPLATE_FILE))
 
 
+def export_mesh():
+    """Both hemispheres of the fsaverage5 pial surface as one GIfTI, for the 3D
+    viewer's glass brain. It ships with nilearn, so no download is needed. fsaverage
+    is MNI305-based and lines up with MNI152 to within a few mm, which is fine for
+    a see-through outline. It covers the cortex only (no cerebellum or brainstem)."""
+    import nibabel as nib
+    from nilearn import datasets
+
+    fs = datasets.fetch_surf_fsaverage("fsaverage5")
+    coords, faces, offset = [], [], 0
+    for hemi in ("pial_left", "pial_right"):
+        g = nib.load(fs[hemi])
+        v, f = g.agg_data("pointset"), g.agg_data("triangle")
+        coords.append(v.astype(np.float32))
+        faces.append((f + offset).astype(np.int32))
+        offset += len(v)
+    img = nib.gifti.GiftiImage(darrays=[
+        nib.gifti.GiftiDataArray(np.vstack(coords), intent="NIFTI_INTENT_POINTSET", datatype="NIFTI_TYPE_FLOAT32"),
+        nib.gifti.GiftiDataArray(np.vstack(faces), intent="NIFTI_INTENT_TRIANGLE", datatype="NIFTI_TYPE_INT32"),
+    ])
+    MESH_FILE.parent.mkdir(parents=True, exist_ok=True)
+    nib.save(img, str(MESH_FILE))
+    return MESH_FILE
+
+
 def bootstrap(overwrite=False):
     print("Harvard-Oxford ...")
     ho_map = import_harvard_oxford(overwrite)
@@ -193,5 +218,7 @@ def bootstrap(overwrite=False):
     import_talairach(overwrite)
     print("MNI template for the viewer ...")
     export_template()
+    print("Brain mesh for the 3D view ...")
+    export_mesh()
     save_grid(grid_from_image(ho_map, "mni-2mm-fsl", "MNI152 2 mm (FSL, 91x109x91)", FSL_SPACE))
     print("Done.")

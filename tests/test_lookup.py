@@ -501,3 +501,37 @@ def test_colour_bar_ends():
     assert got[3] == got[2]  # one-sided p of |T|, same for both signs
     assert got[4]["unit"] == "T"  # no df: falls back to T
     assert got[5]["lo"] == "-3.00"  # ASCII minus for the number inputs
+
+
+def test_brain_mesh(tmp_path, monkeypatch):
+    """The glass-brain mesh is built from nilearn's bundled fsaverage5 on first request,
+    spans both hemispheres, and sits where the MNI brain is."""
+    from fastapi.testclient import TestClient
+
+    from atlaslookup import server, sources
+
+    mesh = tmp_path / "templates" / "fsaverage5_pial.gii"
+    monkeypatch.setattr(server, "MESH_FILE", mesh)
+    monkeypatch.setattr(sources, "MESH_FILE", mesh)
+    r = TestClient(server.app).get("/api/brain_mesh.gii")
+    assert r.status_code == 200 and mesh.exists()
+    g = nib.load(str(mesh))
+    v, f = g.agg_data("pointset"), g.agg_data("triangle")
+    assert len(v) == 2 * 10242 and f.max() == len(v) - 1  # both hemispheres, faces re-indexed
+    assert v[:, 0].min() < -60 and v[:, 0].max() > 60       # left and right cortex
+    assert -110 < v[:, 1].min() < -95 and 60 < v[:, 1].max() < 80
+
+
+def test_viewer3d_is_wired():
+    """index.html loads the 3D module and gives it the controls it looks up."""
+    import re
+
+    import atlaslookup
+
+    static = Path(atlaslookup.__file__).parent / "static"
+    html = (static / "index.html").read_text()
+    assert 'from "/static/viewer3d.js"' in html
+    for el in ["viewTabs", "gl3wrap", "gl3", "v3Bar", "v3Style", "v3GlassRow", "v3Glass", "v3Views"]:
+        assert re.search(rf'id="{el}"', html), el
+    js = (static / "viewer3d.js").read_text()
+    assert "/api/brain_mesh.gii" in js and "export function createViewer3D" in js

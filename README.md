@@ -12,6 +12,9 @@ labelled cluster table. A quiz mode helps you learn the regions.
 - **Viewer:** axial, coronal and sagittal slices of the MNI template. Click to
   look up a point, and overlay any atlas. Each slice shows its coordinate, the
   crosshair can be hidden, and **scr** saves the slices as a PNG.
+- **3D:** a second tab renders the brain in 3D, as a solid surface or a
+  see-through **glass brain**, showing the same overlays and results as the
+  slices.
 - **Your stat maps:** point it at a folder of `spmT_*.nii` files to get a
   thresholded overlay, T and p at any point, and a cluster/peak table labelled
   by region. The maps are only read, never copied anywhere.
@@ -107,6 +110,28 @@ Each atlas card shows the label at that voxel, the probabilities (for
 probabilistic atlases), the share of each region within the chosen radius, and
 the nearest label if the point lands in a gap. The URL updates with each
 lookup, so a link reproduces the query.
+
+## 3D view
+
+Switch the viewer from **Slices** to **3D**. It shows whatever is on the slices:
+the atlas overlay, the stat map from your results folder, and any local NIfTI
+layers. Changing a threshold, sign or colour on the slices updates the 3D view
+straight away.
+
+- **Surface:** the MNI template rendered as a solid brain, with overlays on its
+  surface.
+- **Glass brain:** a see-through cortical surface with the overlays drawn as
+  solid blobs inside, so deep effects are visible. **Glass** sets how
+  transparent it is. The surface is fsaverage5 (cortex only, no cerebellum or
+  brainstem), which lines up with MNI152 to within a few mm.
+- **Camera:** drag to rotate, scroll to zoom. **L R A P S I** jump to the
+  left, right, front, back, top and bottom views.
+- **Crosshair and capture:** the slice crosshair is shown in 3D too (the
+  Crosshair checkbox applies to both). **scr** saves the 3D view with its
+  colour bars, at the same size as slice captures.
+
+To look up a point, click on the slices; clicks in 3D only rotate. The app
+remembers which tab and style you used last. The quiz always uses the slices.
 
 ## Your SPM T maps
 

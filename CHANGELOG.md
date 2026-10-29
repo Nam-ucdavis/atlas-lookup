@@ -3,6 +3,16 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.9.0 (2026-10-29)
+- **3D view** in its own tab next to the slices: the brain as a solid surface or a
+  see-through **glass brain** (fsaverage5 cortical mesh, adjustable transparency),
+  showing the same atlas overlay, stat map and local NIfTI layers as the slices and
+  following every threshold or colour change. L/R/A/P/S/I camera buttons, the slice
+  crosshair shown in 3D, and **scr** saves the 3D view with colour bars. The app
+  remembers the tab and style.
+- `atlaslookup setup` also builds the glass-brain mesh; existing installs build it the
+  first time the 3D view asks for it (no download needed).
+
 ## 0.8.0 (2026-10-29)
 Merged from the [ccn-spark fork](https://github.com/ccn-spark/atlas-lookup):
 - **Local overlays:** add any NIfTI stat map from your computer (Add NIfTI… or drop
