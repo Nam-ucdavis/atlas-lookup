@@ -6,6 +6,15 @@ maps, and quizzes users on regions. Python (FastAPI + nibabel/nilearn) backend,
 vanilla-JS front end, NiiVue for the viewer. Human-facing docs: `README.md`,
 `docs/working-with-claude.md`.
 
+## Branches
+
+- `main` is an exact mirror of `ccn-spark/main`. **Never commit to `main`.** It only moves
+  by `git pull --ff-only ccn-spark main`.
+- `dev` is where all work happens: check `git branch --show-current` before committing,
+  and switch to `dev` (or a feature branch made from it) if needed.
+- To bring in ccn-spark updates, fast-forward `main` first, then merge `main` into `dev`.
+  To offer a change upstream, branch from `main`, not `dev`. Details: `BRANCHES.md`.
+
 ## Commands
 
 ```bash

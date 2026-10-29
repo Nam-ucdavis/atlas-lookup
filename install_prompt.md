@@ -1,7 +1,7 @@
 ```text
 Please set up the Atlas Lookup app on this computer, show me it running, and tell me how to launch it later.
 
-Repository: https://github.com/Nam-ucdavis/atlas-lookup
+Repository: https://github.com/Nam-ucdavis/atlas-lookup (branch `dev`)
 (A local web app for looking up brain regions by MNI coordinate, with a 3-plane viewer and stat-map overlays. Python 3.10+, FastAPI, runs at http://127.0.0.1.)
 
 Steps:
@@ -16,7 +16,7 @@ Steps:
    - Never use sudo or change system settings without asking.
 
 3. Download and install, inside the folder I chose:
-   - `git clone https://github.com/Nam-ucdavis/atlas-lookup <folder>`
+   - `git clone -b dev https://github.com/Nam-ucdavis/atlas-lookup <folder>`
    - Create a virtual environment in `<folder>/.venv`.
    - Run `pip install -e .` inside it.
    - Use the venv's own executables:
