@@ -16,6 +16,7 @@ GET /api/results/file/{id}               one map, for the viewer
 GET /api/results/clusters?map=&threshold=&sign=pos|neg|both&min_voxels=
                                          clusters + peaks, labelled by atlas
 GET /api/lookup?...&map={id}             adds the T / p value at the point
+POST /api/screenshot                     body: a PNG of the viewer; saved as image/<date_time>.png and shown in Finder/Explorer
 
 The lookup endpoint is stateless (one coordinate in, all atlas readouts out);
 the viewer in the UI calls it on every click.
@@ -24,13 +25,14 @@ from __future__ import annotations
 
 import colorsys
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
-from .config import STATIC_DIR, TEMPLATE_FILE
+from .config import IMAGE_DIR, STATIC_DIR, TEMPLATE_FILE
 from .grids import load_grids
+from .screenshots import MAX_BYTES, reveal, save_png
 from . import quiz
 from .results import Results, configured_dir, repo_warning
 from .query import best_guess, query, resolve_mm
@@ -67,6 +69,23 @@ def atlases():
 @app.get("/api/grids")
 def grids():
     return [g.to_dict() for g in GRIDS.values()]
+
+
+@app.post("/api/screenshot")
+async def screenshot(request: Request):
+    # Requiring image/png also keeps other websites out: a cross-site request with
+    # that type needs a CORS preflight, which this server never grants.
+    if request.headers.get("content-type") != "image/png":
+        raise HTTPException(415, "Send the image as image/png")
+    data = await request.body()
+    if len(data) > MAX_BYTES:
+        raise HTTPException(413, "Image too large")
+    try:
+        path = save_png(data, IMAGE_DIR)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    reveal(path)
+    return {"file": path.name, "folder": str(path.parent)}
 
 
 @app.get("/api/lookup")

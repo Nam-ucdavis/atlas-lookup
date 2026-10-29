@@ -179,6 +179,37 @@
   #peaks .sign { font-weight: 700; } #peaks .sign.pos { color: #c25a00; } #peaks .sign.neg { color: #2f6fb5; }
   #peaks .head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
   #peaks .muted { color: var(--muted); }
+  .ov-panel { margin-top: 2px; }
+  .ov-panel[hidden] { display: none; }
+  .ov-layer { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+  .ov-layer.off { opacity: .6; }
+  .ov-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 13px; }
+  .ov-row + .ov-row { margin-top: 6px; }
+  .ov-row .grow { flex: 1; min-width: 80px; }
+  .ov-row select { width: auto; padding: 4px 6px; }
+  .ov-row input[type=number] { width: 84px; padding: 4px 6px; }
+  .ov-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .ov-btns { display: flex; gap: 4px; margin-left: auto; }
+  .ov-mode { margin: 0; flex: none; }
+  .ov-mode button { padding: 4px 10px; flex: none; }
+  .ov-mode button:disabled { opacity: .4; cursor: default; }
+  .ov-opacity { display: flex; gap: 6px; align-items: center; }
+  .ov-opacity input { flex: 1; min-width: 60px; }
+  .ov-info { margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .slice-labels span { position: absolute; transform: translateY(-100%); pointer-events: none;
+    color: #fff; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; text-shadow: 0 0 3px #000; white-space: nowrap; }
+  .cbars { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 12px; }
+  .cbars:empty { display: none; }
+  .cbar { min-width: 0; flex: 1 1 260px; max-width: 440px; }
+  .cbar-name { display: block; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cbar-name b { color: var(--ink); }
+  .cbar-row { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cbar-row i { flex: 1; height: 10px; min-width: 40px; border-radius: 3px; }
+  .cbar-row input { width: 76px; padding: 2px 5px; font: inherit; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 5px; }
+  .cbar-row .linkish { margin: 0; }
+  .cbar-row .linkish[hidden] { display: none; }
+  .glwrap.drop { outline: 2px dashed var(--accent); outline-offset: -4px; }
   .linkish { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 0; margin-top: 10px; }
 </style>
 </head>
@@ -264,6 +295,8 @@
       <div class="viewer-bar">
         <label class="lookup-only">Overlay <select id="overlay"><option value="">None</option></select></label>
         <label class="lookup-only">Opacity <input type="range" id="opacity" min="0" max="1" step="0.05" value="0.4"></label>
+        <label class="lookup-only"><input type="checkbox" id="crosshairOn" checked> Crosshair</label>
+        <button type="button" class="btn small" id="scrBtn" title="Save the three slices as a PNG (same size every time) in the image folder">scr</button>
         <span class="grow"></span>
         <span class="hint" style="margin:0" id="viewerHint">Click a slice to look up that point · left = left (neurological)</span>
       </div>
@@ -276,7 +309,9 @@
         <label>k ≥ <input type="number" id="statK" min="1" step="1" value="5" title="Minimum cluster size (voxels)"></label>
         <span class="hint" style="margin:0" id="statInfo"></span>
       </div>
+      <div class="viewer-bar lookup-only" id="ovHead"></div>
       <div class="glwrap"><canvas id="gl"></canvas></div>
+      <div class="ov-panel lookup-only" id="ovPanel" hidden></div>
     </div>
     <div class="panel lookup-only" id="peaks" hidden></div>
     <div class="summary lookup-only" id="summary"></div>
@@ -295,8 +330,10 @@
   <p class="hint">Open a division to see each region. "Practise" starts the quiz on just that division. History is stored in this browser.</p>
 </dialog>
 <script type="module">
-import { Niivue, SHOW_RENDER, MULTIPLANAR_TYPE } from "/static/vendor/niivue-0.69.0.js";
+import { Niivue, NVImage, SHOW_RENDER, MULTIPLANAR_TYPE } from "/static/vendor/niivue-0.69.0.js";
 import { createQuiz } from "/static/quiz.js";
+import { createOverlays } from "/static/overlays.js";
+import { createViewerTools } from "/static/viewertools.js";
 const $ = (id) => document.getElementById(id);
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -379,13 +416,15 @@ async function init() {
     restoreLookup: async () => { $("viewerHint").textContent = LOOKUP_HINT; await rebuildOverlays(); },
   });
   if (location.hash.includes("quiz")) quizApi.enter();
-  window.atlasApp = { get nv() { return nv; }, quiz: quizApi };  // for debugging in the console
+  window.atlasApp = { get nv() { return nv; }, quiz: quizApi, overlays: overlaysApi };  // for debugging in the console
   lookup();
 }
 
 // --- three-plane viewer ----------------------------------------------------------
 let nv = null;
 let quizApi = null;
+let overlaysApi = null;
+let viewerTools = null;
 const LOOKUP_HINT = "Click a slice to look up that point · left = left (neurological)";
 let suppressClick = 0;
 async function initViewer() {
@@ -400,14 +439,24 @@ async function initViewer() {
     isColorbar: false,
     isOrientCube: false,
     textHeight: 0.035,
+    dragAndDropEnabled: false,  // dropped files go through the local-overlay list instead
   });
   await nv.attachToCanvas($("gl"));
   await nv.loadVolumes([{ url: "/api/template.nii.gz", colormap: "gray" }]);
   nv.setSliceType(nv.sliceTypeMultiplanar);
+  overlaysApi = createOverlays({ NVImage, esc, getNv: () => nv, head: $("ovHead"), list: $("ovPanel") });
+  viewerTools = createViewerTools({
+    getNv: () => nv, store, isQuiz: () => !!quizApi?.active,
+    getCoords: () => ({ mode: state.mode, base: state.base, grid: state.grids.find((g) => g.id === $("grid").value) }),
+    getLegend: () => (quizApi?.active ? [] : [...overlaysApi.legend(), ...statLegend()]),
+    wrap: document.querySelector(".glwrap"), toggle: $("crosshairOn"), button: $("scrBtn"), setHint: flashHint,
+  });
+  initDrop();
   let t;
   nv.onLocationChange = (d) => {
     if (Date.now() < suppressClick) return;
     if (quizApi?.active) { quizApi.onViewerClick(Array.from(d.mm.slice(0, 3), Math.round)); return; }
+    overlaysApi.readout(Array.from(d.mm.slice(0, 3)));
     clearTimeout(t);
     // d.mm is a Float32Array; snap to whole mm (the template is 1 mm).
     t = setTimeout(() => lookupAtMM(Array.from(d.mm.slice(0, 3), Math.round)), 120);
@@ -415,11 +464,33 @@ async function initViewer() {
   await initStats();
   await rebuildOverlays();
 }
+let hintTimer;
+function flashHint(text) {
+  const prev = $("viewerHint").textContent;
+  $("viewerHint").textContent = text;
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => { if ($("viewerHint").textContent === text) $("viewerHint").textContent = prev; }, 8000);
+}
 function moveCrosshair(mm) {
   if (!nv?.volumes.length) return;
   suppressClick = Date.now() + 250;
   nv.scene.crosshairPos = nv.mm2frac(mm);
   nv.drawScene();
+  overlaysApi?.readout(mm);
+}
+function initDrop() {
+  const wrap = document.querySelector(".glwrap");
+  const files = (e) => e.dataTransfer?.types.includes("Files");
+  wrap.addEventListener("dragover", (e) => {
+    if (!files(e) || quizApi?.active) return;
+    e.preventDefault(); wrap.classList.add("drop");
+  });
+  wrap.addEventListener("dragleave", () => wrap.classList.remove("drop"));
+  wrap.addEventListener("drop", (e) => {
+    wrap.classList.remove("drop");
+    if (!files(e) || quizApi?.active) return;
+    e.preventDefault(); overlaysApi.addFiles(e.dataTransfer.files);
+  });
 }
 // Overlays on the template: an atlas (optional) and a thresholded stat map (optional).
 let atlasVol = null, overlayToken = 0;
@@ -443,7 +514,7 @@ async function rebuildOverlays() {
     atlasVol = vol;
   }
   if (stat?.map && stat.maxAbs) {
-    const thr = stat.threshold, top = Math.max(stat.maxAbs, thr + 0.01);
+    const thr = stat.threshold, top = Math.max(stat.max ?? stat.maxAbs, thr + 0.01);
     const showPos = stat.sign !== "neg", showNeg = stat.sign !== "pos";
     const vol = await nv.addVolumeFromUrl({
       url: `/api/results/file/${stat.map.split("/").map(encodeURIComponent).join("/")}`,
@@ -455,6 +526,7 @@ async function rebuildOverlays() {
     if (token !== overlayToken) return;
     if (!showNeg) vol.colormapNegative = "";
   }
+  overlaysApi?.sync();  // local overlays stay in front of the atlas and stat map
   nv.updateGLVolume();
   if (state.last) moveCrosshair(state.last.mm);
 }
@@ -463,6 +535,27 @@ $("opacity").addEventListener("input", (e) => {
   const i = atlasVol ? nv.volumes.indexOf(atlasVol) : -1;
   if (i > 0) nv.setOpacity(i, +e.target.value);
 });
+
+const timers = {};
+function debounce(key, fn, ms = 400) {
+  clearTimeout(timers[key]);
+  timers[key] = setTimeout(fn, ms);
+}
+// Colour bars for the results-folder map, drawn in rebuildOverlays (warm / winter).
+function statLegend() {
+  const s = state.stat;
+  if (!s?.map || !s.maxAbs) return [];
+  const name = $("statMap").selectedOptions[0]?.textContent || s.map;
+  const base = {
+    key: "stat", name, from: s.threshold, to: Math.max(s.max ?? s.maxAbs, s.threshold + 0.01), df: s.df, mode: "t", auto: s.max == null,
+    // Edits from the colour bar. Both reload the map (and the threshold the cluster
+    // table), so wait for a pause in typing.
+    setFrom: (v) => debounce("stat", () => { $("statThr").value = Math.abs(v); loadStat(); }),
+    setTo: (v) => debounce("stat", () => { s.max = v == null ? null : Math.abs(v); rebuildOverlays(); }),
+  };
+  return [...(s.sign !== "neg" ? [{ ...base, sign: "+", cmap: "warm" }] : []),
+          ...(s.sign !== "pos" ? [{ ...base, sign: "−", cmap: "winter" }] : [])];
+}
 
 // --- stat maps from your results folder (read-only, never leaves this machine) -----
 async function initStats() {
@@ -495,7 +588,8 @@ async function loadStat() {
   const r = await fetch("/api/results/clusters?" + p);
   const d = await r.json();
   if (!r.ok) { $("statInfo").textContent = d.detail; return; }
-  state.stat = { map, threshold: d.threshold, sign: d.sign, maxAbs: d.max_abs_t, df: d.df };
+  const max = state.stat?.map === map ? state.stat.max : null;  // keep a max set on the colour bar
+  state.stat = { map, threshold: d.threshold, sign: d.sign, maxAbs: d.max_abs_t, df: d.df, max };
   $("statInfo").textContent = d.df ? `≈ p < ${fmtPText(d.threshold_p)} one-sided, uncorrected (df ${d.df})` : "";
   renderPeaks(d);
   await rebuildOverlays();
@@ -596,6 +690,7 @@ function render({ coordinate: c, results, stat }) {
     <div class="val ${r.best_guess ? "" : "none"}">${esc(r.best_guess || "—")}</div>
     <div class="src">${esc(r.atlas.name)}</div></div>`).join("");
   $("cards").innerHTML = results.map(card).join("");
+  viewerTools?.labels();  // the mode, base or grid may have changed
 }
 
 function bars(rows, key) {

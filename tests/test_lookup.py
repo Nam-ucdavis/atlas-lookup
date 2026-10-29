@@ -235,6 +235,39 @@ def test_quiz_answer_matching():
     assert out.stdout.strip() == "[]", out.stdout
 
 
+
+def test_overlay_t_distribution_matches_scipy():
+    """The local-overlay p <-> T conversion (static/overlays.js) agrees with scipy."""
+    import json
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    from scipy import stats
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    import atlaslookup
+
+    js = Path(atlaslookup.__file__).parent / "static" / "overlays.js"
+    ts = [(0.5, 3), (2.0, 10), (3.17, 24), (5.0, 24), (8.0, 120), (-2.0, 10), (12.0, 7.5)]
+    ps = [(0.05, 10), (0.001, 24), (1e-6, 60), (0.01, 3.5)]
+    headers = [{"description": "SPM{T_[24.0]} - faces > houses"},
+               {"description": "", "intent_code": 3, "intent_p1": 18},
+               {"description": "SPM{F_[1.0,24.0]}"}, {}]
+    script = (f"import {{ tSf, tFromP, dfFromHeader }} from {str(js)!r};"
+              f"console.log(JSON.stringify({{sf: {json.dumps(ts)}.map(([t, d]) => tSf(t, d)),"
+              f" inv: {json.dumps(ps)}.map(([p, d]) => tFromP(p, d)),"
+              f" df: {json.dumps(headers)}.map(dfFromHeader)}}));")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    got = json.loads(out.stdout)
+    for (t, d), v in zip(ts, got["sf"]):
+        assert v == pytest.approx(stats.t.sf(t, d), rel=1e-6, abs=1e-12), (t, d)
+    for (p, d), v in zip(ps, got["inv"]):
+        assert v == pytest.approx(stats.t.isf(p, d), rel=1e-6), (p, d)
+    assert got["df"] == [24, 18, None, None]
+
 @bootstrapped
 def test_every_quiz_region_has_a_division():
     from fastapi.testclient import TestClient
@@ -365,3 +398,102 @@ def test_clusters_cli(results_dir, monkeypatch, capsys):
     assert "1 clusters" in capsys.readouterr().out
     with pytest.raises(SystemExit):
         main(["clusters", "../outside/spmT_0001.nii"])
+
+
+# --- viewer captures and slice labels --------------------------------------------
+
+def test_save_png_names_by_time(tmp_path):
+    from datetime import datetime
+
+    from atlaslookup.screenshots import PNG_MAGIC, save_png
+
+    t = datetime(2026, 10, 28, 9, 5, 7)
+    folder = tmp_path / "image"
+    a = save_png(PNG_MAGIC + b"a", folder, now=t)
+    b = save_png(PNG_MAGIC + b"b", folder, now=t)
+    assert (a.name, b.name) == ("2026-10-28_09-05-07.png", "2026-10-28_09-05-07_2.png")
+    assert a.read_bytes() == PNG_MAGIC + b"a"
+    with pytest.raises(ValueError):
+        save_png(b"GIF89a", folder)
+
+
+def test_screenshot_route(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from atlaslookup import server
+    from atlaslookup.screenshots import PNG_MAGIC
+
+    monkeypatch.setattr(server, "IMAGE_DIR", tmp_path / "image")
+    shown = []
+    monkeypatch.setattr(server, "reveal", shown.append)  # don't open Finder during tests
+    c = TestClient(server.app)
+    r = c.post("/api/screenshot", content=PNG_MAGIC + b"x", headers={"Content-Type": "image/png"})
+    assert r.status_code == 200, r.text
+    assert (tmp_path / "image" / r.json()["file"]).read_bytes() == PNG_MAGIC + b"x"
+    assert shown == [tmp_path / "image" / r.json()["file"]]
+    # Form-style bodies (what another website could send without a preflight) are refused.
+    assert c.post("/api/screenshot", content=PNG_MAGIC, headers={"Content-Type": "text/plain"}).status_code == 415
+    assert c.post("/api/screenshot", content=b"nope", headers={"Content-Type": "image/png"}).status_code == 400
+
+
+def test_slice_labels():
+    """static/viewertools.js: z/y/x in mm, or the matching voxel index on a grid."""
+    import json
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    import atlaslookup
+
+    js = Path(atlaslookup.__file__).parent / "static" / "viewertools.js"
+    # FSL-style 2 mm MNI grid: x is flipped (i runs right to left).
+    grid = {"affine": [[-2, 0, 0, 90], [0, 2, 0, -126], [0, 0, 2, -72], [0, 0, 0, 1]]}
+    mm = [-44, 18, 24]
+    calls = [[0, mm, {}], [1, mm, {}], [2, mm, {}], [2, [12.5, 0, 0], {}],
+             [0, mm, {"mode": "voxel", "grid": grid, "base": 1}],
+             [1, mm, {"mode": "voxel", "grid": grid, "base": 1}],
+             [2, mm, {"mode": "voxel", "grid": grid, "base": 0}],
+             [0, mm, {"mode": "voxel", "grid": None}]]
+    script = (f"import {{ sliceLabel }} from {str(js)!r};"
+              f"console.log(JSON.stringify({json.dumps(calls)}.map(([s, p, o]) => sliceLabel(s, p, o))));")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    # i = (90 - (-44)) / 2 = 67 (0-based) -> 68; j = (18 + 126) / 2 + 1 = 73; k = (24 + 72) / 2 + 1 = 49
+    assert json.loads(out.stdout) == ["z = 24 mm", "y = 18 mm", "x = −44 mm", "x = 12.5 mm",
+                                      "k = 49", "j = 73", "i = 67", "z = 24 mm"]
+
+
+def test_colour_bar_ends():
+    """static/viewertools.js: colour bar labels in T, or in p when a layer uses p."""
+    import json
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    from scipy import stats
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    import atlaslookup
+
+    js = Path(atlaslookup.__file__).parent / "static" / "viewertools.js"
+    entries = [{"sign": "+", "from": 3, "to": 7, "mode": "t", "df": 24},
+               {"sign": "−", "from": 3, "to": 4.414, "mode": "t", "df": 24},
+               {"sign": "+", "from": 3.4668, "to": 7, "mode": "p", "df": 24},
+               {"sign": "−", "from": 3.4668, "to": 7, "mode": "p", "df": 24},
+               {"sign": "+", "from": 3, "to": 7, "mode": "p", "df": None}]
+    script = (f"import {{ barEnds }} from {str(js)!r};"
+              f"const es = {json.dumps(entries)};"
+              "console.log(JSON.stringify([...es.map((e) => barEnds(e)), barEnds(es[1], '-')]));")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    got = json.loads(out.stdout)
+    assert got[0] == {"unit": "T", "lo": "3.00", "hi": "7.00"}
+    assert got[1] == {"unit": "T", "lo": "−3.00", "hi": "−4.41"}
+    assert got[2]["unit"] == "p" and float(got[2]["lo"]) == pytest.approx(stats.t.sf(3.4668, 24), rel=0.05)
+    assert float(got[2]["hi"]) == pytest.approx(stats.t.sf(7, 24), rel=0.05)
+    assert got[3] == got[2]  # one-sided p of |T|, same for both signs
+    assert got[4]["unit"] == "T"  # no df: falls back to T
+    assert got[5]["lo"] == "-3.00"  # ASCII minus for the number inputs

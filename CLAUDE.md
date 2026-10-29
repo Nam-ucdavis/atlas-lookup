@@ -42,6 +42,9 @@ src/atlaslookup/
   version.py      version + git commit badge
   static/index.html   the whole lookup UI (inline module script)
   static/quiz.js      quiz + progress UI; exports matchName() for tests
+  screenshots.py  saves "scr" captures as DATA_DIR/image/<date_time>.png
+  static/viewertools.js  crosshair toggle, slice coordinate labels, "scr" capture; exports sliceLabel() for tests
+  static/overlays.js  local NIfTI overlays read in the browser (never uploaded); exports tSf/tFromP/dfFromHeader for tests
   static/vendor/niivue-0.69.0.js   vendored NiiVue bundle; do not edit
 tests/test_lookup.py
 ```

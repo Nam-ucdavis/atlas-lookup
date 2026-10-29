@@ -11,7 +11,7 @@ What makes this work:
 |---|---|
 | `CLAUDE.md` | Loaded automatically. It tells Claude how the project is built, which commands to run, and the rules it must not break (privacy, correctness, releases). |
 | `.claude/skills/` | Ready-made workflows you start with a slash command: `/add-atlas`, `/label-clusters`, `/release`. |
-| `.claude/settings.json` | Lets Claude run tests and harmless look-up commands without asking each time, and stops it from running `git push`. |
+| `.claude/settings.json` | Lets Claude run tests and harmless look-up commands without asking each time, and makes it ask before every `git push`. |
 
 ## 1. Set up (once)
 
@@ -24,7 +24,7 @@ What makes this work:
    extensions; see the [quickstart](https://code.claude.com/docs/en/quickstart).
 2. **Get the code and install it for development:**
    ```bash
-   git clone https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup
+   git clone https://github.com/ccn-spark/atlas-lookup && cd atlas-lookup
    python -m venv .venv && .venv/bin/pip install -e ".[test]"
    .venv/bin/atlaslookup setup        # downloads the atlases (~40 MB, one time)
    ```

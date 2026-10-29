@@ -10,10 +10,15 @@ labelled cluster table. A quiz mode helps you learn the regions.
   resting-state networks (Schaefer 2018), side by side. You also get
   probabilities and a "what's within N mm" readout for borderline points.
 - **Viewer:** axial, coronal and sagittal slices of the MNI template. Click to
-  look up a point, and overlay any atlas.
+  look up a point, and overlay any atlas. Each slice shows its coordinate, the
+  crosshair can be hidden, and **scr** saves the slices as a PNG.
 - **Your stat maps:** point it at a folder of `spmT_*.nii` files to get a
   thresholded overlay, T and p at any point, and a cluster/peak table labelled
   by region. The maps are only read, never copied anywhere.
+- **Local overlays:** drop any NIfTI stat map from your computer on the brain.
+  Threshold each one by T or p, pick colormaps, and choose which map is in
+  front; everything updates as you drag. Files are read in the browser and
+  never uploaded.
 - **Quiz:** find regions on the brain or name the highlighted one. Regions you
   miss come back more often, and progress is broken down by brain division.
 - **Your own atlases:** add any parcellation from a paper with one command.
@@ -24,14 +29,28 @@ You need Python 3.10 or newer. [pipx](https://pipx.pypa.io) is the easiest
 way to install a command-line app:
 
 ```bash
-pipx install git+https://github.com/Nam-ucdavis/atlas-lookup
+pipx install git+https://github.com/ccn-spark/atlas-lookup
 ```
 
 Or with pip, ideally in a virtual environment:
 
 ```bash
-pip install git+https://github.com/Nam-ucdavis/atlas-lookup
+pip install git+https://github.com/ccn-spark/atlas-lookup
 ```
+
+**Windows:** install [Python](https://www.python.org/downloads/) (tick *Add
+python.exe to PATH*) and [Git](https://git-scm.com/download/win), then in
+PowerShell:
+
+```powershell
+py -m pip install --user pipx
+py -m pipx ensurepath
+```
+
+Open a new PowerShell window and run the `pipx install` line above.
+
+**Let Claude do it:** paste the prompt in [install_prompt.md](install_prompt.md) into
+Claude Code. It asks where to install, sets everything up and shows you the app running.
 
 ## Start
 
@@ -39,13 +58,16 @@ pip install git+https://github.com/Nam-ucdavis/atlas-lookup
 atlaslookup
 ```
 
+`lookup` is a shorter name for the same command (`lookup`, `lookup query -44 18 24`, ...).
+Use `--port` to run on another port, e.g. `lookup serve --port 8770 --open`.
+
 The app opens in your browser at http://127.0.0.1:8765. The first run
 downloads the atlases (about 40 MB, one time). If the app is already running,
 the command just opens the browser. Stop it with Ctrl+C.
 
 Your data lives in `~/.atlaslookup`; set `ATLASLOOKUP_HOME` to use another
-folder. It holds the atlases, voxel grids, the viewer template and your
-settings. Nothing is stored inside the installed package. Run `atlaslookup info`
+folder. It holds the atlases, voxel grids, the viewer template, your
+settings and the images saved with **scr** (in `image/`). Nothing is stored inside the installed package. Run `atlaslookup info`
 to see what's there.
 
 ## Looking up coordinates
@@ -68,6 +90,18 @@ to see what's there.
 
   For a stat map's clusters from the terminal: `atlaslookup maps`, then
   `atlaslookup clusters <map> --threshold 3 --k 5` (add `--csv` for a file).
+
+In the viewer, each slice shows its coordinate in the bottom-left corner (z
+for axial, y for coronal, x for sagittal; k, j, i in voxel mode). Untick
+**Crosshair** to hide the red lines. Each stat overlay gets a colour bar under
+the slices, from the threshold to its strongest value, in T or in p (one-sided,
+uncorrected) as you thresholded it, with separate + and − bars. Type into the
+boxes at either end to set the minimum (the threshold) or the maximum of the
+colour range; **auto** resets the maximum to the strongest value in the map. **scr** saves
+the three slices and the colour bars as one PNG, always 2400 × 960 px, in
+`~/.atlaslookup/image/`, named by the date and time (e.g.
+`2026-10-28_09-19-20.png`), and opens that folder in Finder (Explorer on
+Windows) with the new image selected.
 
 Each atlas card shows the label at that voxel, the probabilities (for
 probabilistic atlases), the share of each region within the chosen radius, and
@@ -94,6 +128,22 @@ In the app, choose a map under **Stat map**:
 - **Clusters:** clusters use 18-connectivity, as in SPM, with a minimum size
   **k**. The table lists each peak with Harvard-Oxford, Juelich and Brodmann
   labels; click a row to jump to it.
+
+### Local overlays
+
+Next to **Local NIfTI** (under the stat map controls), click **＋ Add overlay…** (or drop `.nii` / `.nii.gz`
+files on the brain) to overlay any stat map from your computer, inside the
+results folder or not. The file is read by your browser and never uploaded,
+not even to the local server. It should be in MNI space.
+
+- **Threshold** as **T ≥** or **p <**, with a live slider. p is converted to T
+  with the df from the SPM header (`SPM{T_[df]}`) or the NIfTI t-test intent;
+  if the file has neither, type the df in.
+- **Sign** (both, positive, negative), a **colormap** for each sign, and
+  **opacity**. Voxels below threshold are transparent.
+- **Order:** the top of the list is drawn in front. Use ⤒ / ▲ / ▼ to change it,
+  or untick a layer to hide it.
+- Each layer shows its value (and p) at the crosshair.
 
 p values are **uncorrected, one-sided**. Use SPM for FWE/FDR inference; this
 is for finding your way around the map. The server only listens on 127.0.0.1,
@@ -160,7 +210,7 @@ how to develop the app this way.
 ## Development
 
 ```bash
-git clone https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup
+git clone https://github.com/ccn-spark/atlas-lookup && cd atlas-lookup
 python -m venv .venv && .venv/bin/pip install -e ".[test]"
 .venv/bin/atlaslookup setup
 .venv/bin/pytest
