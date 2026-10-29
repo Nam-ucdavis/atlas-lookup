@@ -24,7 +24,7 @@ What makes this work:
    extensions; see the [quickstart](https://code.claude.com/docs/en/quickstart).
 2. **Get the code and install it for development:**
    ```bash
-   git clone https://github.com/ccn-spark/atlas-lookup && cd atlas-lookup
+   git clone https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup
    python -m venv .venv && .venv/bin/pip install -e ".[test]"
    .venv/bin/atlaslookup setup        # downloads the atlases (~40 MB, one time)
    ```

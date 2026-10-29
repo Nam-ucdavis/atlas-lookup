@@ -434,6 +434,10 @@ def test_screenshot_route(tmp_path, monkeypatch):
     # Form-style bodies (what another website could send without a preflight) are refused.
     assert c.post("/api/screenshot", content=PNG_MAGIC, headers={"Content-Type": "text/plain"}).status_code == 415
     assert c.post("/api/screenshot", content=b"nope", headers={"Content-Type": "image/png"}).status_code == 400
+    # Oversized uploads are refused from the declared length, before the body is read.
+    monkeypatch.setattr(server, "MAX_BYTES", 4)
+    assert c.post("/api/screenshot", content=PNG_MAGIC, headers={"Content-Type": "image/png"}).status_code == 413
+    assert len(shown) == 1
 
 
 def test_slice_labels():

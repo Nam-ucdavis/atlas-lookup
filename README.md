@@ -29,13 +29,13 @@ You need Python 3.10 or newer. [pipx](https://pipx.pypa.io) is the easiest
 way to install a command-line app:
 
 ```bash
-pipx install git+https://github.com/ccn-spark/atlas-lookup
+pipx install git+https://github.com/Nam-ucdavis/atlas-lookup
 ```
 
 Or with pip, ideally in a virtual environment:
 
 ```bash
-pip install git+https://github.com/ccn-spark/atlas-lookup
+pip install git+https://github.com/Nam-ucdavis/atlas-lookup
 ```
 
 **Windows:** install [Python](https://www.python.org/downloads/) (tick *Add
@@ -210,15 +210,31 @@ how to develop the app this way.
 ## Development
 
 ```bash
-git clone https://github.com/ccn-spark/atlas-lookup && cd atlas-lookup
+git clone https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup
 python -m venv .venv && .venv/bin/pip install -e ".[test]"
 .venv/bin/atlaslookup setup
 .venv/bin/pytest
 ```
 
 Tests that need downloaded atlases skip themselves until `setup` has run; the
-answer-matching test needs `node`. `CHANGELOG.md` lists each version, and
+answer-matching test needs `node`.
+
+**macOS with iCloud "Desktop & Documents" sync:** if the repository is inside a
+synced folder (e.g. `~/Documents`), iCloud marks `.venv` as hidden, and Python 3.12.8+
+then ignores the editable install, giving `ModuleNotFoundError: atlaslookup`. Keep the
+environment outside the synced folder and link it in:
+
+```bash
+python3 -m venv ~/.venvs/atlas-lookup && ln -s ~/.venvs/atlas-lookup .venv
+.venv/bin/pip install -e ".[test]"
+``` `CHANGELOG.md` lists each version, and
 releases are tagged `vX.Y.Z`.
+
+## Contributors
+
+Local NIfTI overlays, colour bars, the viewer tools, **scr** capture, the `lookup`
+alias and `install_prompt.md` came from the
+[ccn-spark fork](https://github.com/ccn-spark/atlas-lookup).
 
 ## License
 

@@ -25,6 +25,11 @@ pre-approved in `.claude/settings.json`; let the user approve them.
 
 The answer-matching test runs `static/quiz.js` under `node`; it skips if node is missing.
 
+If `import atlaslookup` fails right after `pip install -e .` on macOS, the repo is
+probably in an iCloud-synced folder: iCloud hides `.venv`, and Python 3.12.8+ skips hidden
+`.pth` files. Put the venv in `~/.venvs/atlas-lookup` and symlink it to `.venv` (see the
+README's Development section).
+
 ## Layout
 
 ```

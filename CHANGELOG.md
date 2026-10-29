@@ -3,7 +3,8 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
-## Unreleased
+## 0.8.0 (2026-10-29)
+Merged from the [ccn-spark fork](https://github.com/ccn-spark/atlas-lookup):
 - **Local overlays:** add any NIfTI stat map from your computer (Add NIfTI… or drop
   it on the brain) on top of the template. The file is read in the browser and
   never uploaded. Several maps can be stacked, and you choose which one is in front.
@@ -24,6 +25,11 @@ title in the app (and at `/api/version`, or `atlaslookup --version`).
 - **scr** saves the three slices and their colour bars as one PNG (always
   2400 × 960 px, black background) in the `image` folder of your data folder,
   named by date and time, and shows it in Finder / Explorer.
+
+- `install_prompt.md`: a prompt you can give Claude to install and launch the app.
+- Claude asks before every `git push` (previously never allowed).
+- Developer note for macOS with iCloud-synced folders (see the README's Development
+  section).
 
 ## 0.7.0 (2026-10-23)
 - **Working with Claude:** `CLAUDE.md` project notes, shared skills (`/add-atlas`,

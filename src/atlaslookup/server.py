@@ -77,6 +77,10 @@ async def screenshot(request: Request):
     # that type needs a CORS preflight, which this server never grants.
     if request.headers.get("content-type") != "image/png":
         raise HTTPException(415, "Send the image as image/png")
+    # Refuse an oversized upload before reading it into memory.
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > MAX_BYTES:
+        raise HTTPException(413, "Image too large")
     data = await request.body()
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "Image too large")
