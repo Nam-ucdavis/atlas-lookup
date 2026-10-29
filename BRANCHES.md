@@ -5,7 +5,7 @@ This repository has two branches with different jobs:
 | Branch | What it is | Who changes it |
 |---|---|---|
 | `main` | An **exact copy** of [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup)'s `main`. | Only updates pulled from ccn-spark. Never commit here directly. |
-| `dev` | **Your version:** ccn-spark's code plus your own changes. New features go here. | You. |
+| `dev` | **Your version:** ccn-spark's code plus your own changes. New features go here. This is the **default branch** on GitHub, so the repo page, `git clone` and `pip install` all get it. | You. |
 
 ```
 ccn-spark/main ──► main  (mirror: identical, fast-forward only)
@@ -19,9 +19,8 @@ version adds. That also makes it easy to offer a change back to them.
 ## One-time setup on a new computer
 
 ```bash
-git clone https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup
+git clone https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup   # checks out dev
 git remote add ccn-spark https://github.com/ccn-spark/atlas-lookup.git
-git switch dev
 ```
 
 ## Everyday work (on `dev`)
@@ -79,8 +78,8 @@ you pull, and your `dev` the next time you merge `main` in.
 ## Installing a particular branch
 
 ```bash
-pipx install git+https://github.com/Nam-ucdavis/atlas-lookup@dev    # your version
-pipx install git+https://github.com/Nam-ucdavis/atlas-lookup        # main = ccn-spark's version
+pipx install git+https://github.com/Nam-ucdavis/atlas-lookup         # dev: your version (default)
+pipx install git+https://github.com/Nam-ucdavis/atlas-lookup@main    # ccn-spark's version
 ```
 
 Releases of your version are tagged on `dev` (e.g. `v0.8.0`); install one with `@v0.8.0`.

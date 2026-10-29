@@ -29,15 +29,13 @@ You need Python 3.10 or newer. [pipx](https://pipx.pypa.io) is the easiest
 way to install a command-line app:
 
 ```bash
-pipx install git+https://github.com/Nam-ucdavis/atlas-lookup@dev
+pipx install git+https://github.com/Nam-ucdavis/atlas-lookup
 ```
-
-(`@dev` is this version; without it you get `main`, which mirrors ccn-spark.)
 
 Or with pip, ideally in a virtual environment:
 
 ```bash
-pip install git+https://github.com/Nam-ucdavis/atlas-lookup@dev
+pip install git+https://github.com/Nam-ucdavis/atlas-lookup
 ```
 
 **Windows:** install [Python](https://www.python.org/downloads/) (tick *Add
@@ -212,7 +210,7 @@ how to develop the app this way.
 ## Development
 
 ```bash
-git clone -b dev https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup
+git clone https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup
 python -m venv .venv && .venv/bin/pip install -e ".[test]"
 .venv/bin/atlaslookup setup
 .venv/bin/pytest
@@ -235,7 +233,8 @@ releases are tagged `vX.Y.Z`.
 ## Branches
 
 `main` is an exact copy of [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup);
-`dev` is this version, with its own changes on top. New work goes on `dev`. See
+`dev` is this version, with its own changes on top, and is the default branch. New
+work goes on `dev`. See
 [BRANCHES.md](BRANCHES.md) for everyday commands, pulling in ccn-spark's updates, and
 offering changes back.
 
