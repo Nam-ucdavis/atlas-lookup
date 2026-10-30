@@ -3,6 +3,15 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.15.0 (2026-10-29)
+- **Version menu**: the version badge next to the title opens a menu of tagged releases
+  and Development (your checkout). Choosing one restarts the app on that version in place
+  (same address and terminal) and reloads the page. Releases are checked out as git
+  worktrees in `~/.atlaslookup/versions`, never touching your checkout. The switch only
+  accepts JSON requests, so other websites can't trigger it.
+- **3D toolbar** moved up, directly under Slices / 3D, and tidied into one row: style
+  switch, Regions, Transparency, and a joined L R A P S I camera control.
+
 ## 0.14.0 (2026-10-29)
 - **Left sidebar**: the lookup form, atlas overlay, atlas list and history (or the quiz
   setup) now form a sidebar that stays in view while the page scrolls and hides or shows

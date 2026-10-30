@@ -26,9 +26,28 @@
   h1 { font-size: 18px; margin: 0; letter-spacing: -0.01em; }
   header p { margin: 2px 0 0; color: var(--muted); }
   .titlebar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .version { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted);
-    border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px; }
+  .version { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); background: none;
+    border: 1px solid var(--line); border-radius: 99px; padding: 2px 8px; cursor: pointer; }
+  .version:hover, .version[aria-expanded="true"] { background: var(--bar-bg); color: var(--ink); }
   .version.modified { color: var(--warn); border-color: var(--warn); }
+  .version .caret { margin-left: 4px; font-size: 9px; }
+  .ver-wrap { position: relative; }
+  .ver-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; min-width: 260px; padding: 6px;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 10px 30px rgb(0 0 0 / .15); }
+  .ver-menu[hidden] { display: none; }
+  .ver-menu .ver-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 4px 8px 6px; }
+  .ver-menu button { display: grid; grid-template-columns: 16px 1fr auto; gap: 6px; align-items: baseline; width: 100%;
+    text-align: left; border: 0; background: none; color: inherit; font: inherit; font-size: 13px; padding: 6px 8px;
+    border-radius: 6px; cursor: pointer; }
+  .ver-menu button:hover, .ver-menu button:focus-visible { background: var(--accent-soft); outline: none; }
+  .ver-menu button:disabled { cursor: default; background: none; }
+  .ver-menu .tick { color: var(--accent); }
+  .ver-menu .ver-date { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .ver-menu .ver-tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .ver-menu .badge { margin-left: 6px; }
+  .ver-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+  .ver-menu .ver-note { font-size: 12px; color: var(--muted); padding: 6px 8px 4px; max-width: 300px; }
   main { display: grid; grid-template-columns: 300px 1fr; gap: 20px; padding: 14px 24px 40px; align-items: start; }
   /* Left sidebar: stays in view while the page scrolls, collapses with the header button. */
   main > aside { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; overscroll-behavior: contain; }
@@ -110,10 +129,14 @@
   .v3-brain output { display: inline-block; width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
   .view-tabs { margin: 0; flex: 0 0 auto; }
   .view-tabs button { padding: 4px 14px; }
-  .v3-bar .seg { margin: 0; flex: 0 0 auto; }
-  .v3-bar .seg button { padding: 4px 12px; }
-  .v3-views { display: inline-flex; gap: 4px; }
-  .v3-views .btn { min-width: 30px; padding: 4px 8px; }
+  .v3-bar { gap: 10px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  .v3-bar .grow { flex: 1; }
+  .v3-bar .seg { margin: 0; flex: 0 0 auto; background: var(--panel); }
+  .v3-bar .seg button { padding: 4px 12px; white-space: nowrap; font-size: 13px; }
+  .v3-bar .v3-sep { width: 1px; align-self: stretch; margin: 2px 0; background: var(--line); }
+  .v3-bar .v3-brain { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .v3-bar .v3-brain input { width: 110px; }
+  .v3-views button { min-width: 30px; padding: 4px 0 !important; font-weight: 600; }
   /* Side panel (Results / Regions), docked right; the page narrows to make room */
   :root { --sp-w: 440px; }
   body.sp-open { padding-right: var(--sp-w); }
@@ -337,7 +360,8 @@
 <body>
 <header>
   <div class="titlebar"><button type="button" class="icon-btn" id="leftToggle" aria-controls="leftBar" aria-expanded="true" title="Hide sidebar" aria-label="Hide sidebar">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="1.8" y="2.8" width="14.4" height="12.4" rx="2.2"/><line x1="6.6" y1="2.8" x2="6.6" y2="15.2"/></svg></button><h1>Atlas Lookup</h1><span class="version" id="version" title="Live version · git commit">…</span>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="1.8" y="2.8" width="14.4" height="12.4" rx="2.2"/><line x1="6.6" y1="2.8" x2="6.6" y2="15.2"/></svg></button><h1>Atlas Lookup</h1><span class="ver-wrap"><button type="button" class="version" id="version" aria-haspopup="menu" aria-expanded="false" aria-controls="verMenu" title="Live version · click to switch version">…</button>
+      <div class="ver-menu" id="verMenu" role="menu" aria-label="Switch version" hidden></div></span>
     <span class="grow"></span><button type="button" class="btn quiz-only" id="progressBtn" title="Your learning progress by brain division">Progress</button>
     <button type="button" class="mode-toggle" id="quizToggle"><span class="mt-ico" aria-hidden="true">🧠</span> Quiz me!</button></div>
   <p class="lookup-only">Enter an MNI coordinate or voxel index, or click the brain, to see which region it falls in across atlases.</p>
@@ -429,6 +453,28 @@
         <span class="grow"></span>
         <span class="hint" style="margin:0" id="viewerHint">Click a slice to look up that point · left = left (neurological)</span>
       </div>
+      <div class="viewer-bar v3-bar lookup-only" id="v3Bar" hidden>
+        <div class="seg" id="v3Style" role="group" aria-label="3D style">
+          <button type="button" data-style="surface" class="on">Surface</button>
+          <button type="button" data-style="glass">Glass brain</button>
+          <button type="button" data-style="mesh">Mesh brain</button>
+        </div>
+        <span class="v3-sep" aria-hidden="true"></span>
+        <button type="button" class="btn small" id="v3Regions" title="Choose regions to show in 3D">Regions…</button>
+        <span class="v3-sep" aria-hidden="true"></span>
+        <label class="v3-brain" title="How see-through the brain is in the current style: 0% solid, 100% invisible">Transparency
+          <input type="range" id="v3Brain" min="0" max="100" step="5" value="0" aria-label="Brain transparency, percent">
+          <output id="v3BrainOut" for="v3Brain">0%</output></label>
+        <span class="grow"></span>
+        <span class="seg v3-views" id="v3Views" role="group" aria-label="Camera">
+          <button type="button" data-view="L" title="From the left">L</button>
+          <button type="button" data-view="R" title="From the right">R</button>
+          <button type="button" data-view="A" title="From the front">A</button>
+          <button type="button" data-view="P" title="From the back">P</button>
+          <button type="button" data-view="S" title="From above">S</button>
+          <button type="button" data-view="I" title="From below">I</button>
+        </span>
+      </div>
       <div class="viewer-bar stat-bar lookup-only">
         <label>Stat map <select id="statMap"><option value="">None</option></select></label>
         <span class="ov-head" id="ovHead"></span>
@@ -439,25 +485,6 @@
         <label>k ≥ <input type="number" id="statK" min="1" step="1" value="5" title="Minimum cluster size (voxels)"></label>
         <label>Opacity <input type="range" id="statOpacity" min="0" max="1" step="0.05" value="0.9" aria-label="Stat map opacity"></label>
         <span class="hint" style="margin:0" id="statInfo"></span>
-      </div>
-      <div class="viewer-bar v3-bar lookup-only" id="v3Bar" hidden>
-        <div class="seg" id="v3Style" role="group" aria-label="3D style">
-          <button type="button" data-style="surface" class="on">Surface</button>
-          <button type="button" data-style="glass">Glass brain</button>
-          <button type="button" data-style="mesh">Mesh brain</button>
-        </div>
-        <button type="button" class="btn small" id="v3Regions" title="Choose regions to show in 3D">Regions…</button>
-        <label class="v3-brain" title="How see-through the brain is in the current style: 0% solid, 100% invisible">Brain transparency
-          <input type="range" id="v3Brain" min="0" max="100" step="5" value="0" aria-label="Brain transparency, percent">
-          <output id="v3BrainOut" for="v3Brain">0%</output></label>
-        <span class="v3-views" id="v3Views" role="group" aria-label="Camera">
-          <button type="button" class="btn small" data-view="L" title="From the left">L</button>
-          <button type="button" class="btn small" data-view="R" title="From the right">R</button>
-          <button type="button" class="btn small" data-view="A" title="From the front">A</button>
-          <button type="button" class="btn small" data-view="P" title="From the back">P</button>
-          <button type="button" class="btn small" data-view="S" title="From above">S</button>
-          <button type="button" class="btn small" data-view="I" title="From below">I</button>
-        </span>
       </div>
       <div class="glwrap3d" id="gl3wrap" hidden><canvas id="gl3"></canvas></div>
       <div class="glwrap"><canvas id="gl"></canvas></div>
@@ -539,10 +566,58 @@ $("radius").addEventListener("change", () => lookup());
 }));
 
 fetch("/api/version").then((r) => r.json()).then((v) => {
-  $("version").textContent = v.label;
+  $("version").innerHTML = `${esc(v.label)}<span class="caret" aria-hidden="true">▾</span>`;
   $("version").classList.toggle("modified", v.modified);
-  $("version").title = v.modified ? "Running files differ from the committed version" : "Live version · git commit";
+  $("version").title = (v.modified ? "Running files differ from the committed version" : "Live version") + " · click to switch version";
 }).catch(() => ($("version").textContent = "version unknown"));
+
+// Version menu: switch the running app to a tagged release (or back to the checkout).
+// The server restarts itself on the same port; the page reloads once it answers again.
+function closeVerMenu() { $("verMenu").hidden = true; $("version").setAttribute("aria-expanded", "false"); }
+async function openVerMenu() {
+  const menu = $("verMenu");
+  menu.innerHTML = `<div class="ver-title">Switch version</div><div class="ver-note">Loading…</div>`;
+  menu.hidden = false; $("version").setAttribute("aria-expanded", "true");
+  const d = await fetch("/api/versions").then((r) => r.json()).catch(() => null);
+  if (!d?.available) { menu.innerHTML = `<div class="ver-title">Switch version</div><div class="ver-note">${esc(d?.note || "Version list unavailable.")}</div>`; return; }
+  const item = (to, label, extra, on) => `<button type="button" role="menuitemradio" aria-checked="${on}" data-to="${esc(to)}" ${on ? "disabled" : ""}>
+      <span class="tick">${on ? "✓" : ""}</span><span>${label}${extra}</span><span class="ver-date">${on ? "running" : ""}</span></button>`;
+  menu.innerHTML = `<div class="ver-title">Switch version</div>` +
+    item("dev", "Development", ` <span class="ver-date">your checkout</span>`, d.running === "dev") + `<hr>` +
+    d.releases.map((r, i) => item(r.tag, `<span class="ver-tag">${esc(r.tag)}</span>`,
+      `${i === 0 ? '<span class="badge">latest</span>' : ""} <span class="ver-date">${esc(r.date)}</span>`, d.running === r.tag)).join("") +
+    `<div class="ver-note">Releases older than this one have no version menu: to come back from one, stop the app (Ctrl+C) and start it again.</div>`;
+  menu.querySelector("button:not(:disabled)")?.focus();
+}
+$("version").addEventListener("click", (e) => { e.stopPropagation(); $("verMenu").hidden ? openVerMenu() : closeVerMenu(); });
+document.addEventListener("click", (e) => { if (!e.target.closest(".ver-wrap")) closeVerMenu(); });
+$("verMenu").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { closeVerMenu(); $("version").focus(); }
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    const items = [...$("verMenu").querySelectorAll("button:not(:disabled)")], i = items.indexOf(document.activeElement);
+    items[(i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
+  }
+});
+$("verMenu").addEventListener("click", async (e) => {
+  const to = e.target.closest("button[data-to]")?.dataset.to;
+  if (!to) return;
+  const name = to === "dev" ? "the development version (your checkout)" : to;
+  if (!confirm(`Switch Atlas Lookup to ${name}?\n\nThe server restarts on the same address and this page reloads. Your data and settings are kept.`)) return;
+  closeVerMenu();
+  $("version").textContent = `switching to ${to}…`;
+  const r = await fetch("/api/versions/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to }) });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); alert(`Could not switch: ${d.detail || r.status}`); location.reload(); return; }
+  // Wait for the old server to go away and the new one to answer, then reload.
+  const start = Date.now();
+  await new Promise((res) => setTimeout(res, 1200));
+  while (Date.now() - start < 60000) {
+    const ok = await fetch("/api/version", { cache: "no-store" }).then((x) => x.ok).catch(() => false);
+    if (ok) { location.reload(); return; }
+    await new Promise((res) => setTimeout(res, 500));
+  }
+  $("version").textContent = "switch timed out: check the terminal";
+});
 
 async function init() {
   const [atlases, grids] = await Promise.all([fetch("/api/atlases").then((r) => r.json()), fetch("/api/grids").then((r) => r.json())]);

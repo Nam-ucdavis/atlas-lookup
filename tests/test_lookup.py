@@ -648,3 +648,59 @@ def test_js_region_search_browser_tree_and_projection():
     assert r["top"] == ["S1", "S2"]
     assert r["t1"] == ["dir:a", "dir:b"]
     assert r["proj"] == [-7] and r["lab"] == [5] and r["out"] == 0
+
+
+# --- version menu ---------------------------------------------------------------------
+
+def test_versions_listing_and_switch(monkeypatch, tmp_path):
+    """Releases are vX.Y.Z tags from 0.6.0 on, newest first; switching prepares a worktree
+    for the tag and restarts with PYTHONPATH pointing at it (exec is faked here)."""
+    from atlaslookup import versions
+
+    tags = "v0.14.0\nv0.13.0\nv0.5.0\nv1.0.0-rc1\nsomething\nv0.6.0"
+    fake_git = {("rev-parse", "--git-dir"): ".git",
+                ("tag", "-l", "v*", "--sort=-v:refname"): tags}
+    monkeypatch.setattr(versions, "_git", lambda *a: fake_git.get(a, "2026-10-29"))
+    assert [r["tag"] for r in versions.releases()] == ["v0.14.0", "v0.13.0", "v0.6.0"]
+
+    made, execs = [], []
+    monkeypatch.setattr(versions, "_worktree", lambda tag: made.append(tag) or tmp_path / tag)
+
+    class NowTimer:  # run the "exec" immediately, and record it instead of replacing pytest
+        def __init__(self, _delay, fn): self.fn = fn
+        def start(self): self.fn()
+    monkeypatch.setattr(versions.threading, "Timer", NowTimer)
+    monkeypatch.setattr(versions.os, "execve", lambda exe, argv, env: execs.append((argv, env)))
+
+    versions.switch("v0.13.0", "127.0.0.1", 8765, "/data/results")
+    argv, env = execs[-1]
+    assert made == ["v0.13.0"] and env["PYTHONPATH"] == str(tmp_path / "v0.13.0" / "src")
+    assert env["ATLASLOOKUP_RUNNING_TAG"] == "v0.13.0"
+    assert argv[-6:] == ["--host", "127.0.0.1", "--port", "8765", "--results", "/data/results"]
+
+    monkeypatch.setenv("PYTHONPATH", "/somewhere")
+    versions.switch("dev", "127.0.0.1", 8765, None)
+    argv, env = execs[-1]
+    assert "PYTHONPATH" not in env and "ATLASLOOKUP_RUNNING_TAG" not in env and "--results" not in argv
+    with pytest.raises(ValueError):
+        versions.switch("v9.9.9", "127.0.0.1", 8765, None)
+
+
+def test_version_switch_endpoint_guards(monkeypatch):
+    from fastapi.testclient import TestClient
+    from atlaslookup import server, versions
+
+    c = TestClient(server.app)
+    monkeypatch.delenv("ATLASLOOKUP_SERVE", raising=False)
+    # Form posts (what another website could send without a preflight) are refused.
+    assert c.post("/api/versions/switch", data={"to": "dev"}).status_code == 415
+    # Not started through `atlaslookup serve`: nothing to restart.
+    assert c.post("/api/versions/switch", json={"to": "dev"}).status_code == 409
+    monkeypatch.setenv("ATLASLOOKUP_SERVE", '{"host": "127.0.0.1", "port": 8765, "results": null}')
+    monkeypatch.setattr(versions, "available", lambda: True)
+    monkeypatch.setattr(versions, "releases", lambda: [{"tag": "v0.14.0", "date": "2026-10-29"}])
+    assert c.post("/api/versions/switch", json={"to": "v0.1.0"}).status_code == 404
+    called = []
+    monkeypatch.setattr(versions, "switch", lambda *a: called.append(a))
+    assert c.post("/api/versions/switch", json={"to": "v0.14.0"}).json() == {"switching_to": "v0.14.0"}
+    assert called == [("v0.14.0", "127.0.0.1", 8765, None)]

@@ -287,6 +287,21 @@ python3 -m venv ~/.venvs/atlas-lookup && ln -s ~/.venvs/atlas-lookup .venv
 ``` `CHANGELOG.md` lists each version, and
 releases are tagged `vX.Y.Z`.
 
+## Switching versions
+
+Click the version badge next to the title for a menu of the tagged releases
+(newest first, "latest" marked) and **Development**, your own checkout.
+Choosing one restarts the app on that version, on the same address and in the
+same terminal, and the page reloads. Your data and settings are shared by every
+version.
+
+Each release is checked out once into `~/.atlaslookup/versions/<tag>` as a git
+worktree, so your own checkout (branch, files, uncommitted work) is never
+touched. This needs a git clone and the app started with `atlaslookup` (or
+`atlaslookup serve`). Releases older than 0.15.0 don't have the menu: to come
+back from one, stop the app (Ctrl+C) and start it again. To remove the saved
+copies: `rm -rf ~/.atlaslookup/versions && git worktree prune`.
+
 ## Branches
 
 `main` is an exact copy of [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup);

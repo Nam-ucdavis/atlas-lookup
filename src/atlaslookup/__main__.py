@@ -151,6 +151,8 @@ def main(argv=None):
             print("  note: listening beyond this machine; your results are viewable by anyone who can reach it")
         if args.open:
             _open_when_ready(url)
+        # Remembered so the version menu can restart this server with the same options.
+        os.environ["ATLASLOOKUP_SERVE"] = json.dumps({"host": args.host, "port": args.port, "results": args.results})
         uvicorn.run("atlaslookup.server:app", host=args.host, port=args.port)
 
     elif args.cmd == "maps":

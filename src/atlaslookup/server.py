@@ -1,6 +1,8 @@
 """Web API + static UI.
 
 GET /api/version                         live version + git commit
+GET /api/versions                        tagged releases the app can switch to (git checkouts only)
+POST /api/versions/switch  {"to": tag|"dev"}   restart this server on that version (JSON only)
 GET /api/atlases                         registered atlases
 GET /api/grids                           registered voxel grids
 GET /api/lookup?x=&y=&z=[&mode=voxel&grid=&base=1&radius=4&atlases=a,b]
@@ -63,6 +65,38 @@ async def no_stale_ui(request, call_next):
 @app.get("/api/version")
 def version():
     return version_info()
+
+
+@app.get("/api/versions")
+def versions_list():
+    from . import versions
+    return versions.listing()
+
+
+@app.post("/api/versions/switch")
+async def versions_switch(request: Request):
+    # JSON only: a cross-site request with this type needs a CORS preflight, which this
+    # server never grants, so other websites cannot switch the version.
+    if request.headers.get("content-type", "").split(";")[0] != "application/json":
+        raise HTTPException(415, "Send JSON")
+    import json
+    import os
+
+    from . import versions
+    body = await request.json()
+    target = str(body.get("to", ""))
+    serve = json.loads(os.environ.get("ATLASLOOKUP_SERVE", "{}"))
+    if not serve:
+        raise HTTPException(409, "Only available when started with `atlaslookup` / `atlaslookup serve`")
+    if not versions.available():
+        raise HTTPException(409, "Switching versions needs a git checkout")
+    try:
+        versions.switch(target, serve["host"], serve["port"], serve.get("results"))
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:  # git worktree failed
+        raise HTTPException(500, f"Could not prepare {target}: {e}")
+    return {"switching_to": target}
 
 
 @app.get("/api/atlases")

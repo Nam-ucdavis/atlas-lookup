@@ -54,6 +54,9 @@ src/atlaslookup/
   server.py       FastAPI routes (docstring lists them all)
   __main__.py     CLI (`atlaslookup ...`)
   version.py      version + git commit badge
+  versions.py     version menu: lists vX.Y.Z tags (>= 0.6.0), checks them out as git worktrees under
+                  ~/.atlaslookup/versions, and restarts the server in place (os.execve) with
+                  PYTHONPATH=<worktree>/src. Never touch the user's checkout from here.
   static/index.html   the whole lookup UI (inline module script)
   static/quiz.js      quiz + progress UI; exports matchName() for tests
   screenshots.py  saves "scr" captures as DATA_DIR/image/<date_time>.png
