@@ -61,7 +61,12 @@ src/atlaslookup/
   static/overlays.js  local NIfTI overlays read in the browser (never uploaded); exports tSf/tFromP/dfFromHeader for tests
   static/viewer3d.js  3D tab: a second NiiVue instance that mirrors the slice viewer's overlays
                       (clones volumes + copies display settings); surface or glass-brain mesh
-                      (/api/brain_mesh.gii, fsaverage5 pial built by sources.export_mesh)
+                      (/api/brain_mesh.gii, fsaverage5 pial built by sources.export_mesh);
+                      mesh style projects overlays onto the mesh in the browser; chosen regions
+                      are drawn as server-built meshes (/api/regions/mesh.gii)
+  static/regionpicker.js  the Regions window (search all atlases, colours, "results only inside")
+  static/browser.js   Finder-style column browser for the results folder's stat maps
+  regions.py      region listing, 1 mm region masks, smooth region surface meshes
   static/vendor/niivue-0.69.0.js   vendored NiiVue bundle; do not edit
 tests/test_lookup.py
 ```
@@ -100,8 +105,8 @@ tests/test_lookup.py
 - Match the surrounding code: small functions, sparse comments that explain *why*,
   type hints in Python, no new dependencies without a good reason.
 - Front end: plain ES modules, no build step, no frameworks. Colours are CSS variables on
-  `:root` with a dark-mode block. Keep every new element working at 375 px wide and in
-  dark mode. Class names are global, so check for clashes (`.seg` is the segmented
+  `:root` with a dark-mode block. The app is used in desktop browsers only (no phone
+  layout needed); keep new elements working in light and dark mode. Class names are global, so check for clashes (`.seg` is the segmented
   control; progress bars use `.pseg`).
 - Browser caching: `/` and `/static/*` are sent with `Cache-Control: no-cache` so a
   restart shows new UI. Keep it.
@@ -112,8 +117,7 @@ tests/test_lookup.py
 
 - Run `pytest` and add tests for new behaviour, with synthetic data.
 - For UI changes, run the app on a spare port with a throwaway `ATLASLOOKUP_HOME` (after
-  `setup`) and check it in a browser: desktop and 375 px, light and dark, and no console
-  errors. Exercise lookup, the viewer click, quiz mode (both question types), Progress,
+  `setup`) and check it in a desktop browser, light and dark, with no console errors. Exercise lookup, the viewer click, quiz mode (both question types), Progress,
   and a stat map if your change touches them.
 
 ## Releasing

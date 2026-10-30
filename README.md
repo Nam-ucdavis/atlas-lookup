@@ -12,9 +12,11 @@ labelled cluster table. A quiz mode helps you learn the regions.
 - **Viewer:** axial, coronal and sagittal slices of the MNI template. Click to
   look up a point, and overlay any atlas. Each slice shows its coordinate, the
   crosshair can be hidden, and **scr** saves the slices as a PNG.
-- **3D:** a second tab renders the brain in 3D, as a solid surface or a
-  see-through **glass brain**, showing the same overlays and results as the
-  slices.
+- **3D:** a second tab renders the brain in 3D (solid surface, see-through
+  **glass brain**, or **mesh brain** with your results painted on the cortex),
+  showing the same overlays and results as the slices. A **Regions** window
+  picks regions to show as solid shapes, optionally showing results only
+  inside them.
 - **Your stat maps:** point it at a folder of `spmT_*.nii` files to get a
   thresholded overlay, T and p at any point, and a cluster/peak table labelled
   by region. The maps are only read, never copied anywhere.
@@ -124,6 +126,17 @@ straight away.
   solid blobs inside, so deep effects are visible. **Glass** sets how
   transparent it is. The surface is fsaverage5 (cortex only, no cerebellum or
   brainstem), which lines up with MNI152 to within a few mm.
+- **Mesh brain:** the same cortical surface, opaque, with each overlay
+  projected onto it: every point takes the strongest value up to 4 mm beneath
+  it, using the overlay's own threshold and colours. Only the cortex is shown,
+  so subcortical and cerebellar results don't appear in this style. The
+  projection runs in your browser, so local overlays still aren't uploaded.
+- **Regions…** opens a window to pick regions from any atlas. Search by name
+  (common abbreviations like OFC, IFG, ACC work). Each chosen region is drawn
+  as a solid shape in its own colour, and in Mesh brain painted onto the
+  cortex. Tick **Show results only inside these regions** to hide everything
+  else; the regions then turn see-through so you can see the results inside.
+  Deep regions (hippocampus, amygdala) are clearest in Glass brain.
 - **Camera:** drag to rotate, scroll to zoom. **L R A P S I** jump to the
   left, right, front, back, top and bottom views.
 - **Crosshair and capture:** the slice crosshair is shown in 3D too (the
@@ -144,7 +157,10 @@ in `~/.atlaslookup/settings.json`, outside any repository, so it's safe to keep
 results out of version control. For one run you can use
 `atlaslookup serve --results DIR` instead.
 
-In the app, choose a map under **Stat map**:
+In the app, choose a map under **Stat map**. The button opens a Finder-style
+column browser of your results folder: click through the folders, see a map's
+contrast, df and grid on the right, and double-click (or press **Show**) to
+display it. Arrow keys and Enter work as in Finder.
 
 - **Overlay:** thresholded at **T ≥** your value; positive orange, negative
   blue, or one sign only. The equivalent p is shown, using the df from the SPM

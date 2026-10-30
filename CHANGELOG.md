@@ -3,6 +3,17 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.10.0 (2026-10-29)
+- **Mesh brain**, a third 3D style: an opaque cortical surface with every overlay
+  projected onto it (strongest value up to 4 mm beneath each point), using the
+  overlay's own threshold and colours. Projection runs in the browser.
+- **Regions window** (3D tab): search regions across all atlases and show the chosen
+  ones as solid, smoothed shapes in their own colours; painted onto the mesh brain;
+  optional "show results only inside these regions" (regions turn see-through).
+- **Stat map browser**: the results folder opens as a Finder-style column view with a
+  details pane, path bar and keyboard navigation.
+- The app targets desktop browsers.
+
 ## 0.9.0 (2026-10-29)
 - **3D view** in its own tab next to the slices: the brain as a solid surface or a
   see-through **glass brain** (fsaverage5 cortical mesh, adjustable transparency),

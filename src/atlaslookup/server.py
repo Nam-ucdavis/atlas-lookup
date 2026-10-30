@@ -5,7 +5,10 @@ GET /api/atlases                         registered atlases
 GET /api/grids                           registered voxel grids
 GET /api/lookup?x=&y=&z=[&mode=voxel&grid=&base=1&radius=4&atlases=a,b]
 GET /api/template.nii.gz                 MNI152 T1 background for the viewer
-GET /api/brain_mesh.gii                  cortical surface (fsaverage5 pial) for the 3D glass brain
+GET /api/brain_mesh.gii                  cortical surface (fsaverage5 pial) for the 3D glass/mesh brain
+GET /api/regions                         every region of every atlas (per side), for the Regions window
+GET /api/regions/mask.nii.gz?sel=atlas|value|side,...   chosen regions as one 1 mm label volume
+GET /api/regions/mesh.gii?sel=atlas|value|side          one region as a smooth surface mesh
 GET /api/atlases/{id}/label_map.nii.gz   parcellation in MNI space, for the viewer overlay
 GET /api/atlases/{id}/colormap           NiiVue label colormap for that overlay
 GET /api/quiz/regions?atlases=a,b        quizzable regions per atlas (with brain division)
@@ -34,7 +37,7 @@ from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
 from .config import IMAGE_DIR, MESH_FILE, STATIC_DIR, TEMPLATE_FILE
 from .grids import load_grids
 from .screenshots import MAX_BYTES, reveal, save_png
-from . import quiz
+from . import quiz, regions
 from .results import Results, configured_dir, repo_warning
 from .query import best_guess, query, resolve_mm
 from .version import version_info
@@ -139,6 +142,47 @@ def brain_mesh():
         from .sources import export_mesh
         export_mesh()
     return FileResponse(MESH_FILE, media_type="application/octet-stream")
+
+
+@app.get("/api/regions")
+def regions_list():
+    return [{"atlas": a.id, "atlas_name": a.manifest.name, "regions": list(regions.regions(a))}
+            for a in ATLASES.values() if a.info()["can_overlay"]]
+
+
+@app.get("/api/regions/mask.nii.gz")
+def regions_mask(sel: str = Query(..., min_length=1)):
+    selection = []
+    for item in sel.split(","):
+        try:
+            atlas_id, value, side = item.split("|")
+            value = int(value)
+        except ValueError:
+            raise HTTPException(400, f"Bad region {item!r}; expected atlas|value|side")
+        a = ATLASES.get(atlas_id)
+        if a is None or not a.info()["can_overlay"] or side not in regions.SIDES:
+            raise HTTPException(404, f"No region {item!r}")
+        selection.append((atlas_id, value, side))
+    if len(selection) > regions.MAX_REGIONS:
+        raise HTTPException(400, f"At most {regions.MAX_REGIONS} regions")
+    data = regions.mask_nifti(tuple(ATLASES.values()), tuple(selection))
+    return Response(data, media_type="application/gzip")
+
+
+@app.get("/api/regions/mesh.gii")
+def regions_mesh(sel: str):
+    try:
+        atlas_id, value, side = sel.split("|")
+        value = int(value)
+    except ValueError:
+        raise HTTPException(400, "Expected atlas|value|side")
+    a = ATLASES.get(atlas_id)
+    if a is None or not a.info()["can_overlay"] or side not in regions.SIDES:
+        raise HTTPException(404, f"No region {sel!r}")
+    try:
+        return Response(regions.mesh_gifti(a, value, side), media_type="application/octet-stream")
+    except ValueError:
+        raise HTTPException(404, f"Region {sel!r} is empty")
 
 
 def _overlay_atlas(atlas_id: str):

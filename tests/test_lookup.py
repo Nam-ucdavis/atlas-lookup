@@ -535,3 +535,112 @@ def test_viewer3d_is_wired():
         assert re.search(rf'id="{el}"', html), el
     js = (static / "viewer3d.js").read_text()
     assert "/api/brain_mesh.gii" in js and "export function createViewer3D" in js
+
+
+# --- regions window, region meshes, mesh-brain projection, Finder-style browser ------
+
+def test_region_painting_fills_every_covered_voxel():
+    """A 2 mm atlas voxel must fill all eight 1 mm voxels it covers (half-voxel ties
+    once dropped 7 of 8, leaving a dotted mask)."""
+    from atlaslookup import regions
+    from atlaslookup.atlas import MNI_1MM_AFFINE, MNI_1MM_SHAPE
+
+    lab = np.zeros((11, 11, 11), np.int16)
+    lab[3:6, 4:6, 5:7] = 7  # 3 x 2 x 2 = 12 voxels of 8 mm3
+    aff2 = np.array([[2, 0, 0, -10], [0, 2, 0, -10], [0, 0, 2, -10], [0, 0, 0, 1]], float)
+
+    class Fake:
+        mni_labels = (lab, aff2)
+
+    out = np.zeros(MNI_1MM_SHAPE, np.uint8)
+    regions._paint(out, Fake(), 7, "B", 3)
+    assert (out == 3).sum() == 12 * 8
+    ijk = np.argwhere(out == 3)
+    mm = ijk @ MNI_1MM_AFFINE[:3, :3].T + MNI_1MM_AFFINE[:3, 3]
+    # x from voxel 3..5 of the 2 mm grid: centres -4..0, so 1 mm centres -5..0
+    assert mm[:, 0].min() == -5 and mm[:, 0].max() == 0
+
+
+def test_region_surface_is_closed_and_sized():
+    from collections import Counter
+
+    from atlaslookup.regions import surface
+
+    g = np.indices((40, 40, 40)) - 20
+    for mask in [(g ** 2).sum(0) <= 100, (np.abs(g) <= 4).all(0)]:
+        v, f = surface(mask, np.eye(4))
+        edges = Counter(map(tuple, np.concatenate([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]]).tolist()))
+        assert all(n == 1 and edges.get((b, a)) == 1 for (a, b), n in edges.items())  # closed, consistent
+        tri = v[f]
+        volume = np.einsum("ij,ij->i", tri[:, 0], np.cross(tri[:, 1], tri[:, 2])).sum() / 6
+        assert volume > 0 and abs(volume - mask.sum()) / mask.sum() < 0.08  # outward, not shrunk
+
+
+@bootstrapped
+def test_regions_api():
+    import gzip
+
+    from fastapi.testclient import TestClient
+    from atlaslookup.server import app
+
+    c = TestClient(app)
+    listing = {a["atlas"]: a["regions"] for a in c.get("/api/regions").json()}
+    hippo = [r for r in listing["harvard-oxford-sub"] if r["name"] == "Left Hippocampus"][0]
+    ofc = [r for r in listing["harvard-oxford-cort"] if r["name"] == "Right Frontal Orbital Cortex"][0]
+    assert ofc["side"] == "R" and hippo["side"] == "B"
+    sel = f"harvard-oxford-sub|{hippo['value']}|B,harvard-oxford-cort|{ofc['value']}|R"
+    img = nib.Nifti1Image.from_bytes(gzip.decompress(c.get("/api/regions/mask.nii.gz", params={"sel": sel}).content))
+    d = np.asarray(img.dataobj)
+    xs = np.argwhere(d == 2)[:, 0] * img.affine[0, 0] + img.affine[0, 3]
+    assert (d == 1).sum() > 3000 and (d == 2).sum() > 3000 and (xs > 0).all()  # region 2 is right-sided
+    mesh = c.get("/api/regions/mesh.gii", params={"sel": f"harvard-oxford-sub|{hippo['value']}|B"})
+    v = nib.GiftiImage.from_bytes(mesh.content).agg_data("pointset")
+    assert -40 < v[:, 0].min() and v[:, 0].max() < 0 and v[:, 2].min() > -40  # left, medial temporal
+    assert c.get("/api/regions/mask.nii.gz", params={"sel": "nope|1|L"}).status_code == 404
+    assert c.get("/api/regions/mask.nii.gz", params={"sel": "garbage"}).status_code == 400
+    assert c.get("/api/regions/mesh.gii", params={"sel": "harvard-oxford-sub|9999|B"}).status_code == 404
+
+
+def _node(script):
+    import shutil
+    import subprocess
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    return out.stdout.strip()
+
+
+def test_js_region_search_browser_tree_and_projection():
+    import json
+
+    import atlaslookup
+
+    static = Path(atlaslookup.__file__).parent / "static"
+    out = _node(f"""
+      import {{ matches }} from {str(static / "regionpicker.js")!r};
+      import {{ buildTree, entries }} from {str(static / "browser.js")!r};
+      import {{ volumeSampler, projectToVertices }} from {str(static / "viewer3d.js")!r};
+      const m = [
+        matches("medial orbitofrontal", "Left olfactory sulcus (medial orbital sulcus)"),
+        matches("hippocampus", "Left Hippocampus"), matches("ifg", "Left Inferior Temporal Gyrus"),
+        matches("ba 44", "Right Brodmann area 44"), matches("amygdala juelich", "Left Amygdala, laterobasal group", "Juelich Histological"),
+      ];
+      const tree = buildTree([{{ id: "S1/T1/a/spmT_0001.nii" }}, {{ id: "S1/T1/a/spmT_0002.nii" }},
+                              {{ id: "S1/T1/b/spmT_0001.nii" }}, {{ id: "S2/spmT_0001.nii" }}]);
+      const top = entries(tree).map((e) => e.node?.name ?? e.map.name);
+      const t1 = entries(tree.dirs.get("S1").dirs.get("T1")).map((e) => e.kind + ":" + (e.node?.name ?? e.map.name));
+      // 3x3x3 volume, 1 mm, origin -1: value 5 at the centre voxel (mm 0,0,0), -7 one voxel to the left.
+      const img = new Float32Array(27); img[13] = 5; img[12] = -7;
+      const s = volumeSampler({{ img, dims: [3, 3, 3], affine: [[1,0,0,-1],[0,1,0,-1],[0,0,1,-1],[0,0,0,1]] }});
+      // A vertex at x=+1 with an outward normal +x sees 5 at depth 1 and -7 at depth 2 -> keeps -7 (largest |v|).
+      const proj = projectToVertices(s, new Float32Array([1, 0, 0]), new Float32Array([1, 0, 0]), [0, 1, 2]);
+      const lab = projectToVertices(s, new Float32Array([1, 0, 0]), new Float32Array([1, 0, 0]), [0, 1, 2], true);
+      console.log(JSON.stringify({{ m, top, t1, proj: Array.from(proj), lab: Array.from(lab), out: s(9, 9, 9) }}));
+    """)
+    r = json.loads(out)
+    assert r["m"] == [True, True, False, True, True]
+    assert r["top"] == ["S1", "S2"]
+    assert r["t1"] == ["dir:a", "dir:b"]
+    assert r["proj"] == [-7] and r["lab"] == [5] and r["out"] == 0
