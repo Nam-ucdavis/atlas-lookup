@@ -774,10 +774,11 @@ async function initViewer() {
   let tractPanel = null;
   const picker = createRegionPicker({
     button: $("v3Regions"), store, esc,
-    onChange: (list, opts) => { view3d.setRegions(list, opts); tractPanel?.setRegions(list); },
+    onChange: (list, opts) => { view3d.setRegions(list, opts); setSliceRegions(list); tractPanel?.setRegions(list); },
     panel: sidePanel, host: sidePanel.section("regions"),
   });
   view3d.setRegions(picker.chosen, { maskResults: picker.maskResults });
+  setSliceRegions(picker.chosen);
   // White-matter tracts near the chosen regions, listed under them in the same tab.
   tractPanel = createTractPanel({ host: picker.tractHost, store, esc, onChange: (list) => view3d.setTracts(list) });
   tractPanel.setRegions(picker.chosen);
@@ -893,6 +894,7 @@ async function rebuildOverlays() {
     vol.setColormapLabel(cm);
     atlasVol = vol;
   }
+  if (sliceRegions.vol) nv.addVolume(sliceRegions.vol);  // over the atlas, under the stat maps
   // Open stat maps, back to front, so the top of the list is painted last (in front).
   for (const e of [...state.stats].reverse()) {
     if (!e.visible || !e.maxAbs) continue;
@@ -914,6 +916,34 @@ async function rebuildOverlays() {
   if (state.last) moveCrosshair(state.last.mm);
 }
 $("overlay").addEventListener("change", (e) => setOverlay(e.target.value));
+
+// Regions chosen in the Regions tab, painted on the slices in their 3D colours (the 3D
+// view draws them as surfaces instead, so it skips this volume: skip3d).
+const REGION_SLICE_OPACITY = 0.5;
+const sliceRegions = { key: "", vol: null, token: 0 };
+async function setSliceRegions(list, redraw = true) {
+  const key = list.map((r) => `${r.atlas}|${r.value}|${r.side}|${r.color.join(":")}`).join(",");
+  if (key === sliceRegions.key) return;
+  sliceRegions.key = key;
+  const token = ++sliceRegions.token;
+  let vol = null;
+  if (list.length) {
+    const sel = list.map((r) => `${r.atlas}|${r.value}|${r.side}`).join(",");
+    const r = await fetch(`/api/regions/mask.nii.gz?sel=${encodeURIComponent(sel)}`);
+    if (!r.ok || token !== sliceRegions.token) return;
+    vol = await NVImage.loadFromUrl({ url: "regions.nii.gz", name: "regions.nii.gz", buffer: await r.arrayBuffer() });
+    if (token !== sliceRegions.token) return;
+    vol.setColormapLabel({
+      R: [0, ...list.map((x) => x.color[0])], G: [0, ...list.map((x) => x.color[1])],
+      B: [0, ...list.map((x) => x.color[2])], A: [0, ...list.map(() => 255)],
+      I: [0, ...list.map((_, i) => i + 1)], labels: ["", ...list.map((x) => x.name)],
+    });
+    vol.opacity = REGION_SLICE_OPACITY;
+    vol.skip3d = true;
+  }
+  sliceRegions.vol = vol;
+  if (redraw && nv && !quizApi?.active) await rebuildOverlays();
+}
 $("opacity").addEventListener("input", (e) => {
   const i = atlasVol ? nv.volumes.indexOf(atlasVol) : -1;
   if (i > 0) nv.setOpacity(i, +e.target.value);

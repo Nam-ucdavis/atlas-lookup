@@ -14,12 +14,14 @@ const MAX_SHOWN = 150;  // search results listed at once
 const SYNONYMS = {
   orbitofrontal: ["orbital"], ofc: ["orbital"], mofc: ["orbital", "rectus"], hippo: ["hippocamp"],
   amyg: ["amygdala"], acc: ["cingul"], pcc: ["cingul"], mcc: ["cingul"], dlpfc: ["middle frontal"],
-  vmpfc: ["frontal medial", "rectus", "subcallosal"], ifg: ["inferior frontal"], mfg: ["middle frontal"],
+  vmpfc: ["frontal medial", "rectus", "subcallosal", "ventromedial"], ifg: ["inferior frontal"], mfg: ["middle frontal"],
   sfg: ["superior frontal"], stg: ["superior temporal"], mtg: ["middle temporal"], itg: ["inferior temporal"],
   ips: ["intraparietal", "intra-parietal"], m1: ["precentral", "primary motor"], s1: ["postcentral", "somatosensory"],
   sma: ["supplementary motor", "juxtapositional"], nacc: ["accumbens"], striatum: ["caudate", "putamen", "accumbens"],
   ba: ["brodmann area"], dmn: ["default mode"], fpn: ["frontoparietal"], fpcn: ["frontoparietal"],
   cen: ["frontoparietal"], executive: ["frontoparietal"], salience: ["salience"], dan: ["dorsal attention"],
+  pmat: ["(at) system", "(pm) system"], prc: ["perirhinal"], erc: ["entorhinal"], phc: ["parahippocampal"],
+  rsc: ["retrosplenial"],
 };
 
 /** Does `name` (plus its atlas name) match every word of the query? Exported for tests. */
@@ -54,7 +56,7 @@ export function createRegionPicker({ button, store, esc, onChange, panel, host }
       </div>
       <div class="rg-tracts"></div>
     </div>
-    <p class="hint rg-note">Shown in the 3D tab, in these colours. Deep regions (hippocampus, amygdala, basal ganglia) are clearest with <b>Glass brain</b>; <b>Mesh brain</b> only shows the cortical surface.</p>`;
+    <p class="hint rg-note">Shown on the slices and in the 3D tab, in these colours. In 3D, deep regions (hippocampus, amygdala, basal ganglia) are clearest with <b>Glass brain</b>; <b>Mesh brain</b> only shows the cortical surface.</p>`;
   const search = dlg.querySelector("input[type=search]"), atlasSel = dlg.querySelector("select");
   const results = dlg.querySelector(".rg-results"), list = dlg.querySelector(".rg-list");
   const maskBox = dlg.querySelector("[data-opt=mask]");

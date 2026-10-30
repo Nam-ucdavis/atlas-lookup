@@ -176,6 +176,94 @@ def import_schaefer_networks(source_id="schaefer2018-400-7net", overwrite=False,
     )
 
 
+# Ranganath & Ritchey (2012) Nat Rev Neurosci 13:713-726: the anterior temporal (AT)
+# and posterior medial (PM) systems, with the hippocampus where they meet. The paper
+# gives no atlas, so each component is the closest region of an installed atlas:
+# (system, component, [(atlas id, file, values)]). Later rows win where they overlap.
+AT_PM = [
+    ("AT", "Perirhinal / entorhinal cortex (anterior parahippocampal gyrus)",
+     [("harvard-oxford-cort", "label_map.nii.gz", [34])]),
+    ("AT", "Temporal pole", [("harvard-oxford-cort", "label_map.nii.gz", [8])]),
+    ("AT", "Anterior ventral temporal cortex", [("harvard-oxford-cort", "label_map.nii.gz", [14, 37])]),
+    ("AT", "Lateral orbitofrontal cortex", [("harvard-oxford-cort", "label_map.nii.gz", [33])]),
+    ("PM", "Parahippocampal cortex", [("harvard-oxford-cort", "label_map.nii.gz", [35])]),
+    ("PM", "Posterior cingulate cortex", [("harvard-oxford-cort", "label_map.nii.gz", [30])]),
+    ("PM", "Precuneus", [("harvard-oxford-cort", "label_map.nii.gz", [31])]),
+    ("PM", "Angular gyrus", [("harvard-oxford-cort", "label_map.nii.gz", [21])]),
+    ("PM", "Ventromedial prefrontal cortex", [("harvard-oxford-cort", "label_map.nii.gz", [25])]),
+    ("PM", "Retrosplenial cortex (cingulate isthmus)", [("destrieux2009", "label_map.nii.gz", [10, 85])]),
+    ("AT", "Amygdala", [("harvard-oxford-sub", "label_map.nii.gz", [10, 20])]),
+    ("PM", "Anterior thalamus", [("talairach-ba", "overlay_map_mni.nii.gz", [52])]),
+    ("PM", "Mammillary bodies", [("talairach-ba", "overlay_map_mni.nii.gz", [24])]),
+    ("Both", "Hippocampus", [("harvard-oxford-sub", "label_map.nii.gz", [9, 19])]),
+]
+AT_PM_SYSTEMS = {"AT": "Anterior temporal (AT) system", "PM": "Posterior medial (PM) system",
+                 "Both": "Hippocampus (meets both systems)"}
+AT_PM_SOURCES = sorted({s for _, _, parts in AT_PM for s, _, _ in parts})
+AT_PM_CITATION = (
+    "Ranganath & Ritchey (2012) Two cortical systems for memory-guided behaviour. Nat Rev Neurosci "
+    "13:713-726 (doi:10.1038/nrn3338). See also Ritchey, Libby & Ranganath (2015) Prog Brain Res "
+    "219:45-64 (doi:10.1016/bs.pbr.2015.04.001). Regions drawn from Harvard-Oxford (Desikan et al. 2006), "
+    "Destrieux et al. (2010) and the Talairach Daemon (Lancaster et al. 2000)."
+)
+
+
+def import_at_pm(overwrite=False, atlases_dir=None):
+    """The AT and PM memory systems, as two atlases: whole systems (one region per
+    hemisphere) and their components. Built from installed atlases on the 2 mm MNI
+    grid (nearest voxel), so it needs no download. Presubiculum is left out: no
+    installed atlas has it apart from the hippocampus."""
+    import nibabel as nib
+
+    atlases_dir = atlases_dir or ATLASES_DIR
+    grid = nib.load(str(atlases_dir / "harvard-oxford-cort" / "label_map.nii.gz"))
+    mm = np.argwhere(np.ones(grid.shape[:3], bool)) @ grid.affine[:3, :3].T + grid.affine[:3, 3]
+    sampled = {}
+
+    def labels_of(atlas_id, file):  # an installed atlas's labels at every grid voxel
+        if (atlas_id, file) not in sampled:
+            img = nib.load(str(atlases_dir / atlas_id / file))
+            d = np.asarray(img.dataobj).astype(np.int32)
+            ijk = np.rint(np.c_[mm, np.ones(len(mm))] @ np.linalg.inv(img.affine)[:3].T).astype(int)
+            ok = np.all((ijk >= 0) & (ijk < d.shape[:3]), axis=1)
+            out = np.zeros(len(mm), np.int32)
+            out[ok] = d[tuple(ijk[ok].T)]
+            sampled[atlas_id, file] = out.reshape(grid.shape[:3])
+        return sampled[atlas_id, file]
+
+    parts = np.zeros(grid.shape[:3], np.int16)
+    for k, (_, _, srcs) in enumerate(AT_PM, 1):
+        for atlas_id, file, values in srcs:
+            parts[np.isin(labels_of(atlas_id, file), values)] = k
+    systems = list(AT_PM_SYSTEMS)
+    to_system = np.array([0] + [systems.index(s) + 1 for s, _, _ in AT_PM], np.int16)
+    common = dict(space=FSL_SPACE, kind="functional", lateralize=True, citation=AT_PM_CITATION,
+                  doi="10.1038/nrn3338", atlases_dir=atlases_dir, overwrite=overwrite)
+    add_atlas(
+        id="at-pm-systems", name="AT / PM memory systems (Ranganath & Ritchey 2012)",
+        labels={i + 1: AT_PM_SYSTEMS[s] for i, s in enumerate(systems)},
+        label_map=nib.Nifti1Image(to_system[parts], grid.affine),
+        order=52, role="Memory system",
+        description="Anterior temporal (perirhinal, temporal pole, anterior ventral temporal, lateral orbitofrontal, "
+                    "amygdala) and posterior medial (parahippocampal, retrosplenial, posterior cingulate, precuneus, "
+                    "angular, ventromedial prefrontal, anterior thalamus, mammillary bodies) systems, with the "
+                    "hippocampus between them. Each part is the closest region of an installed anatomical atlas.",
+        **common,
+    )
+    add_atlas(
+        id="at-pm-regions", name="AT / PM system components (Ranganath & Ritchey 2012)",
+        labels={k: f"{s} · {name}" if s != "Both" else name for k, (s, name, _) in enumerate(AT_PM, 1)},
+        label_map=nib.Nifti1Image(parts, grid.affine),
+        order=53, role="Memory system part",
+        description="The parts of the AT and PM systems. Approximations: perirhinal/entorhinal = Harvard-Oxford "
+                    "anterior parahippocampal gyrus; temporal pole = the whole Harvard-Oxford pole (the paper "
+                    "stresses its ventral part); lateral orbitofrontal = Harvard-Oxford orbital cortex, which "
+                    "also covers medial orbital cortex; retrosplenial = Destrieux cingulate isthmus; anterior thalamus "
+                    "and mammillary bodies from the Talairach Daemon. Presubiculum is not included.",
+        **common,
+    )
+
+
 def import_destrieux(overwrite=False):
     from nilearn import datasets
 
@@ -415,6 +503,8 @@ def bootstrap(overwrite=False):
     step("Yeo 7 networks (merged from Schaefer)", ["yeo2011-7networks"], lambda: import_schaefer_networks(overwrite=overwrite))
     step("Destrieux 2009", ["destrieux2009"], lambda: import_destrieux(overwrite))
     step("Talairach Daemon", ["talairach-ba", "talairach-gyrus"], lambda: import_talairach(overwrite))
+    step("AT / PM memory systems (from the atlases above)", ["at-pm-systems", "at-pm-regions"],
+         lambda: import_at_pm(overwrite))
     step("White-matter tracts (JHU, XTRACT; from FSL, ~50 MB)", ["jhu-tracts", "jhu-labels", "xtract-hcp"],
          lambda: import_white_matter(overwrite))
     if overwrite or not TEMPLATE_FILE.exists():

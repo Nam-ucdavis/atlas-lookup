@@ -820,7 +820,8 @@ def test_setup_skips_installed_atlases(tmp_path, monkeypatch):
     from atlaslookup import sources
 
     for i in ["harvard-oxford-cort", "harvard-oxford-sub", "juelich", "schaefer2018-400-7net", "destrieux2009",
-              "talairach-ba", "talairach-gyrus", "jhu-tracts", "jhu-labels", "yeo2011-7networks"]:
+              "talairach-ba", "talairach-gyrus", "jhu-tracts", "jhu-labels", "yeo2011-7networks",
+              "at-pm-systems", "at-pm-regions"]:
         (tmp_path / "atlases" / i).mkdir(parents=True)
         (tmp_path / "atlases" / i / "atlas.json").write_text("{}")
     (tmp_path / "grids").mkdir()
@@ -833,7 +834,7 @@ def test_setup_skips_installed_atlases(tmp_path, monkeypatch):
     monkeypatch.setattr(sources, "GRIDS_DIR", tmp_path / "grids")
     ran = []
     for name in ["import_harvard_oxford", "import_juelich", "import_schaefer", "import_destrieux",
-                 "import_talairach", "import_white_matter", "import_schaefer_networks"]:
+                 "import_talairach", "import_white_matter", "import_schaefer_networks", "import_at_pm"]:
         monkeypatch.setattr(sources, name, lambda *a, _n=name, **k: ran.append(_n))
     sources.bootstrap()
     assert ran == ["import_white_matter"]  # xtract-hcp is missing, so only that step runs
@@ -864,9 +865,49 @@ def test_network_synonyms():
     js = Path(__file__).parents[1] / "src/atlaslookup/static/regionpicker.js"
     code = (f'import {{ matches }} from "{js.as_uri()}";'
             'console.log(JSON.stringify([matches("dmn", "Left Default mode network"), '
-            'matches("fpn", "Right Frontoparietal control network"), matches("dmn", "Left Visual network")]));')
+            'matches("fpn", "Right Frontoparietal control network"), matches("dmn", "Left Visual network"), '
+            'matches("pmat", "Left Posterior medial (PM) system"), matches("rsc", "Right PM · Retrosplenial cortex")]));')
     try:
         out = subprocess.run(["node", "--input-type=module", "-e", code], capture_output=True, text=True, timeout=20)
     except FileNotFoundError:
         pytest.skip("node not installed")
-    assert out.stdout.strip() == "[true,true,false]", out.stderr
+    assert out.stdout.strip() == "[true,true,false,true,true]", out.stderr
+
+
+def test_at_pm_systems_from_installed_atlases(tmp_path):
+    from atlaslookup.sources import AT_PM_SOURCES, import_at_pm
+
+    def stub(atlas_id, file, voxels):  # one 11^3 atlas with the given {value: index slice}
+        lab = np.zeros((11, 11, 11), np.int16)
+        for value, sl in voxels.items():
+            lab[sl] = value
+        img = nib.Nifti1Image(lab, AFFINE_2MM)
+        if file == "label_map.nii.gz":
+            add_atlas(atlas_id, atlas_id, "MNI152NLin6Asym", {v: f"r{v}" for v in voxels} or {1: "x"},
+                      label_map=img, atlases_dir=tmp_path)
+        else:
+            nib.save(img, str(tmp_path / atlas_id / file))
+
+    stub("harvard-oxford-cort", "label_map.nii.gz", {34: np.s_[:5, 0], 31: np.s_[6:, 0], 30: np.s_[6:, 1]})
+    stub("harvard-oxford-sub", "label_map.nii.gz", {9: np.s_[:5, 2], 20: np.s_[6:, 2]})
+    stub("destrieux2009", "label_map.nii.gz", {85: np.s_[6:, 1, :3]})  # retrosplenial wins over PCC
+    stub("talairach-ba", "label_map.nii.gz", {})
+    stub("talairach-ba", "overlay_map_mni.nii.gz", {52: np.s_[:5, 3]})
+    assert sorted(p.name for p in tmp_path.iterdir()) == AT_PM_SOURCES
+    import_at_pm(atlases_dir=tmp_path)
+
+    sys_ = Atlas(tmp_path / "at-pm-systems")
+    assert sys_.labels == {1: "Anterior temporal (AT) system", 2: "Posterior medial (PM) system",
+                           3: "Hippocampus (meets both systems)"}
+    data, _ = sys_.mni_labels
+    assert set(np.unique(data[:5, 0]).tolist()) == {1}      # perirhinal -> AT
+    assert set(np.unique(data[6:, 0]).tolist()) == {2}      # precuneus -> PM
+    assert set(np.unique(data[:5, 3]).tolist()) == {2}      # anterior thalamus -> PM
+    assert set(np.unique(data[:5, 2]).tolist()) == {3}      # hippocampus
+    assert set(np.unique(data[6:, 2]).tolist()) == {1}      # amygdala -> AT
+
+    parts = Atlas(tmp_path / "at-pm-regions")
+    d, _ = parts.mni_labels
+    assert parts.labels[d[8, 1, 0]] == "PM · Retrosplenial cortex (cingulate isthmus)"
+    assert parts.labels[d[8, 1, 5]] == "PM · Posterior cingulate cortex"
+    assert parts.lookup([-6, -10, -10])["label"]["name"].startswith("Left AT · Perirhinal")

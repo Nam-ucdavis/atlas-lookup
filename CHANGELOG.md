@@ -3,6 +3,21 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.17.3 (2026-10-29)
+- **AT / PM memory systems** (Ranganath & Ritchey 2012): two new atlases, built from the
+  installed ones (no download; `atlaslookup setup` adds them). *AT / PM memory systems*
+  has the anterior temporal system, the posterior medial system and the hippocampus
+  between them, one region per hemisphere; *AT / PM system components* has each part
+  (perirhinal/entorhinal, temporal pole, lateral OFC, amygdala, parahippocampal,
+  retrosplenial, posterior cingulate, precuneus, angular, vmPFC, anterior thalamus,
+  mammillary bodies, ...). Lookups, Regions search ("pmat", "rsc", "prc", "phc"), 3D and
+  Connecting tracts all work with them.
+- References on the atlas cards and in the README: Ranganath & Ritchey 2012; Ritchey,
+  Libby & Ranganath 2015. The cards also list which atlas region stands in for each part.
+- **Chosen regions on the slices**: regions picked in the Regions tab are now painted on
+  the 2D slices too, in their 3D colours and half see-through, over the atlas overlay and
+  under the stat maps (the 3D view keeps drawing them as surfaces).
+
 ## 0.17.2 (2026-10-29)
 - **Whole networks**: new atlas *Yeo 2011 7 networks*, made by merging the 400 Schaefer
   parcels into their network (no download; `atlaslookup setup` adds it). The default mode

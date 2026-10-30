@@ -247,7 +247,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   // region mask) changed; threshold or colour edits just copy the display settings.
   function sync(force = false) {
     if (!nv3 || !active) return;
-    const src = getNv().volumes.slice(1);
+    const src = getNv().volumes.slice(1).filter((v) => !v.skip3d);  // e.g. the slices' region layer
     const same = !force && src.length === clones.length && src.every((v, i) => clones[i].src === v);
     if (!same) {
       while (nv3.volumes.length > 1) nv3.removeVolumeByIndex(1);

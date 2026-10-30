@@ -135,7 +135,8 @@ straight away.
 - **Regions…** opens the side panel's Regions tab to pick regions from any atlas. Search by name
   (common abbreviations like OFC, IFG, ACC work). Each chosen region is drawn
   as a solid shape in its own colour, and in Mesh brain painted onto the
-  cortex. Tick **Show results only inside these regions** to hide everything
+  cortex. They are also painted, half see-through, on the 2D slices (over the
+  atlas overlay, under your stat maps). Tick **Show results only inside these regions** to hide everything
   else; the regions then turn see-through so you can see the results inside.
   Deep regions (hippocampus, amygdala) are clearest in Glass brain.
 - **Connecting tracts** (under the chosen regions, same tab) lists the
@@ -292,6 +293,27 @@ made from your installed Schaefer atlas, with no extra download. If you report i
 - Frontoparietal control network: Vincent et al. (2008) *J Neurophysiol*
   100:3328-3342, doi:10.1152/jn.90355.2008; Dosenbach et al. (2007) *PNAS*
   104:11073-11078, doi:10.1073/pnas.0704320104.
+
+**Memory systems.** *AT / PM memory systems* follows Ranganath & Ritchey (2012):
+the anterior temporal (AT) system (perirhinal/entorhinal cortex, temporal pole,
+anterior ventral temporal cortex, lateral orbitofrontal cortex, amygdala), the
+posterior medial (PM) system (parahippocampal, retrosplenial and posterior
+cingulate cortex, precuneus, angular gyrus, ventromedial prefrontal cortex,
+anterior thalamus, mammillary bodies) and the hippocampus between them. *AT / PM
+system components* has each part on its own. Search "pmat", "AT system", "PM
+system", "rsc", "prc" or "phc". The paper gives no atlas, so each part is the
+closest region of an installed atlas (Harvard-Oxford; Destrieux for retrosplenial;
+the Talairach Daemon for the thalamic nuclei and mammillary bodies); the atlas card
+lists the approximations, and the presubiculum is left out. It needs no extra
+download. If you report it, cite:
+
+- Ranganath & Ritchey (2012) Two cortical systems for memory-guided behaviour.
+  *Nat Rev Neurosci* 13:713-726, doi:10.1038/nrn3338.
+- Ritchey, Libby & Ranganath (2015) Cortico-hippocampal systems involved in
+  memory and cognition: the PMAT framework. *Prog Brain Res* 219:45-64,
+  doi:10.1016/bs.pbr.2015.04.001.
+- and the atlases the regions come from (Harvard-Oxford, Destrieux, Talairach
+  Daemon), whose citations are on their cards.
 
 **White-matter tracts** need `atlaslookup setup` once (installs from before
 0.17 just run it again; atlases you already have are skipped). It downloads

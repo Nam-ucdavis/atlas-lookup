@@ -47,7 +47,9 @@ src/atlaslookup/
   atlas.py        Atlas: lookup() -> label / probabilities / nearest / neighbourhood; add_atlas(); MNI resampling
   sources.py      built-in atlas importers (nilearn) + `setup` (skips atlases already installed);
                   JHU + XTRACT tracts come from FSL's conda channel, pinned by version + sha256
-                  (FSL_PACKAGES), XTRACT resampled to 2 mm to keep memory down
+                  (FSL_PACKAGES), XTRACT resampled to 2 mm to keep memory down. Derived atlases
+                  (Yeo 7 from Schaefer; AT/PM systems from HO/Destrieux/Talairach via the AT_PM
+                  table) are built from installed atlases and must run after their sources in setup
   labels.py       label-file readers (tsv/csv, LUT txt, FSL xml)
   grids.py        voxel grids (voxel index <-> mm)
   query.py        input resolution (mm / voxel, 1-based default) + best_guess()
