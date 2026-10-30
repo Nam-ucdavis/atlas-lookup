@@ -64,7 +64,7 @@ export function barEnds({ sign, from, to, mode, df }, minus = "−") {
   return { unit: "T", lo: s + from.toFixed(2), hi: s + to.toFixed(2) };
 }
 
-export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, wrap, toggle, button, setHint, altCapture, barsHost }) {
+export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, wrap, toggle, button, setHint, altCapture, barsHost, barHost }) {
   const nv = getNv();
   const box = document.createElement("div");
   box.className = "slice-labels";
@@ -110,7 +110,9 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
   // Colour bars with editable ends: min is the threshold, max the top of the colour
   // range (blank = the data's strongest value). The DOM is rebuilt only when the set of
   // bars changes, so typing in a box is never interrupted by the redraws it causes.
-  let shown = new Map(), shape = "";
+  // barHost(entry) may give a bar its own container (e.g. its row in a layer list);
+  // the rest go in the shared one.
+  let shown = new Map(), shape = "", els = new Map();
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
   const id = (e) => e.key + e.sign;
 
@@ -118,18 +120,30 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
     const list = getLegend();
     shown = new Map(list.map((e) => [id(e), e]));
     const next = list.map((e) => id(e) + e.cmap).join("|");
-    if (next !== shape) {
+    // Also rebuild when a host re-rendered and dropped its bars.
+    if (next !== shape || [...els.values()].some((el) => !el.isConnected)) {
       shape = next;
-      bars.innerHTML = list.map((e) => `<div class="cbar" data-id="${esc(id(e))}">
-        <span class="cbar-name">${esc(e.name)} <b>${e.sign}</b></span>
-        <span class="cbar-row"><span class="cbar-unit"></span>
-          <input type="number" step="any" data-end="from" aria-label="Colour bar minimum (threshold)">
-          <i style="background:linear-gradient(to right,${gradient(e.cmap)})"></i>
-          <input type="number" step="any" data-end="to" aria-label="Colour bar maximum">
-          <button type="button" class="linkish" data-end="auto" title="Back to the data maximum">auto</button></span></div>`).join("");
+      for (const el of els.values()) el.remove();
+      els = new Map();
+      for (const e of list) {
+        const el = document.createElement("div");
+        el.className = "cbar";
+        el.dataset.id = id(e);
+        el.innerHTML = `<span class="cbar-name">${esc(e.name)}</span>
+          <span class="cbar-row"><b class="cbar-sign">${e.sign}</b><span class="cbar-unit"></span>
+            <input type="number" step="any" data-end="from" aria-label="Colour bar minimum (threshold)">
+            <i style="background:linear-gradient(to right,${gradient(e.cmap)})"></i>
+            <input type="number" step="any" data-end="to" aria-label="Colour bar maximum">
+            <button type="button" class="linkish" data-end="auto" title="Back to the data maximum">auto</button></span>`;
+        el.addEventListener("input", (ev) => edit(ev, false));
+        el.addEventListener("change", (ev) => edit(ev, true));
+        el.addEventListener("click", (ev) => ev.target.dataset.end === "auto" && edit(ev, true));
+        (barHost?.(e) || bars).append(el);
+        els.set(id(e), el);
+      }
     }
     for (const e of list) {
-      const row = bars.querySelector(`.cbar[data-id="${CSS.escape(id(e))}"]`);
+      const row = els.get(id(e));
       const { unit, lo, hi } = barEnds(e, "-");
       row.title = `${e.name} (${e.sign})${unit === "p" ? " · p one-sided, uncorrected" : ""}`;
       row.querySelector(".cbar-unit").textContent = unit;
@@ -151,9 +165,6 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
     if (!raw || !isFinite(v) || v === 0) return;
     end === "from" ? e.setFrom(v) : e.setTo(v);
   };
-  bars.addEventListener("input", (ev) => edit(ev, false));
-  bars.addEventListener("change", (ev) => edit(ev, true));
-  bars.addEventListener("click", (ev) => ev.target.dataset.end === "auto" && edit(ev, true));
 
   function drawBars(ctx, y0) {
     const list = getLegend();
@@ -217,5 +228,5 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
   });
 
   nv.drawScene();
-  return { capture, labels, legend, drawBars };
+  return { capture, labels, legend, drawBars, refreshLegend: () => { shape = ""; legend(); } };
 }

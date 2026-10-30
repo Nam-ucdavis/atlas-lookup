@@ -329,7 +329,12 @@
   .stat-list + .stat-ctl:not([hidden]) { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
   .sl-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
   .sl-head .hint { margin: 0; }
-  .sl-row { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 6px; font-size: 13px; }
+  .sl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 4px 6px; border-radius: 6px; font-size: 13px; }
+  .sl-row + .sl-row { border-top: 1px solid var(--line); }
+  .sl-bars { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 4px 18px; padding-left: 24px; font-size: 12px; }
+  .sl-bars:empty { display: none; }
+  .sl-bars .cbar { flex: 1 1 220px; max-width: 360px; }
+  .sl-bars .cbar-name { display: none; }  /* the row already names the map */
   .sl-row.active { background: var(--accent-soft); }
   .sl-row.off .sl-name { opacity: .5; }
   .sl-name { flex: 1; min-width: 0; text-align: left; border: 0; background: none; color: var(--ink); font: inherit; padding: 2px 0;
@@ -386,6 +391,7 @@
   .cbar-row input { width: 76px; padding: 2px 5px; font: inherit; color: var(--ink); background: var(--bg);
     border: 1px solid var(--line); border-radius: 5px; }
   .cbar-row .linkish { margin: 0; }
+  .cbar-sign { min-width: 8px; }
   .cbar-row .linkish[hidden] { display: none; }
   .glwrap.drop { outline: 2px dashed var(--accent); outline-offset: -4px; }
   .linkish { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 0; margin-top: 10px; }
@@ -727,6 +733,8 @@ async function initViewer() {
     getLegend: () => (quizApi?.active ? [] : [...overlaysApi.legend(), ...statLegend()]),
     wrap: document.querySelector(".glwrap"), toggle: $("crosshairOn"), button: $("scrBtn"), setHint: flashHint,
     altCapture: (drawBars) => view3d?.capture(drawBars), barsHost: $("statRange"),
+    // Each results-folder map's bars sit in its row of the Stat maps list.
+    barHost: (e) => e.key.startsWith("stat:") ? [...$("statList").querySelectorAll(".sl-bars")].find((el) => el.dataset.map === e.key.slice(5)) : null,
   });
   initDrop();
   view3d = createViewer3D({
@@ -1035,8 +1043,10 @@ function renderStatList() {
         ${e.error ? `<span class="err" title="${esc(e.error)}">could not load</span>` : ""}
         <label class="sl-op">Opacity <input type="range" data-k="opacity" min="0" max="1" step="0.05" value="${e.opacity}" aria-label="Opacity of ${esc(e.map)}"></label>
         <button type="button" class="btn small" data-act="remove" title="Close this map" aria-label="Close ${esc(e.map)}">✕</button>
+        <div class="sl-bars" data-map="${esc(e.map)}"></div>
       </div>`;
     }).join("");
+  viewerTools?.refreshLegend();  // put the colour bars back into the new rows
 }
 const entryOf = (ev) => state.stats[+ev.target.closest(".sl-row")?.dataset.i];
 $("statList").addEventListener("click", (ev) => {

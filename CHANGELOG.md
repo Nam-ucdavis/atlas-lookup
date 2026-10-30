@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.16.3 (2026-10-29)
+- **Colour bars in the Stat maps list**: each results-folder map's colour bars (+ and −,
+  with editable threshold and maximum) now sit in its own row, under its name. Imported
+  maps keep their bars at the bottom of the box.
+
 ## 0.16.2 (2026-10-29)
 - **Cluster table follows the crosshair**: wherever you click (or type a coordinate), the
   row of the cluster containing that point is highlighted, not just a row you clicked.
