@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.16.4 (2026-10-29)
+- **Mesh brain is no longer glossy**: it used a shiny shader whose highlight washed out
+  the warm colours of positive results. It now uses diffuse shading on a mid-grey brain,
+  so positive (and negative) results stand out. Surface and Glass brain are unchanged.
+
 ## 0.16.3 (2026-10-29)
 - **Colour bars in the Stat maps list**: each results-folder map's colour bars (+ and −,
   with editable threshold and maximum) now sit in its own row, under its name. Imported

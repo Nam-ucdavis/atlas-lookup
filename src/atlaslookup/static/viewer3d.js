@@ -28,7 +28,10 @@ const ZOOM = 1.5;  // NiiVue's default leaves the brain small in the wide panel
 const DISPLAY_KEYS = ["colormap", "colormapNegative", "cal_min", "cal_max", "cal_minNeg", "cal_maxNeg",
   "opacity", "colormapType", "isTransparentBelowCalMin", "alphaThreshold"];
 const GLASS_RGBA = [235, 238, 245, 255];
-const MESH_RGBA = [215, 215, 222, 255];
+const MESH_RGBA = [150, 150, 158, 255];  // mid grey, so warm and cool overlay colours both stand out
+// Mesh-brain shading: diffuse only. Glossy shaders (Matcap, Phong) put a white-yellow
+// highlight on the surface that hides the warm colours of positive results.
+const MESH_SHADER = "Diffuse";
 // Brain transparency (%) per style until the user changes it: glass starts see-through.
 const DEFAULT_TRANSPARENCY = { surface: 0, glass: 75, mesh: 0 };
 const DEPTHS = [0, 1, 2, 3, 4];  // mm beneath the pial surface sampled for the mesh style
@@ -161,7 +164,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
       await ensureMesh();
       const glass = style === "glass";
       nv3.setMeshProperty(mesh.id, "visible", true);
-      nv3.setMeshShader(mesh.id, glass ? "Rim" : "Matcap");
+      nv3.setMeshShader(mesh.id, glass ? "Rim" : MESH_SHADER);
       nv3.setMeshProperty(mesh.id, "rgba255", glass ? GLASS_RGBA : MESH_RGBA);
       nv3.setMeshProperty(mesh.id, "opacity", brainOpacity());
     }
