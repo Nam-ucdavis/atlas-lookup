@@ -6,6 +6,8 @@
 // Choosing a map sets the (hidden) <select id="statMap"> and fires its change event, so
 // the rest of the page works exactly as before; the panel stays open for browsing on.
 //
+// The column in focus widens to fit its longest name; the others stay narrow.
+//
 // Keyboard: up/down move within a column, right opens a folder, left goes back up,
 // Enter shows the selected map, Esc closes.
 
@@ -119,6 +121,7 @@ export function createResultsBrowser({ select, esc, panel, host }) {
     dlg.querySelector(".finder-path").innerHTML = path.map((p, i) =>
       `<button type="button" class="linkish" data-crumb="${i}">${esc(p)}</button>`).join(`<span class="muted"> › </span>`);
     cols.lastElementChild?.scrollIntoView({ inline: "end", block: "nearest" });
+    cols.querySelector(".finder-col.focus")?.scrollIntoView({ inline: "nearest", block: "nearest" });  // it may have widened
     dlg.querySelector(".finder-col.focus .sel")?.scrollIntoView({ block: "nearest" });
   }
 

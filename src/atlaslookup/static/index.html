@@ -180,6 +180,8 @@
   .finder-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   .finder-cols { flex: 1; min-height: 160px; display: flex; overflow-x: auto; outline: none; }
   .finder-col { flex: 0 0 190px; border-right: 1px solid var(--line); overflow-y: auto; padding: 4px 0; }
+  /* The column you're working in widens to show its full names (up to most of the panel). */
+  .finder-col.focus { flex: 0 0 auto; min-width: 190px; max-width: max(190px, calc(100% - 120px)); }
   .finder-item { display: flex; align-items: center; gap: 4px; padding: 4px 10px; margin: 0 4px; border-radius: 5px;
     cursor: default; font-size: 13px; white-space: nowrap; }
   .finder-item .finder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }

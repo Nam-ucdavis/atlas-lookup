@@ -3,6 +3,10 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.15.2 (2026-10-29)
+- **Results browser**: the column you're working in widens to show long folder and file
+  names in full (up to most of the panel's width); the other columns stay narrow.
+
 ## 0.15.1 (2026-10-29)
 - **T-value range in one place**: threshold (T ≥), sign, cluster size (k ≥) and opacity now
   sit in one box directly under the viewer, together with the colour scale. The box appears
