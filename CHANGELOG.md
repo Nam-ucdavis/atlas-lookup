@@ -3,6 +3,12 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.12.1 (2026-10-29)
+- **Smoother 3D rotation.** NiiVue redrew the whole 3D scene about three times per
+  mouse movement, so fast drags queued up frames and the brain lagged behind the
+  pointer. Redraws are now coalesced into one per screen refresh (120 rapid moves:
+  20 draws instead of 362).
+
 ## 0.12.0 (2026-10-29)
 - **Brain transparency** slider (0-100 %) in the 3D view for all three styles (surface,
   glass, mesh), replacing the glass-only slider; each style remembers its own value.

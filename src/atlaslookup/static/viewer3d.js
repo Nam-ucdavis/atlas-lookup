@@ -100,6 +100,7 @@ const samplerOf = (vol) => volumeSampler({
 
 export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, controls, crosshairToggle, setHint }) {
   let nv3 = null, ready = null, mesh = null, normals = null, active = false;
+  let drawNow = null;  // NiiVue's own, immediate drawScene
   let clones = [];  // [{ src, copy }] in slice-viewer order
   let regionVol = null, regionKey = "", maskResults = false, regionMeshes = [];
   let layersDirty = true;
@@ -119,6 +120,15 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
       dragAndDropEnabled: false,
     });
     await nv3.attachToCanvas(canvas);
+    // NiiVue redraws synchronously, about three times per mouse-move while rotating; a
+    // fast mouse sends far more moves than the screen can show, so frames queue up and
+    // the brain lags behind the pointer. Coalesce every request into one draw per
+    // animation frame. Captures still draw immediately via drawNow.
+    drawNow = nv3.drawScene.bind(nv3);
+    let pending = 0;
+    nv3.drawScene = () => {
+      if (!pending) pending = requestAnimationFrame(() => { pending = 0; drawNow(); });
+    };
     await nv3.loadVolumes([{ url: "/api/template.nii.gz", colormap: "gray" }]);
     nv3.setSliceType(nv3.sliceTypeRender);
     nv3.setRenderAzimuthElevation(...DEFAULT_VIEW);
@@ -326,7 +336,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   // "scr" while the 3D tab is open: the render plus the colour bars, same size as the
   // slice captures. Copy right after a redraw (the WebGL canvas is not preserved).
   function capture(drawBars) {
-    nv3.drawScene();
+    drawNow();  // must be synchronous: the WebGL canvas is copied right after
     const src = nv3.canvas, out = document.createElement("canvas");
     out.width = W; out.height = H + BAND;
     const ctx = out.getContext("2d");

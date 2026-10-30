@@ -63,7 +63,9 @@ src/atlaslookup/
                       (clones volumes + copies display settings); surface or glass-brain mesh
                       (/api/brain_mesh.gii, fsaverage5 pial built by sources.export_mesh);
                       mesh style projects overlays onto the mesh in the browser; chosen regions
-                      are drawn as server-built meshes (/api/regions/mesh.gii)
+                      are drawn as server-built meshes (/api/regions/mesh.gii). nv3.drawScene is
+                      coalesced to one draw per animation frame; use drawNow() when a synchronous
+                      draw is needed (e.g. before copying the canvas)
   static/regionpicker.js  the Regions tab (search all atlases, colours, "results only inside")
   static/browser.js   Finder-style column browser for the results folder's stat maps (side panel, Results tab)
   static/sidepanel.js docked, resizable, collapsible right-hand panel hosting Results and Regions;
