@@ -3,6 +3,16 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.14.0 (2026-10-29)
+- **Left sidebar**: the lookup form, atlas overlay, atlas list and history (or the quiz
+  setup) now form a sidebar that stays in view while the page scrolls and hides or shows
+  with the sidebar button next to the title. Remembered.
+- **Atlas overlay** controls moved into the sidebar, between the lookup form and the atlas
+  list.
+- **＋ Add overlay…** now sits right next to the Stat map button; the "Local NIfTI" label
+  is gone (the button's tooltip explains it).
+- Page content keeps clear of the collapsed side panel's tab rail.
+
 ## 0.13.0 (2026-10-29)
 - **Progress** now lives in quiz mode, next to the way back to lookup.
 - The quiz button is now a slightly crooked **🧠 Quiz me!** sticker that wobbles on

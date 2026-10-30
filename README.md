@@ -10,7 +10,7 @@ labelled cluster table. A quiz mode helps you learn the regions.
   resting-state networks (Schaefer 2018), side by side. You also get
   probabilities and a "what's within N mm" readout for borderline points.
 - **Viewer:** axial, coronal and sagittal slices of the MNI template. Click to
-  look up a point, and overlay any atlas. Each slice shows its coordinate, the
+  look up a point, and overlay any atlas (Atlas overlay, in the left sidebar). Each slice shows its coordinate, the
   crosshair can be hidden, and **scr** saves the slices as a PNG.
 - **3D:** a second tab renders the brain in 3D (solid surface, see-through
   **glass brain**, or **mesh brain** with your results painted on the cortex),
@@ -164,6 +164,11 @@ Results tab, a Finder-style column browser of your results folder: click
 through the folders, see a map's contrast, df and grid below, and double-click
 (or press **Show**) to display it. Arrow keys and Enter work as in Finder.
 
+**Left sidebar.** The lookup form, atlas overlay, atlas list and history (or
+the quiz setup) sit in a sidebar on the left that stays in view as you scroll.
+The sidebar button next to the title hides it to give the viewer the full
+width, and shows it again; the app remembers which.
+
 **Side panel.** Results and Regions live in a panel docked on the right, like a
 code editor's side bar: the page narrows to make room, so the viewer stays
 visible and usable. Drag its left edge to resize it; **»** or Esc collapses it
@@ -182,7 +187,7 @@ page switches to one column with the viewer on top.
 
 ### Local overlays
 
-Next to **Local NIfTI** (under the stat map controls), click **＋ Add overlay…** (or drop `.nii` / `.nii.gz`
+Click **＋ Add overlay…** (right of the Stat map button), or drop `.nii` / `.nii.gz`
 files on the brain) to overlay any stat map from your computer, inside the
 results folder or not. The file is read by your browser and never uploaded,
 not even to the local server. It should be in MNI space.

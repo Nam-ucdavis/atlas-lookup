@@ -107,10 +107,10 @@ export function createOverlays({ NVImage, getNv, esc, head, list }) {
   };
 
   head.innerHTML = `
-    <span>Local NIfTI</span>
-    <button type="button" class="btn small primary" data-act="pick">＋ Add overlay…</button>
+    <button type="button" class="btn small primary" data-act="pick"
+      title="Add NIfTI files from this computer (or drop .nii files on the brain). Read in this browser, never uploaded; assumed MNI.">＋ Add overlay…</button>
     <input type="file" accept=".nii,.nii.gz,.gz" multiple hidden>
-    <span class="hint" style="margin:0" data-k="count">or drop .nii files on the brain · read in this browser, never uploaded · assumed MNI</span>`;
+    <span class="hint" style="margin:0" data-k="count"></span>`;
   const input = head.querySelector("input[type=file]");
   head.querySelector("[data-act=pick]").addEventListener("click", () => input.click());
   input.addEventListener("change", () => { addFiles(input.files); input.value = ""; });
