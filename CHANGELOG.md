@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.16.5 (2026-10-29)
+- **Brighter results on the mesh brain**: a custom mesh shader keeps plain diffuse
+  shading on the grey brain but shades coloured vertices (results, regions) only lightly,
+  so they stay bright on surfaces facing away from the light. Still no gloss.
+
 ## 0.16.4 (2026-10-29)
 - **Mesh brain is no longer glossy**: it used a shiny shader whose highlight washed out
   the warm colours of positive results. It now uses diffuse shading on a mid-grey brain,

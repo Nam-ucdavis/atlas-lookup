@@ -29,9 +29,24 @@ const DISPLAY_KEYS = ["colormap", "colormapNegative", "cal_min", "cal_max", "cal
   "opacity", "colormapType", "isTransparentBelowCalMin", "alphaThreshold"];
 const GLASS_RGBA = [235, 238, 245, 255];
 const MESH_RGBA = [150, 150, 158, 255];  // mid grey, so warm and cool overlay colours both stand out
-// Mesh-brain shading: diffuse only. Glossy shaders (Matcap, Phong) put a white-yellow
-// highlight on the surface that hides the warm colours of positive results.
-const MESH_SHADER = "Diffuse";
+// Mesh-brain shading, without gloss: glossy shaders (Matcap, Phong) put a white-yellow
+// highlight on the surface that hides the warm colours of positive results. The grey
+// brain gets plain diffuse shading for its shape; coloured vertices (results, regions)
+// are shaded only lightly, so they stay bright even where the surface faces away.
+const MESH_SHADER = "Results bright";
+const MESH_SHADER_FRAG = `#version 300 es
+precision highp int;
+precision highp float;
+uniform float opacity;
+in vec4 vClr;
+in vec3 vN;
+out vec4 color;
+void main() {
+  float lambert = max(dot(normalize(vN), vec3(0.0, 0.0, -1.0)), 0.0);
+  float sat = max(max(vClr.r, vClr.g), vClr.b) - min(min(vClr.r, vClr.g), vClr.b);
+  float shade = mix(1.4 * lambert, 0.8 + 0.3 * lambert, smoothstep(0.05, 0.25, sat));
+  color = vec4(min(vClr.rgb * shade, vec3(1.0)), opacity);
+}`;
 // Brain transparency (%) per style until the user changes it: glass starts see-through.
 const DEFAULT_TRANSPARENCY = { surface: 0, glass: 75, mesh: 0 };
 const DEPTHS = [0, 1, 2, 3, 4];  // mm beneath the pial surface sampled for the mesh style
@@ -123,6 +138,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
       dragAndDropEnabled: false,
     });
     await nv3.attachToCanvas(canvas);
+    nv3.setCustomMeshShader(MESH_SHADER_FRAG, MESH_SHADER);
     // NiiVue redraws synchronously, about three times per mouse-move while rotating; a
     // fast mouse sends far more moves than the screen can show, so frames queue up and
     // the brain lags behind the pointer. Coalesce every request into one draw per
