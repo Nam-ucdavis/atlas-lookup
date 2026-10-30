@@ -3,6 +3,12 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.16.6 (2026-10-29)
+- **Mesh brain transparency no longer fades the results**: the Transparency slider now
+  applies to the grey brain only. Results (and regions) painted on the mesh stay fully
+  opaque, so at high transparency they stand out on a see-through brain, and at 100 %
+  only the results remain.
+
 ## 0.16.5 (2026-10-29)
 - **Brighter results on the mesh brain**: a custom mesh shader keeps plain diffuse
   shading on the grey brain but shades coloured vertices (results, regions) only lightly,

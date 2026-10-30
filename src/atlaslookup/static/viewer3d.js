@@ -33,6 +33,8 @@ const MESH_RGBA = [150, 150, 158, 255];  // mid grey, so warm and cool overlay c
 // highlight on the surface that hides the warm colours of positive results. The grey
 // brain gets plain diffuse shading for its shape; coloured vertices (results, regions)
 // are shaded only lightly, so they stay bright even where the surface faces away.
+// Transparency applies to the grey brain only: coloured vertices stay opaque, so results
+// remain fully visible however see-through the brain is.
 const MESH_SHADER = "Results bright";
 const MESH_SHADER_FRAG = `#version 300 es
 precision highp int;
@@ -44,8 +46,9 @@ out vec4 color;
 void main() {
   float lambert = max(dot(normalize(vN), vec3(0.0, 0.0, -1.0)), 0.0);
   float sat = max(max(vClr.r, vClr.g), vClr.b) - min(min(vClr.r, vClr.g), vClr.b);
-  float shade = mix(1.4 * lambert, 0.8 + 0.3 * lambert, smoothstep(0.05, 0.25, sat));
-  color = vec4(min(vClr.rgb * shade, vec3(1.0)), opacity);
+  float coloured = smoothstep(0.05, 0.25, sat);
+  float shade = mix(1.4 * lambert, 0.8 + 0.3 * lambert, coloured);
+  color = vec4(min(vClr.rgb * shade, vec3(1.0)), mix(opacity, 1.0, coloured));
 }`;
 // Brain transparency (%) per style until the user changes it: glass starts see-through.
 const DEFAULT_TRANSPARENCY = { surface: 0, glass: 75, mesh: 0 };
@@ -127,6 +130,9 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   // style remembers its own value.
   let transparency = { ...DEFAULT_TRANSPARENCY, ...store.get("view3dTransparency", {}) };
   const brainOpacity = () => 1 - transparency[style] / 100;
+  // NiiVue skips a mesh whose opacity is 0; keep the mesh brain drawn (invisibly) so the
+  // results painted on it still show at 100 % transparency.
+  const meshOpacity = () => Math.max(brainOpacity(), style === "mesh" ? 0.002 : 0);
 
   async function init() {
     nv3 = new Niivue({
@@ -182,7 +188,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
       nv3.setMeshProperty(mesh.id, "visible", true);
       nv3.setMeshShader(mesh.id, glass ? "Rim" : MESH_SHADER);
       nv3.setMeshProperty(mesh.id, "rgba255", glass ? GLASS_RGBA : MESH_RGBA);
-      nv3.setMeshProperty(mesh.id, "opacity", brainOpacity());
+      nv3.setMeshProperty(mesh.id, "opacity", meshOpacity());
     }
     layersDirty = true;
     sync(true);
@@ -342,7 +348,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     controls.brainOut.textContent = `${transparency[style]}%`;
     if (!nv3) return;
     if (style === "surface") nv3.setOpacity(0, brainOpacity());
-    else if (mesh) nv3.setMeshProperty(mesh.id, "opacity", brainOpacity());
+    else if (mesh) nv3.setMeshProperty(mesh.id, "opacity", meshOpacity());
     nv3.drawScene();
   });
   showTransparency();
