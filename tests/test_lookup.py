@@ -531,7 +531,7 @@ def test_viewer3d_is_wired():
     static = Path(atlaslookup.__file__).parent / "static"
     html = (static / "index.html").read_text()
     assert 'from "/static/viewer3d.js"' in html
-    for el in ["viewTabs", "gl3wrap", "gl3", "v3Bar", "v3Style", "v3GlassRow", "v3Glass", "v3Views",
+    for el in ["viewTabs", "gl3wrap", "gl3", "v3Bar", "v3Style", "v3Brain", "v3BrainOut", "v3Views",
                "v3Regions", "statOpacity"]:
         assert re.search(rf'id="{el}"', html), el
     assert 'from "/static/sidepanel.js"' in html

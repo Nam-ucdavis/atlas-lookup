@@ -3,6 +3,10 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.12.0 (2026-10-29)
+- **Brain transparency** slider (0-100 %) in the 3D view for all three styles (surface,
+  glass, mesh), replacing the glass-only slider; each style remembers its own value.
+
 ## 0.11.1 (2026-10-29)
 - Larger Results / Regions tabs on the side panel and its collapsed rail.
 

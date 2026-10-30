@@ -123,8 +123,7 @@ straight away.
 - **Surface:** the MNI template rendered as a solid brain, with overlays on its
   surface.
 - **Glass brain:** a see-through cortical surface with the overlays drawn as
-  solid blobs inside, so deep effects are visible. **Glass** sets how
-  transparent it is. The surface is fsaverage5 (cortex only, no cerebellum or
+  solid blobs inside, so deep effects are visible. The surface is fsaverage5 (cortex only, no cerebellum or
   brainstem), which lines up with MNI152 to within a few mm.
 - **Mesh brain:** the same cortical surface, opaque, with each overlay
   projected onto it: every point takes the strongest value up to 4 mm beneath
@@ -137,6 +136,9 @@ straight away.
   cortex. Tick **Show results only inside these regions** to hide everything
   else; the regions then turn see-through so you can see the results inside.
   Deep regions (hippocampus, amygdala) are clearest in Glass brain.
+- **Brain transparency** (0-100 %) fades the brain in whichever style is
+  showing, so overlays and regions inside show through: 0 % is solid, 100 %
+  invisible. Each style remembers its own setting (Glass starts at 75 %).
 - **Camera:** drag to rotate, scroll to zoom. **L R A P S I** jump to the
   left, right, front, back, top and bottom views.
 - **Crosshair and capture:** the slice crosshair is shown in 3D too (the

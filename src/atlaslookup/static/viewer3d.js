@@ -29,6 +29,8 @@ const DISPLAY_KEYS = ["colormap", "colormapNegative", "cal_min", "cal_max", "cal
   "opacity", "colormapType", "isTransparentBelowCalMin", "alphaThreshold"];
 const GLASS_RGBA = [235, 238, 245, 255];
 const MESH_RGBA = [215, 215, 222, 255];
+// Brain transparency (%) per style until the user changes it: glass starts see-through.
+const DEFAULT_TRANSPARENCY = { surface: 0, glass: 75, mesh: 0 };
 const DEPTHS = [0, 1, 2, 3, 4];  // mm beneath the pial surface sampled for the mesh style
 const REGION_SEE_THROUGH = 0.35;  // region opacity when results are shown only inside them
 const W = 2400, H = 800, BAND = 160;  // capture size, matching the slice captures
@@ -102,7 +104,10 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   let regionVol = null, regionKey = "", maskResults = false, regionMeshes = [];
   let layersDirty = true;
   let style = store.get("view3dStyle", "surface");
-  const glassOpacity = () => +controls.glassOpacity.value;
+  // One "Brain transparency" slider (0-100 %) for whichever style is showing; each
+  // style remembers its own value.
+  let transparency = { ...DEFAULT_TRANSPARENCY, ...store.get("view3dTransparency", {}) };
+  const brainOpacity = () => 1 - transparency[style] / 100;
 
   async function init() {
     nv3 = new Niivue({
@@ -124,7 +129,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     if (mesh) return mesh;
     // addMesh, not loadMeshes: loadMeshes would drop the region meshes already shown.
     const buf = await fetch("/api/brain_mesh.gii").then((r) => r.arrayBuffer());
-    mesh = await NVMesh.readMesh(buf, "brain.gii", nv3.gl, glassOpacity(), new Uint8Array(GLASS_RGBA), true);
+    mesh = await NVMesh.readMesh(buf, "brain.gii", nv3.gl, brainOpacity(), new Uint8Array(GLASS_RGBA), true);
     mesh.updateMesh(nv3.gl);
     nv3.addMesh(mesh);
     normals = NVMeshUtilities.generateNormals(mesh.pts, mesh.tris);
@@ -138,8 +143,8 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
 
   async function applyStyle() {
     for (const b of controls.style.querySelectorAll("button")) b.classList.toggle("on", b.dataset.style === style);
-    controls.glassRow.hidden = style !== "glass";
-    nv3.setOpacity(0, style === "surface" ? 1 : 0);
+    showTransparency();
+    nv3.setOpacity(0, style === "surface" ? brainOpacity() : 0);
     if (style === "surface") {
       if (mesh) nv3.setMeshProperty(mesh.id, "visible", false);
     } else {
@@ -148,7 +153,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
       nv3.setMeshProperty(mesh.id, "visible", true);
       nv3.setMeshShader(mesh.id, glass ? "Rim" : "Matcap");
       nv3.setMeshProperty(mesh.id, "rgba255", glass ? GLASS_RGBA : MESH_RGBA);
-      nv3.setMeshProperty(mesh.id, "opacity", glass ? glassOpacity() : 1);
+      nv3.setMeshProperty(mesh.id, "opacity", brainOpacity());
     }
     layersDirty = true;
     sync(true);
@@ -298,11 +303,20 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     style = s; store.set("view3dStyle", s);
     await applyStyle();
   });
-  controls.glassOpacity.value = store.get("view3dGlass", 0.25);
-  controls.glassOpacity.addEventListener("input", () => {
-    store.set("view3dGlass", glassOpacity());
-    if (mesh && style === "glass") { nv3.setMeshProperty(mesh.id, "opacity", glassOpacity()); nv3.drawScene(); }
+  function showTransparency() {
+    controls.brainTransparency.value = transparency[style];
+    controls.brainOut.textContent = `${transparency[style]}%`;
+  }
+  controls.brainTransparency.addEventListener("input", () => {
+    transparency = { ...transparency, [style]: +controls.brainTransparency.value };
+    store.set("view3dTransparency", transparency);
+    controls.brainOut.textContent = `${transparency[style]}%`;
+    if (!nv3) return;
+    if (style === "surface") nv3.setOpacity(0, brainOpacity());
+    else if (mesh) nv3.setMeshProperty(mesh.id, "opacity", brainOpacity());
+    nv3.drawScene();
   });
+  showTransparency();
   controls.views.addEventListener("click", (e) => {
     const v = VIEWS[e.target.dataset.view];
     if (v && nv3) nv3.setRenderAzimuthElevation(...v);
