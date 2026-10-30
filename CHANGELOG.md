@@ -3,6 +3,12 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.16.2 (2026-10-29)
+- **Cluster table follows the crosshair**: wherever you click (or type a coordinate), the
+  row of the cluster containing that point is highlighted, not just a row you clicked.
+  It updates when the threshold, sign or k changes. `/api/lookup` takes optional
+  `threshold`, `sign` and `min_voxels` and then returns `stat.cluster` (the row, 0-based).
+
 ## 0.16.1 (2026-10-29)
 - **t-table** shows one-tailed and two-tailed critical T.
 - Above the viewer, the "Stat maps" picker is now a **▦ Open spmT…** button (load a map

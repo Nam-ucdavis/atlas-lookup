@@ -329,6 +329,15 @@ def test_results_list_value_clusters(results_dir):
     assert neg["n_clusters"] == 1 and neg["clusters"][0]["peak_t"] == -6.0
     assert c["max_abs_t"] == 6.0                     # NaN ignored
 
+    # Which cluster (row of the table) a point falls in.
+    edge_mm = [3 * 13 - 78, 3 * 33 - 114, 3 * 30 - 78]  # inside the blob, away from the peak
+    assert r.cluster_at("modelA/spmT_0001.nii", edge_mm, 3.0, "both", 5) == 0
+    assert r.cluster_at("modelA/spmT_0001.nii", [0, 0, 0], 3.0, "both", 5) is None
+    single_mm = [3 * 40 - 78, 3 * 40 - 114, 3 * 40 - 78]  # dropped by k, so not a row
+    assert r.cluster_at("modelA/spmT_0001.nii", single_mm, 3.0, "both", 5) is None
+    assert r.cluster_at("modelA/spmT_0001.nii", single_mm, 3.0, "both", 1) == 1
+    assert r.cluster_at("modelA/spmT_0001.nii", edge_mm, 5.0, "both", 1) is None  # below 5
+
 
 def test_results_refuses_paths_outside_folder(results_dir):
     from atlaslookup.results import Results
@@ -357,6 +366,10 @@ def test_results_api(results_dir, monkeypatch):
     x, y, z = cl["clusters"][0]["peak_mm"]
     res = c.get("/api/lookup", params=dict(x=x, y=y, z=z, map="modelA/spmT_0001.nii", atlases="juelich")).json()
     assert res["stat"]["t"] == 6.0
+    assert "cluster" not in res["stat"]
+    res = c.get("/api/lookup", params=dict(x=x, y=y, z=z, map="modelA/spmT_0001.nii", atlases="juelich",
+                                           threshold=3, sign="both", min_voxels=5)).json()
+    assert res["stat"]["cluster"] == 0
 
 
 def test_no_results_folder(monkeypatch):

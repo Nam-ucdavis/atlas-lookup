@@ -140,6 +140,9 @@ def lookup(
     top_k: int = Query(5, ge=1, le=20),
     atlases: str | None = None,
     map: str | None = None,
+    threshold: float | None = Query(None, gt=0),
+    sign: str = Query("both", pattern="^(pos|neg|both)$"),
+    min_voxels: int = Query(5, ge=1),
 ):
     g = None
     if grid:
@@ -158,6 +161,8 @@ def lookup(
     if map:
         try:
             out["stat"] = RESULTS.value(map, where["mm"])
+            if threshold:  # which row of the cluster table the point falls in
+                out["stat"]["cluster"] = RESULTS.cluster_at(map, where["mm"], threshold, sign, min_voxels)
         except FileNotFoundError:
             raise HTTPException(404, f"No stat map {map!r}")
     return out

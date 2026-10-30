@@ -84,6 +84,36 @@ def _load(path: str, mtime: float):
     return data, img.affine, _df_and_contrast(img)
 
 
+@lru_cache(maxsize=8)
+def _clusters(path: str, mtime: float, threshold: float, sign: str, min_voxels: int):
+    """Clusters above |T| >= threshold (18-connectivity, as in SPM), sorted by peak
+    strength, each tagged with its (sign, label) in the returned label volumes."""
+    data, affine, (df, _) = _load(path, mtime)
+    vox_mm3 = abs(np.linalg.det(affine[:3, :3]))
+    conn = ndimage.generate_binary_structure(3, 2)
+    found, labs = [], {}
+    for s in (["pos", "neg"] if sign == "both" else [sign]):
+        mask = data >= threshold if s == "pos" else data <= -threshold
+        lab, n = ndimage.label(mask, structure=conn)
+        labs[s] = lab
+        if not n:
+            continue
+        sizes = np.bincount(lab.ravel())
+        for c in range(1, n + 1):
+            if sizes[c] < min_voxels:
+                continue
+            idx = np.argwhere(lab == c)
+            vals = data[tuple(idx.T)]
+            k = np.argmax(vals) if s == "pos" else np.argmin(vals)
+            peak = affine[:3, :3] @ idx[k] + affine[:3, 3]
+            t = float(vals[k])
+            found.append({"sign": s, "voxels": int(sizes[c]), "mm3": round(float(sizes[c] * vox_mm3)),
+                          "peak_t": round(t, 3), "peak_p": p_one_sided(t, df),
+                          "peak_mm": peak.round(1).tolist(), "_key": (s, c)})
+    found.sort(key=lambda c: -abs(c["peak_t"]))
+    return found, labs
+
+
 class Results:
     def __init__(self, root: Path | None):
         self.root = root.resolve() if root else None
@@ -136,36 +166,35 @@ class Results:
         return {"map": rel, "t": None if t is None else round(t, 3), "df": df,
                 "p": p_one_sided(t, df), "voxel": (ijk + 1).tolist(), "in_bounds": inside}
 
+    def _found(self, rel, threshold, sign, min_voxels):
+        p = self.resolve(rel)
+        return _clusters(str(p), p.stat().st_mtime, float(threshold), sign, int(min_voxels))
+
     def clusters(self, rel: str, threshold: float, sign: str = "both", min_voxels: int = 5,
                  limit: int = 50) -> dict:
         """Clusters above |T| >= threshold (18-connectivity, as in SPM), with the
         peak of each, sorted by peak strength."""
         data, affine, (df, contrast) = self.load(rel)
-        vox_mm3 = abs(np.linalg.det(affine[:3, :3]))
-        conn = ndimage.generate_binary_structure(3, 2)
-        found = []
-        for s in (["pos", "neg"] if sign == "both" else [sign]):
-            mask = data >= threshold if s == "pos" else data <= -threshold
-            lab, n = ndimage.label(mask, structure=conn)
-            if not n:
-                continue
-            sizes = np.bincount(lab.ravel())
-            for c in range(1, n + 1):
-                if sizes[c] < min_voxels:
-                    continue
-                idx = np.argwhere(lab == c)
-                vals = data[tuple(idx.T)]
-                k = np.argmax(vals) if s == "pos" else np.argmin(vals)
-                peak = affine[:3, :3] @ idx[k] + affine[:3, 3]
-                t = float(vals[k])
-                found.append({"sign": s, "voxels": int(sizes[c]), "mm3": round(float(sizes[c] * vox_mm3)),
-                              "peak_t": round(t, 3), "peak_p": p_one_sided(t, df),
-                              "peak_mm": peak.round(1).tolist()})
-        found.sort(key=lambda c: -abs(c["peak_t"]))
+        found, _ = self._found(rel, threshold, sign, min_voxels)
+        found = [{k: v for k, v in c.items() if k != "_key"} for c in found]  # copies: callers add labels
         return {"map": rel, "contrast": contrast, "df": df, "threshold": threshold,
                 "threshold_p": p_one_sided(threshold, df), "sign": sign, "min_voxels": min_voxels,
                 "max_abs_t": round(float(np.abs(data).max()), 3), "clusters": found[:limit],
                 "n_clusters": len(found)}
+
+    def cluster_at(self, rel: str, mm, threshold: float, sign: str = "both", min_voxels: int = 5) -> int | None:
+        """Rank (0-based, in the order clusters() lists them) of the cluster containing
+        the voxel at mm, or None outside every cluster."""
+        data, affine, _ = self.load(rel)
+        ijk = np.rint(np.linalg.inv(affine) @ np.append(np.asarray(mm, float), 1))[:3].astype(int)
+        if not (np.all(ijk >= 0) and np.all(ijk < data.shape[:3])):
+            return None
+        found, labs = self._found(rel, threshold, sign, min_voxels)
+        for s, lab in labs.items():
+            c = int(lab[tuple(ijk)])
+            if c:
+                return next((i for i, f in enumerate(found) if f["_key"] == (s, c)), None)
+        return None
 
 
 def p_one_sided(t: float | None, df: float | None) -> float | None:

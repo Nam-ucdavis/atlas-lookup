@@ -896,6 +896,7 @@ function statLegend() {
         e.threshold = Math.abs(v);
         if (e === state.stat) $("statThr").value = e.threshold;
         await refreshStat(e); await rebuildOverlays(); saveStats();
+        if (e === state.stat) lookup();
       }),
       setTo: (v) => debounce("stat:" + e.map, () => { e.max = v == null ? null : Math.abs(v); rebuildOverlays(); saveStats(); }),
     };
@@ -1075,6 +1076,7 @@ $("statMap").addEventListener("change", async () => {
   await refreshStat(e);
   await rebuildOverlays();
   saveStats();
+  lookup();
 }));
 
 function fmtP(p) {
@@ -1085,7 +1087,7 @@ function fmtPText(p) { return p == null ? "–" : p < 0.001 ? p.toExponential(1)
 
 function renderPeaks(d) {
   const cols = d.label_atlases;
-  const rows = d.clusters.map((c, i) => `<tr data-mm="${c.peak_mm.join(",")}">
+  const rows = d.clusters.map((c, i) => `<tr data-mm="${c.peak_mm.join(",")}" data-i="${i}">
     <td class="num">${i + 1}</td>
     <td class="sign ${c.sign}">${c.sign === "pos" ? "+" : "−"}</td>
     <td class="num">${c.voxels}<span class="muted"> · ${c.mm3} mm³</span></td>
@@ -1100,6 +1102,12 @@ function renderPeaks(d) {
       ${cols.map((a) => `<th title="${esc(a.name)}">${esc(a.role)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>`
       : `<div class="hint">No clusters at this threshold.</div>`);
   $("peaks").hidden = false;
+  highlightCluster(state.cluster);
+}
+// The cluster table's row for the cluster under the crosshair (null: none).
+function highlightCluster(i) {
+  state.cluster = i ?? null;
+  for (const tr of $("peaks").querySelectorAll("tr[data-i]")) tr.classList.toggle("active", +tr.dataset.i === state.cluster);
 }
 $("peaks").addEventListener("click", async (e) => {
   const tr = e.target.closest("tr[data-mm]");
@@ -1136,7 +1144,11 @@ async function lookup({ fromViewer = false } = {}) {
   store.set("grid", grid);
   const p = new URLSearchParams({ x: $("x").value, y: $("y").value, z: $("z").value, mode: state.mode, base: state.base, radius: $("radius").value });
   if (grid) p.set("grid", grid);
-  if (state.stat?.map) p.set("map", state.stat.map);
+  if (state.stat?.map) {
+    p.set("map", state.stat.map);
+    // Also ask which of the active map's clusters the point is in, to highlight its row.
+    p.set("threshold", state.stat.threshold); p.set("sign", state.stat.sign); p.set("min_voxels", state.stat.k);
+  }
   const visible = state.atlases.filter((a) => !state.hidden.has(a.id)).map((a) => a.id);
   if (!visible.length) { $("cards").innerHTML = `<div class="empty">No atlases selected.</div>`; return; }
   p.set("atlases", visible.join(","));
@@ -1156,6 +1168,7 @@ function render({ coordinate: c, results, stat }) {
   const statHtml = stat?.in_bounds && stat.t != null
     ? `<span class="stat ${stat.t >= 0 ? "pos" : "neg"}" title="Value in the selected stat map at voxel (${stat.voxel.join(", ")}), 1-based">T = ${stat.t.toFixed(2)}${stat.p != null ? ` · p = ${fmtP(stat.p)} unc.` : ""}</span>`
     : stat ? `<span class="sub">outside the stat map</span>` : "";
+  highlightCluster(stat?.cluster);
   $("where").innerHTML = `<div class="where"><span class="mm">MNI (${x}, ${y}, ${z})</span>${statHtml}` +
     (c.voxel ? `<span class="sub">voxel (${c.voxel.join(", ")}) · ${esc(g ? g.name : c.grid)} · ${c.base}-based</span>` : "") + `</div>`;
   const notes = [];
