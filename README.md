@@ -163,7 +163,8 @@ contrast, df and grid on the right, and double-click (or press **Show**) to
 display it. Arrow keys and Enter work as in Finder.
 
 - **Overlay:** thresholded at **T ≥** your value; positive orange, negative
-  blue, or one sign only. The equivalent p is shown, using the df from the SPM
+  blue, or one sign only. **Opacity** sets how see-through it is (remembered,
+  and applied in the 3D view too). The equivalent p is shown, using the df from the SPM
   header.
 - **Readout:** T and p at whatever point you click.
 - **Clusters:** clusters use 18-connectivity, as in SPM, with a minimum size

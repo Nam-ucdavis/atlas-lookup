@@ -3,6 +3,10 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.10.1 (2026-10-29)
+- **Opacity slider** for the results-folder stat map (next to T and k). It applies live,
+  is remembered, and carries over to the 3D view, including the mesh brain.
+
 ## 0.10.0 (2026-10-29)
 - **Mesh brain**, a third 3D style: an opaque cortical surface with every overlay
   projected onto it (strongest value up to 4 mm beneath each point), using the

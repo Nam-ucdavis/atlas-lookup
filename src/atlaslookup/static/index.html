@@ -372,6 +372,7 @@
           <option value="both">± both</option><option value="pos">+ positive</option><option value="neg">− negative</option>
         </select></label>
         <label>k ≥ <input type="number" id="statK" min="1" step="1" value="5" title="Minimum cluster size (voxels)"></label>
+        <label>Opacity <input type="range" id="statOpacity" min="0" max="1" step="0.05" value="0.9" aria-label="Stat map opacity"></label>
         <span class="hint" style="margin:0" id="statInfo"></span>
       </div>
       <div class="viewer-bar lookup-only" id="ovHead"></div>
@@ -616,7 +617,7 @@ function initDrop() {
   });
 }
 // Overlays on the template: an atlas (optional) and a thresholded stat map (optional).
-let atlasVol = null, overlayToken = 0;
+let atlasVol = null, statVol = null, overlayToken = 0;
 async function setOverlay(id) {
   store.set("overlay", id);
   await rebuildOverlays();
@@ -625,7 +626,7 @@ async function rebuildOverlays() {
   if (!nv) return;
   const token = ++overlayToken;
   while (nv.volumes.length > 1) nv.removeVolumeByIndex(1);
-  atlasVol = null;
+  atlasVol = null; statVol = null;
   const id = $("overlay").value, stat = state.stat;
   if (id) {
     const [vol, cm] = await Promise.all([
@@ -641,19 +642,26 @@ async function rebuildOverlays() {
     const showPos = stat.sign !== "neg", showNeg = stat.sign !== "pos";
     const vol = await nv.addVolumeFromUrl({
       url: `/api/results/file/${stat.map.split("/").map(encodeURIComponent).join("/")}`,
-      colormap: "warm", opacity: 0.9,
+      colormap: "warm", opacity: +$("statOpacity").value,
       // Hide a sign by pushing its window beyond the data.
       cal_min: showPos ? thr : top + 1, cal_max: showPos ? top : top + 2,
       ...(showNeg ? { colormapNegative: "winter", cal_minNeg: -thr, cal_maxNeg: -top } : {}),
     });
     if (token !== overlayToken) return;
     if (!showNeg) vol.colormapNegative = "";
+    statVol = vol;
   }
   overlaysApi?.sync();  // local overlays stay in front of the atlas and stat map
   nv.updateGLVolume();
   if (state.last) moveCrosshair(state.last.mm);
 }
 $("overlay").addEventListener("change", (e) => setOverlay(e.target.value));
+// Stat map opacity applies live (and reaches the 3D view, which copies it).
+$("statOpacity").addEventListener("input", (e) => {
+  store.set("statOpacity", +e.target.value);
+  const i = statVol ? nv.volumes.indexOf(statVol) : -1;
+  if (i > 0) nv.setOpacity(i, +e.target.value);
+});
 $("opacity").addEventListener("input", (e) => {
   const i = atlasVol ? nv.volumes.indexOf(atlasVol) : -1;
   if (i > 0) nv.setOpacity(i, +e.target.value);
@@ -697,6 +705,7 @@ async function initStats() {
   $("statThr").value = store.get("statThr", 3);
   $("statSign").value = store.get("statSign", "both");
   $("statK").value = store.get("statK", 5);
+  $("statOpacity").value = store.get("statOpacity", 0.9);
   const saved = store.get("statMap", "");
   if (r.maps.some((m) => m.id === saved)) { $("statMap").value = saved; resultsBrowser?.refresh(); await loadStat(); }
 }
