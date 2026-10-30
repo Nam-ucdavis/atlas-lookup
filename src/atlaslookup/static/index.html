@@ -306,7 +306,14 @@
     .prog-row .nums { grid-column: 1 / -1; order: 4; }
     .prog-item { grid-template-columns: auto 1fr 40px; } .prog-item > .hint { display: none; }
   }
-  .stat-bar input[type=number] { width: 64px; padding: 4px 6px; }
+  .stat-ctl input[type=number] { width: 64px; padding: 4px 6px; }
+  /* Threshold controls and colour scale for the stat map, together under the viewer. */
+  .stat-range { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .stat-range:has(.stat-ctl[hidden]):has(.cbars:empty) { display: none; }
+  .stat-range .stat-ctl { margin: 0; }
+  .stat-range .stat-ctl[hidden] { display: none; }
+  .stat-range .sr-title { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  .stat-range .stat-ctl:not([hidden]) + .cbars { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
   .stat-bar select { max-width: 260px; }
   .where .stat { font-variant-numeric: tabular-nums; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
   .where .stat.pos { background: #f8e1cf; color: #8a3a00; } .where .stat.neg { background: #d8e6f8; color: #1d4f8a; }
@@ -478,16 +485,23 @@
       <div class="viewer-bar stat-bar lookup-only">
         <label>Stat map <select id="statMap"><option value="">None</option></select></label>
         <span class="ov-head" id="ovHead"></span>
-        <label>T ≥ <input type="number" id="statThr" min="0.1" step="0.1" value="3"></label>
-        <label><select id="statSign">
-          <option value="both">± both</option><option value="pos">+ positive</option><option value="neg">− negative</option>
-        </select></label>
-        <label>k ≥ <input type="number" id="statK" min="1" step="1" value="5" title="Minimum cluster size (voxels)"></label>
-        <label>Opacity <input type="range" id="statOpacity" min="0" max="1" step="0.05" value="0.9" aria-label="Stat map opacity"></label>
-        <span class="hint" style="margin:0" id="statInfo"></span>
+        <span class="hint" style="margin:0" id="statMsg"></span>
       </div>
       <div class="glwrap3d" id="gl3wrap" hidden><canvas id="gl3"></canvas></div>
       <div class="glwrap"><canvas id="gl"></canvas></div>
+      <div class="stat-range lookup-only" id="statRange">
+        <div class="viewer-bar stat-ctl" id="statCtl" hidden>
+          <span class="sr-title">T-value range</span>
+          <label>T ≥ <input type="number" id="statThr" min="0.1" step="0.1" value="3"></label>
+          <label><select id="statSign" aria-label="Signs shown">
+            <option value="both">± both</option><option value="pos">+ positive</option><option value="neg">− negative</option>
+          </select></label>
+          <label>k ≥ <input type="number" id="statK" min="1" step="1" value="5" title="Minimum cluster size (voxels)"></label>
+          <label>Opacity <input type="range" id="statOpacity" min="0" max="1" step="0.05" value="0.9" aria-label="Stat map opacity"></label>
+          <span class="grow"></span>
+          <span class="hint" style="margin:0" id="statInfo"></span>
+        </div>
+      </div>
       <div class="ov-panel lookup-only" id="ovPanel" hidden></div>
     </div>
     <div class="panel lookup-only" id="peaks" hidden></div>
@@ -679,7 +693,7 @@ async function initViewer() {
     getCoords: () => ({ mode: state.mode, base: state.base, grid: state.grids.find((g) => g.id === $("grid").value) }),
     getLegend: () => (quizApi?.active ? [] : [...overlaysApi.legend(), ...statLegend()]),
     wrap: document.querySelector(".glwrap"), toggle: $("crosshairOn"), button: $("scrBtn"), setHint: flashHint,
-    altCapture: (drawBars) => view3d?.capture(drawBars),
+    altCapture: (drawBars) => view3d?.capture(drawBars), barsHost: $("statRange"),
   });
   initDrop();
   view3d = createViewer3D({
@@ -861,7 +875,7 @@ async function initStats() {
   const r = await fetch("/api/results").then((r) => r.json()).catch(() => null);
   if (!r?.available) {
     $("statMap").disabled = true;
-    $("statInfo").textContent = r?.folder ? `Results folder not found: ${r.folder}` : "No results folder set (run: atlaslookup set-results DIR)";
+    $("statMsg").textContent = r?.folder ? `Results folder not found: ${r.folder}` : "No results folder set (run: atlaslookup set-results DIR)";
     return;
   }
   state.statMaps = r.maps;
@@ -869,7 +883,8 @@ async function initStats() {
     `<option value="${esc(m.id)}" title="${esc(m.id)}">${esc(m.label)} · ${esc(m.contrast)}</option>`).join("");
   $("statMap").title = r.maps[0]?.group || r.folder;
   resultsBrowser?.setMaps(r.maps, r.folder);
-  if (r.warning) $("statInfo").textContent = "⚠ " + r.warning;
+  state.resultsMsg = r.warning ? "⚠ " + r.warning : "";
+  $("statMsg").textContent = state.resultsMsg;
   $("statThr").value = store.get("statThr", 3);
   $("statSign").value = store.get("statSign", "both");
   $("statK").value = store.get("statK", 5);
@@ -882,13 +897,15 @@ async function loadStat() {
   store.set("statMap", map);
   store.set("statThr", +$("statThr").value); store.set("statSign", $("statSign").value); store.set("statK", +$("statK").value);
   if (!map) {
-    state.stat = null; $("peaks").hidden = true; $("statInfo").textContent = "";
+    state.stat = null; $("peaks").hidden = true; $("statInfo").textContent = ""; $("statCtl").hidden = true;
     await rebuildOverlays(); lookup(); return;
   }
   const p = new URLSearchParams({ map, threshold: $("statThr").value, sign: $("statSign").value, min_voxels: $("statK").value });
   const r = await fetch("/api/results/clusters?" + p);
   const d = await r.json();
-  if (!r.ok) { $("statInfo").textContent = d.detail; return; }
+  if (!r.ok) { $("statMsg").textContent = d.detail; return; }
+  $("statMsg").textContent = state.resultsMsg || "";
+  $("statCtl").hidden = false;
   const max = state.stat?.map === map ? state.stat.max : null;  // keep a max set on the colour bar
   state.stat = { map, threshold: d.threshold, sign: d.sign, maxAbs: d.max_abs_t, df: d.df, max };
   $("statInfo").textContent = d.df ? `≈ p < ${fmtPText(d.threshold_p)} one-sided, uncorrected (df ${d.df})` : "";

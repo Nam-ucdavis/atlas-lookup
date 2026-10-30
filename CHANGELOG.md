@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.15.1 (2026-10-29)
+- **T-value range in one place**: threshold (T ≥), sign, cluster size (k ≥) and opacity now
+  sit in one box directly under the viewer, together with the colour scale. The box appears
+  once a stat map is chosen; the row above the viewer keeps just the map and Add overlay.
+
 ## 0.15.0 (2026-10-29)
 - **Version menu**: the version badge next to the title opens a menu of tagged releases
   and Development (your checkout). Choosing one restarts the app on that version in place

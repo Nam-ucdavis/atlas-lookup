@@ -64,14 +64,14 @@ export function barEnds({ sign, from, to, mode, df }, minus = "−") {
   return { unit: "T", lo: s + from.toFixed(2), hi: s + to.toFixed(2) };
 }
 
-export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, wrap, toggle, button, setHint, altCapture }) {
+export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, wrap, toggle, button, setHint, altCapture, barsHost }) {
   const nv = getNv();
   const box = document.createElement("div");
   box.className = "slice-labels";
   wrap.append(box);
   const bars = document.createElement("div");
   bars.className = "cbars lookup-only";
-  wrap.after(bars);
+  if (barsHost) barsHost.append(bars); else wrap.after(bars);
   toggle.checked = store.get("crosshair", true);
 
   // Hook drawScene so labels and the crosshair setting follow every redraw (clicks,
