@@ -88,6 +88,19 @@ export function dfFromHeader(hdr) {
   return null;
 }
 
+/**
+ * Set NaN voxels to 0, in place. SPM writes NaN outside its analysis mask, and NiiVue
+ * paints NaN with the top of the colour map, so the whole box around the brain would
+ * show up in full colour. Returns how many voxels changed.
+ */
+export function zeroNaN(vol) {
+  const img = vol?.img;
+  if (!(img instanceof Float32Array || img instanceof Float64Array)) return 0;
+  let n = 0;
+  for (let i = 0; i < img.length; i++) if (img[i] !== img[i]) { img[i] = 0; n++; }
+  return n;
+}
+
 function fmtP(p) {
   if (p == null || !isFinite(p)) return "–";
   return p < 0.001 ? p.toExponential(1) : p.toFixed(3);
@@ -121,6 +134,7 @@ export function createOverlays({ NVImage, getNv, esc, head, list }) {
       if (!/\.nii(\.gz)?$/i.test(file.name)) continue;
       try {
         const vol = await NVImage.loadFromFile({ file, name: file.name, colormap: "warm", opacity: 0.9 });
+        zeroNaN(vol);
         const df = dfFromHeader(vol.hdr);
         const maxPos = Math.max(+vol.global_max || 0, 0), maxNeg = Math.max(-(+vol.global_min) || 0, 0);
         layers.unshift({

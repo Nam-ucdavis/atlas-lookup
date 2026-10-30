@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## Unreleased
+- **Fix:** SPM T maps no longer show a solid colour box around the brain. SPM writes NaN
+  outside its analysis mask, and the viewer painted NaN in the top colour of the scale;
+  NaN voxels are now treated as 0 (stat maps and local overlays).
+
 ## 0.17.3 (2026-10-29)
 - **AT / PM memory systems** (Ranganath & Ritchey 2012): two new atlases, built from the
   installed ones (no download; `atlaslookup setup` adds them). *AT / PM memory systems*

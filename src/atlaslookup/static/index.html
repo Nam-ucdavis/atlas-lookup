@@ -586,7 +586,7 @@
 <script type="module">
 import { Niivue, NVImage, SHOW_RENDER, MULTIPLANAR_TYPE } from "/static/vendor/niivue-0.69.0.js";
 import { createQuiz } from "/static/quiz.js";
-import { createOverlays, tFromP } from "/static/overlays.js";
+import { createOverlays, tFromP, zeroNaN } from "/static/overlays.js";
 import { createViewerTools } from "/static/viewertools.js";
 import { createViewer3D } from "/static/viewer3d.js";
 import { createResultsBrowser } from "/static/browser.js";
@@ -908,6 +908,7 @@ async function rebuildOverlays() {
       ...(showNeg ? { colormapNegative: "winter", cal_minNeg: -thr, cal_maxNeg: -top } : {}),
     });
     if (token !== overlayToken) return;
+    zeroNaN(vol);  // SPM's NaN outside the mask would otherwise be painted in full colour
     if (!showNeg) vol.colormapNegative = "";
     e.vol = vol;
   }

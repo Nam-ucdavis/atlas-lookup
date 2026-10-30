@@ -911,3 +911,24 @@ def test_at_pm_systems_from_installed_atlases(tmp_path):
     assert parts.labels[d[8, 1, 0]] == "PM · Retrosplenial cortex (cingulate isthmus)"
     assert parts.labels[d[8, 1, 5]] == "PM · Posterior cingulate cortex"
     assert parts.lookup([-6, -10, -10])["label"]["name"].startswith("Left AT · Perirhinal")
+
+
+def test_zero_nan_for_display():
+    """static/overlays.js: SPM's NaN (outside the mask) becomes 0 before display, so the
+    box around the brain is not painted in full colour; integer images are untouched."""
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    import atlaslookup
+
+    js = Path(atlaslookup.__file__).parent / "static" / "overlays.js"
+    script = (f"import {{ zeroNaN }} from {str(js)!r};"
+              "const f = {img: new Float32Array([NaN, 1.5, NaN, -2])};"
+              "const i = {img: new Int16Array([0, 3])};"
+              "console.log(JSON.stringify([zeroNaN(f), Array.from(f.img), zeroNaN(i), zeroNaN(null)]));")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.strip() == "[2,[0,1.5,0,-2],0,0]"
