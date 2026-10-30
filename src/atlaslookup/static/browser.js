@@ -53,7 +53,7 @@ export function createResultsBrowser({ select, esc, panel, host }) {
   dlg.classList.add("finder");
   dlg.innerHTML = `
     <div class="finder-head"><span class="finder-root"></span><span class="grow"></span>
-      <button type="button" class="btn small" data-act="none" title="Hide the stat map">None</button></div>
+      <button type="button" class="btn small" data-act="none" title="Close every open stat map">Close all</button></div>
     <div class="finder-body"><div class="finder-cols" tabindex="0" aria-label="Results folder"></div><div class="finder-preview"></div></div>
     <div class="finder-path"></div>`;
   const cols = dlg.querySelector(".finder-cols"), preview = dlg.querySelector(".finder-preview");

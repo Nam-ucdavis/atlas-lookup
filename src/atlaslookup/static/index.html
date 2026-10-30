@@ -91,7 +91,7 @@
   .atlas-toggle input { margin-top: 3px; }
   .history button { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--accent);
     font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 3px 0; cursor: pointer; }
-  .where { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; margin-bottom: 14px; }
+  .where { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; margin: 14px 0; }
   .where .mm { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .where .sub { color: var(--muted); font-variant-numeric: tabular-nums; }
   .note { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; font-size: 13px; }
@@ -315,6 +315,30 @@
   .stat-range .stat-ctl { margin: 0; }
   .stat-range .stat-ctl[hidden] { display: none; }
   .stat-range .sr-title { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  /* Small t-table in the viewer toolbar: critical T for one-sided p at the given df. */
+  .ttable { display: inline-flex; align-items: center; gap: 8px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px;
+    font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .ttable input { width: 48px; padding: 2px 4px; font-size: 12px; }
+  .ttable table { border-collapse: collapse; }
+  .ttable th { font-weight: 600; padding: 0 6px 0 0; text-align: left; }
+  .ttable td { padding: 0 5px; text-align: right; min-width: 30px; }
+  .ttable tr + tr td { color: var(--ink); font-weight: 600; }
+  .stat-list[hidden] { display: none; }
+  .stat-list { display: flex; flex-direction: column; gap: 2px; }
+  .stat-list + .stat-ctl:not([hidden]) { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .sl-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
+  .sl-head .hint { margin: 0; }
+  .sl-row { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 6px; font-size: 13px; }
+  .sl-row.active { background: var(--accent-soft); }
+  .sl-row.off .sl-name { opacity: .5; }
+  .sl-name { flex: 1; min-width: 0; text-align: left; border: 0; background: none; color: var(--ink); font: inherit; padding: 2px 0;
+    cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sl-name .muted { color: var(--muted); }
+  .sl-row.active .sl-name { font-weight: 600; }
+  .sl-row .err { color: var(--err, #b42318); font-size: 12px; }
+  .sl-op { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+  .sl-op input { width: 90px; }
+  .stat-ctl .sr-for { color: var(--muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .stat-range .stat-ctl:not([hidden]) + .cbars { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
   .stat-bar select { max-width: 260px; }
   .where .stat { font-variant-numeric: tabular-nums; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
@@ -434,7 +458,6 @@
     </div>
   </aside>
   <section>
-    <div id="where" class="lookup-only"></div>
     <div class="panel quiz-card quiz-only" id="quizCard">
       <div class="top"><span class="badge" id="qAtlas"></span><span class="grow"></span><span class="score" id="qScore"></span></div>
       <h2 id="qPrompt">Loading…</h2>
@@ -459,6 +482,11 @@
         </div>
         <label class="lookup-only"><input type="checkbox" id="crosshairOn" checked> Crosshair</label>
         <button type="button" class="btn small" id="scrBtn" title="Save the three slices as a PNG (same size every time) in the image folder">scr</button>
+        <div class="ttable lookup-only" id="tTable" title="Critical T for a one-sided, uncorrected p with these degrees of freedom. For a two-sided p, use the column for half of it (two-sided .05 = one-sided .025).">
+          <label>df <input type="number" id="tDf" min="1" step="1" placeholder="df" aria-label="Degrees of freedom for the t-table"></label>
+          <table><tr><th>p</th><td>.05</td><td>.01</td><td>.005</td><td>.001</td></tr>
+            <tr><th>T</th><td data-p="0.05">–</td><td data-p="0.01">–</td><td data-p="0.005">–</td><td data-p="0.001">–</td></tr></table>
+        </div>
         <span class="grow"></span>
         <span class="hint" style="margin:0" id="viewerHint">Click a slice to look up that point · left = left (neurological)</span>
       </div>
@@ -485,27 +513,28 @@
         </span>
       </div>
       <div class="viewer-bar stat-bar lookup-only">
-        <label>Stat map <select id="statMap"><option value="">None</option></select></label>
+        <label>Stat maps <select id="statMap"><option value="">None</option></select></label>
         <span class="ov-head" id="ovHead"></span>
         <span class="hint" style="margin:0" id="statMsg"></span>
       </div>
       <div class="glwrap3d" id="gl3wrap" hidden><canvas id="gl3"></canvas></div>
       <div class="glwrap"><canvas id="gl"></canvas></div>
       <div class="stat-range lookup-only" id="statRange">
+        <div class="stat-list" id="statList" hidden></div>
         <div class="viewer-bar stat-ctl" id="statCtl" hidden>
-          <span class="sr-title">T-value range</span>
+          <span class="sr-title">T-value range</span><span class="sr-for" id="statFor"></span>
           <label>T ≥ <input type="number" id="statThr" min="0.1" step="0.1" value="3"></label>
           <label><select id="statSign" aria-label="Signs shown">
             <option value="both">± both</option><option value="pos">+ positive</option><option value="neg">− negative</option>
           </select></label>
           <label>k ≥ <input type="number" id="statK" min="1" step="1" value="5" title="Minimum cluster size (voxels)"></label>
-          <label>Opacity <input type="range" id="statOpacity" min="0" max="1" step="0.05" value="0.9" aria-label="Stat map opacity"></label>
           <span class="grow"></span>
           <span class="hint" style="margin:0" id="statInfo"></span>
         </div>
       </div>
       <div class="ov-panel lookup-only" id="ovPanel" hidden></div>
     </div>
+    <div id="where" class="lookup-only"></div>
     <div class="panel lookup-only" id="peaks" hidden></div>
     <div class="summary lookup-only" id="summary"></div>
     <div id="notes" class="lookup-only"></div>
@@ -525,7 +554,7 @@
 <script type="module">
 import { Niivue, NVImage, SHOW_RENDER, MULTIPLANAR_TYPE } from "/static/vendor/niivue-0.69.0.js";
 import { createQuiz } from "/static/quiz.js";
-import { createOverlays } from "/static/overlays.js";
+import { createOverlays, tFromP } from "/static/overlays.js";
 import { createViewerTools } from "/static/viewertools.js";
 import { createViewer3D } from "/static/viewer3d.js";
 import { createResultsBrowser } from "/static/browser.js";
@@ -801,7 +830,7 @@ function initDrop() {
   });
 }
 // Overlays on the template: an atlas (optional) and a thresholded stat map (optional).
-let atlasVol = null, statVol = null, overlayToken = 0;
+let atlasVol = null, overlayToken = 0;
 async function setOverlay(id) {
   store.set("overlay", id);
   await rebuildOverlays();
@@ -810,8 +839,9 @@ async function rebuildOverlays() {
   if (!nv) return;
   const token = ++overlayToken;
   while (nv.volumes.length > 1) nv.removeVolumeByIndex(1);
-  atlasVol = null; statVol = null;
-  const id = $("overlay").value, stat = state.stat;
+  atlasVol = null;
+  for (const e of state.stats) e.vol = null;
+  const id = $("overlay").value;
   if (id) {
     const [vol, cm] = await Promise.all([
       nv.addVolumeFromUrl({ url: `/api/atlases/${id}/label_map.nii.gz`, opacity: +$("opacity").value }),
@@ -821,31 +851,27 @@ async function rebuildOverlays() {
     vol.setColormapLabel(cm);
     atlasVol = vol;
   }
-  if (stat?.map && stat.maxAbs) {
-    const thr = stat.threshold, top = Math.max(stat.max ?? stat.maxAbs, thr + 0.01);
-    const showPos = stat.sign !== "neg", showNeg = stat.sign !== "pos";
+  // Open stat maps, back to front, so the top of the list is painted last (in front).
+  for (const e of [...state.stats].reverse()) {
+    if (!e.visible || !e.maxAbs) continue;
+    const thr = e.threshold, top = Math.max(e.max ?? e.maxAbs, thr + 0.01);
+    const showPos = e.sign !== "neg", showNeg = e.sign !== "pos";
     const vol = await nv.addVolumeFromUrl({
-      url: `/api/results/file/${stat.map.split("/").map(encodeURIComponent).join("/")}`,
-      colormap: "warm", opacity: +$("statOpacity").value,
+      url: `/api/results/file/${e.map.split("/").map(encodeURIComponent).join("/")}`,
+      colormap: "warm", opacity: e.opacity,
       // Hide a sign by pushing its window beyond the data.
       cal_min: showPos ? thr : top + 1, cal_max: showPos ? top : top + 2,
       ...(showNeg ? { colormapNegative: "winter", cal_minNeg: -thr, cal_maxNeg: -top } : {}),
     });
     if (token !== overlayToken) return;
     if (!showNeg) vol.colormapNegative = "";
-    statVol = vol;
+    e.vol = vol;
   }
   overlaysApi?.sync();  // local overlays stay in front of the atlas and stat map
   nv.updateGLVolume();
   if (state.last) moveCrosshair(state.last.mm);
 }
 $("overlay").addEventListener("change", (e) => setOverlay(e.target.value));
-// Stat map opacity applies live (and reaches the 3D view, which copies it).
-$("statOpacity").addEventListener("input", (e) => {
-  store.set("statOpacity", +e.target.value);
-  const i = statVol ? nv.volumes.indexOf(statVol) : -1;
-  if (i > 0) nv.setOpacity(i, +e.target.value);
-});
 $("opacity").addEventListener("input", (e) => {
   const i = atlasVol ? nv.volumes.indexOf(atlasVol) : -1;
   if (i > 0) nv.setOpacity(i, +e.target.value);
@@ -856,23 +882,59 @@ function debounce(key, fn, ms = 400) {
   clearTimeout(timers[key]);
   timers[key] = setTimeout(fn, ms);
 }
-// Colour bars for the results-folder map, drawn in rebuildOverlays (warm / winter).
+// Colour bars for the shown results-folder maps, drawn in rebuildOverlays (warm / winter).
 function statLegend() {
-  const s = state.stat;
-  if (!s?.map || !s.maxAbs) return [];
-  const name = $("statMap").selectedOptions[0]?.textContent || s.map;
-  const base = {
-    key: "stat", name, from: s.threshold, to: Math.max(s.max ?? s.maxAbs, s.threshold + 0.01), df: s.df, mode: "t", auto: s.max == null,
-    // Edits from the colour bar. Both reload the map (and the threshold the cluster
-    // table), so wait for a pause in typing.
-    setFrom: (v) => debounce("stat", () => { $("statThr").value = Math.abs(v); loadStat(); }),
-    setTo: (v) => debounce("stat", () => { s.max = v == null ? null : Math.abs(v); rebuildOverlays(); }),
-  };
-  return [...(s.sign !== "neg" ? [{ ...base, sign: "+", cmap: "warm" }] : []),
-          ...(s.sign !== "pos" ? [{ ...base, sign: "−", cmap: "winter" }] : [])];
+  return state.stats.filter((e) => e.visible && e.maxAbs).flatMap((e) => {
+    const base = {
+      key: "stat:" + e.map, name: mapLabel(e.map), from: e.threshold, to: Math.max(e.max ?? e.maxAbs, e.threshold + 0.01),
+      df: e.df, mode: "t", auto: e.max == null,
+      // Edits from the colour bar. Both reload the map (and the threshold its cluster
+      // table), so wait for a pause in typing.
+      setFrom: (v) => debounce("stat:" + e.map, async () => {
+        e.threshold = Math.abs(v);
+        if (e === state.stat) $("statThr").value = e.threshold;
+        await refreshStat(e); await rebuildOverlays(); saveStats();
+      }),
+      setTo: (v) => debounce("stat:" + e.map, () => { e.max = v == null ? null : Math.abs(v); rebuildOverlays(); saveStats(); }),
+    };
+    return [...(e.sign !== "neg" ? [{ ...base, sign: "+", cmap: "warm" }] : []),
+            ...(e.sign !== "pos" ? [{ ...base, sign: "−", cmap: "winter" }] : [])];
+  });
 }
 
+// t-table: critical one-sided T at p .05/.01/.005/.001 for the df typed in (filled from
+// the active map's df when empty).
+function setTDf(df) {
+  $("tDf").value = df ?? "";
+  const ok = +df > 0;
+  for (const td of $("tTable").querySelectorAll("td[data-p]")) td.textContent = ok ? tFromP(+td.dataset.p, +df).toFixed(2) : "–";
+  store.set("tDf", ok ? +df : null);
+}
+$("tDf").addEventListener("input", (ev) => setTDf(ev.target.value));
+setTDf(store.get("tDf", null));
+
 // --- stat maps from your results folder (read-only, never leaves this machine) -----
+// Several can be open at once, listed front (top, painted last) to back, each with its
+// own visibility, opacity and threshold. One is active: the T-value range controls, the
+// cluster table and the T at the crosshair are for it. Click a map's name to make it
+// active. Choosing a map in the results browser opens it (or brings it back) as active.
+state.stats = [];
+state.stat = null;  // the active entry of state.stats
+// Maps in one study differ near the end of their paths, so names show the last parts.
+const mapTail = (id) => {
+  const parts = id.split("/");
+  return (parts.length > 3 ? "… / " : "") + parts.slice(-3).join(" / ");
+};
+const mapLabel = (id) => {
+  const m = state.statMaps?.find((m) => m.id === id);
+  return mapTail(id) + (m ? ` · ${m.contrast}` : "");
+};
+const SAVED_KEYS = ["map", "visible", "opacity", "threshold", "sign", "k", "max"];
+function saveStats() {
+  store.set("statMaps", state.stats.map((e) => Object.fromEntries(SAVED_KEYS.map((k) => [k, e[k]]))));
+  store.set("statMap", state.stat?.map || "");
+}
+
 async function initStats() {
   const r = await fetch("/api/results").then((r) => r.json()).catch(() => null);
   if (!r?.available) {
@@ -887,36 +949,128 @@ async function initStats() {
   resultsBrowser?.setMaps(r.maps, r.folder);
   state.resultsMsg = r.warning ? "⚠ " + r.warning : "";
   $("statMsg").textContent = state.resultsMsg;
-  $("statThr").value = store.get("statThr", 3);
-  $("statSign").value = store.get("statSign", "both");
-  $("statK").value = store.get("statK", 5);
-  $("statOpacity").value = store.get("statOpacity", 0.9);
-  const saved = store.get("statMap", "");
-  if (r.maps.some((m) => m.id === saved)) { $("statMap").value = saved; resultsBrowser?.refresh(); await loadStat(); }
+  // Reopen last session's maps. Before 0.16 only one map (and one threshold) was saved.
+  const known = new Set(r.maps.map((m) => m.id)), active = store.get("statMap", "");
+  let saved = store.get("statMaps", null);
+  if (!saved && active) saved = [{ map: active, threshold: store.get("statThr", 3), sign: store.get("statSign", "both"),
+                                   k: store.get("statK", 5), opacity: store.get("statOpacity", 0.9) }];
+  state.stats = (saved || []).filter((e) => known.has(e.map)).map(newEntry);
+  await Promise.all(state.stats.map(refreshStat));
+  const first = state.stats.find((e) => e.map === active) || state.stats[0];
+  if (first) await activate(first); else renderStatList();
 }
-async function loadStat() {
-  const map = $("statMap").value;
-  store.set("statMap", map);
-  store.set("statThr", +$("statThr").value); store.set("statSign", $("statSign").value); store.set("statK", +$("statK").value);
-  if (!map) {
-    state.stat = null; $("peaks").hidden = true; $("statInfo").textContent = ""; $("statCtl").hidden = true;
-    await rebuildOverlays(); lookup(); return;
-  }
-  const p = new URLSearchParams({ map, threshold: $("statThr").value, sign: $("statSign").value, min_voxels: $("statK").value });
+
+function newEntry(e) {
+  return { visible: true, opacity: 0.9, threshold: 3, sign: "both", k: 5, max: null, ...e, vol: null };
+}
+
+// Fetch a map's clusters at its threshold: its strongest T (for the colour range), df,
+// and, for the active map, the cluster table.
+async function refreshStat(e) {
+  const p = new URLSearchParams({ map: e.map, threshold: e.threshold, sign: e.sign, min_voxels: e.k });
   const r = await fetch("/api/results/clusters?" + p);
   const d = await r.json();
-  if (!r.ok) { $("statMsg").textContent = d.detail; return; }
-  $("statMsg").textContent = state.resultsMsg || "";
-  $("statCtl").hidden = false;
-  const max = state.stat?.map === map ? state.stat.max : null;  // keep a max set on the colour bar
-  state.stat = { map, threshold: d.threshold, sign: d.sign, maxAbs: d.max_abs_t, df: d.df, max };
-  $("statInfo").textContent = d.df ? `≈ p < ${fmtPText(d.threshold_p)} one-sided, uncorrected (df ${d.df})` : "";
-  renderPeaks(d);
+  if (!r.ok) { e.error = d.detail; return; }
+  Object.assign(e, { error: null, threshold: d.threshold, sign: d.sign, maxAbs: d.max_abs_t, df: d.df, thresholdP: d.threshold_p });
+  if (e === state.stat) showActive(d);
+}
+
+function showActive(d) {
+  const e = state.stat;
+  if (e?.df && !$("tDf").value) setTDf(e.df);
+  $("statCtl").hidden = !e;
+  if (!e) { $("peaks").hidden = true; $("statInfo").textContent = ""; return; }
+  $("statFor").textContent = mapLabel(e.map);
+  $("statFor").title = e.map;
+  [$("statThr").value, $("statSign").value, $("statK").value] = [e.threshold, e.sign, e.k];
+  $("statInfo").textContent = e.error || (e.df ? `≈ p < ${fmtPText(e.thresholdP)} one-sided, uncorrected (df ${e.df})` : "");
+  if (d) renderPeaks(d);
+}
+
+async function activate(e) {
+  state.stat = e;
+  $("statMap").value = e?.map || "";
+  resultsBrowser?.refresh();
+  if (e) await refreshStat(e); else showActive();
+  renderStatList();
+  saveStats();
   await rebuildOverlays();
   lookup();
 }
-["statMap", "statSign"].forEach((id) => $(id).addEventListener("change", loadStat));
-["statThr", "statK"].forEach((id) => $(id).addEventListener("change", loadStat));
+
+async function openStat(map) {
+  let e = state.stats.find((s) => s.map === map);
+  if (!e) {
+    // A new map starts with the active map's threshold settings.
+    const a = state.stat;
+    e = newEntry({ map, ...(a ? { threshold: a.threshold, sign: a.sign, k: a.k } : {}) });
+    state.stats.unshift(e);
+  }
+  e.visible = true;
+  await activate(e);
+}
+
+async function closeStat(e) {
+  state.stats.splice(state.stats.indexOf(e), 1);
+  if (e === state.stat) await activate(state.stats[0] || null);
+  else { renderStatList(); saveStats(); await rebuildOverlays(); }
+}
+
+function renderStatList() {
+  const list = $("statList");
+  list.hidden = !state.stats.length;
+  list.innerHTML = `<div class="sl-head"><span class="sr-title">Stat maps</span>
+      <span class="hint">${state.stats.length > 1 ? "top is drawn in front · " : ""}click a name to set its range</span></div>` +
+    state.stats.map((e, i) => {
+      const m = state.statMaps?.find((m) => m.id === e.map);
+      return `<div class="sl-row${e === state.stat ? " active" : ""}${e.visible ? "" : " off"}" data-i="${i}">
+        <input type="checkbox" data-k="visible" ${e.visible ? "checked" : ""} aria-label="Show ${esc(e.map)}" title="Show or hide">
+        <button type="button" class="sl-name" data-act="activate" title="${esc(e.map)}${m ? "\n" + esc(m.contrast) : ""}">${esc(mapTail(e.map))}${m ? ` <span class="muted">· ${esc(m.contrast)}</span>` : ""}</button>
+        ${e.error ? `<span class="err" title="${esc(e.error)}">could not load</span>` : ""}
+        <label class="sl-op">Opacity <input type="range" data-k="opacity" min="0" max="1" step="0.05" value="${e.opacity}" aria-label="Opacity of ${esc(e.map)}"></label>
+        <button type="button" class="btn small" data-act="remove" title="Close this map" aria-label="Close ${esc(e.map)}">✕</button>
+      </div>`;
+    }).join("");
+}
+const entryOf = (ev) => state.stats[+ev.target.closest(".sl-row")?.dataset.i];
+$("statList").addEventListener("click", (ev) => {
+  const e = entryOf(ev), act = ev.target.closest("[data-act]")?.dataset.act;
+  if (!e || !act) return;
+  if (act === "activate" && e !== state.stat) activate(e);
+  else if (act === "remove") closeStat(e);
+});
+$("statList").addEventListener("change", (ev) => {
+  const e = entryOf(ev);
+  if (!e || ev.target.dataset.k !== "visible") return;
+  e.visible = ev.target.checked;
+  renderStatList(); saveStats(); rebuildOverlays();
+});
+// Opacity applies live (and reaches the 3D view, which copies it).
+$("statList").addEventListener("input", (ev) => {
+  const e = entryOf(ev);
+  if (!e || ev.target.dataset.k !== "opacity") return;
+  e.opacity = +ev.target.value;
+  const i = e.vol ? nv.volumes.indexOf(e.vol) : -1;
+  if (i > 0) nv.setOpacity(i, e.opacity);
+  debounce("saveStats", saveStats);
+});
+
+// The results browser sets #statMap: a map opens it; "" (Close all) closes every map.
+$("statMap").addEventListener("change", async () => {
+  const map = $("statMap").value;
+  if (map) return openStat(map);
+  state.stats = [];
+  await activate(null);
+});
+// T-value range controls edit the active map.
+["statThr", "statSign", "statK"].forEach((id) => $(id).addEventListener("change", async () => {
+  const e = state.stat;
+  if (!e) return;
+  e.threshold = +$("statThr").value; e.sign = $("statSign").value; e.k = +$("statK").value;
+  await refreshStat(e);
+  await rebuildOverlays();
+  saveStats();
+}));
 
 function fmtP(p) {
   if (p == null) return "–";

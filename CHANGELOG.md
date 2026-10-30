@@ -3,6 +3,19 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.16.0 (2026-10-29)
+- **Several stat maps at once**: maps chosen in the results browser are added to a
+  "Stat maps" list under the viewer (like FSLeyes' overlay list). Each has a show/hide
+  checkbox, its own opacity slider and ✕ to close it; all shown maps are overlaid
+  (top of the list in front), in the same warm/winter colours. Click a map's name to make
+  it active: the T-value range controls, the cluster table and the T at the crosshair are
+  for the active map. Each map keeps its own threshold, sign and k. The browser's
+  "None" is now "Close all". Open maps are restored next time.
+- **t-table** in the viewer toolbar: type df to get the critical one-sided T for
+  p = .05, .01, .005 and .001 (filled from the active map's df when empty).
+- The **MNI (x, y, z)** heading with the T and p at that point moved below the
+  T-value range, directly above the cluster table.
+
 ## 0.15.2 (2026-10-29)
 - **Results browser**: the column you're working in widens to show long folder and file
   names in full (up to most of the panel's width); the other columns stay narrow.
