@@ -3,6 +3,9 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.11.1 (2026-10-29)
+- Larger Results / Regions tabs on the side panel and its collapsed rail.
+
 ## 0.11.0 (2026-10-29)
 - **Side panel** instead of pop-up windows: the results browser and the Regions picker
   now open in a panel docked on the right (tabs: Results, Regions), so the viewer is
