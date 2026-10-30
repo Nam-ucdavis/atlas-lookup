@@ -64,8 +64,11 @@ src/atlaslookup/
                       (/api/brain_mesh.gii, fsaverage5 pial built by sources.export_mesh);
                       mesh style projects overlays onto the mesh in the browser; chosen regions
                       are drawn as server-built meshes (/api/regions/mesh.gii)
-  static/regionpicker.js  the Regions window (search all atlases, colours, "results only inside")
-  static/browser.js   Finder-style column browser for the results folder's stat maps
+  static/regionpicker.js  the Regions tab (search all atlases, colours, "results only inside")
+  static/browser.js   Finder-style column browser for the results folder's stat maps (side panel, Results tab)
+  static/sidepanel.js docked, resizable, collapsible right-hand panel hosting Results and Regions;
+                      the page narrows (body.sp-open), one column when cramped (body.sp-narrow).
+                      Note: it is an <aside>, so page-layout rules must target `main > aside`
   regions.py      region listing, 1 mm region masks, smooth region surface meshes
   static/vendor/niivue-0.69.0.js   vendored NiiVue bundle; do not edit
 tests/test_lookup.py

@@ -1,10 +1,10 @@
 // Finder-style column browser for the results folder's stat maps.
 //
 // The maps arrive as paths relative to the results folder ("modelA/sub/spmT_0001.nii").
-// The browser shows them as Finder's column view: one column per folder level, a
-// preview of the chosen map on the right, and a path bar. Choosing a map sets the
-// (hidden) <select id="statMap"> and fires its change event, so the rest of the page
-// works exactly as before.
+// The browser lives in the side panel's Results tab and shows them as Finder's column
+// view: one column per folder level, details of the chosen map below, and a path bar.
+// Choosing a map sets the (hidden) <select id="statMap"> and fires its change event, so
+// the rest of the page works exactly as before; the panel stays open for browsing on.
 //
 // Keyboard: up/down move within a column, right opens a folder, left goes back up,
 // Enter shows the selected map, Esc closes.
@@ -33,7 +33,7 @@ export function entries(node) {
   return [...dirs.map((d) => ({ kind: "dir", node: d })), ...files.map((f) => ({ kind: "file", map: f }))];
 }
 
-export function createResultsBrowser({ select, esc }) {
+export function createResultsBrowser({ select, esc, panel, host }) {
   let maps = [], folder = "", tree = null;
   let trail = [];       // folders open, root first
   let picked = null;    // highlighted map in the last column, if any
@@ -44,19 +44,16 @@ export function createResultsBrowser({ select, esc }) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "btn finder-btn";
-  button.setAttribute("aria-haspopup", "dialog");
+  button.title = "Browse the results folder";
   select.after(button);
 
-  const dlg = document.createElement("dialog");
-  dlg.className = "finder";
-  dlg.setAttribute("aria-label", "Choose a stat map");
+  const dlg = host;  // the side panel's Results section
+  dlg.classList.add("finder");
   dlg.innerHTML = `
-    <div class="finder-head"><b>Stat maps</b><span class="finder-root"></span><span class="grow"></span>
-      <button type="button" class="btn small" data-act="none">None</button>
-      <button type="button" class="btn small" data-act="close" aria-label="Close">Close</button></div>
-    <div class="finder-body"><div class="finder-cols" tabindex="0"></div><div class="finder-preview"></div></div>
+    <div class="finder-head"><span class="finder-root"></span><span class="grow"></span>
+      <button type="button" class="btn small" data-act="none" title="Hide the stat map">None</button></div>
+    <div class="finder-body"><div class="finder-cols" tabindex="0" aria-label="Results folder"></div><div class="finder-preview"></div></div>
     <div class="finder-path"></div>`;
-  document.body.append(dlg);
   const cols = dlg.querySelector(".finder-cols"), preview = dlg.querySelector(".finder-preview");
 
   const current = () => maps.find((m) => m.id === select.value) || null;
@@ -142,7 +139,7 @@ export function createResultsBrowser({ select, esc }) {
     select.value = id;
     select.dispatchEvent(new Event("change"));
     label();
-    dlg.close();
+    render();  // "Showing" and the ● marker follow the choice
   }
 
   cols.addEventListener("click", (e) => {
@@ -156,8 +153,7 @@ export function createResultsBrowser({ select, esc }) {
   });
   dlg.addEventListener("click", (e) => {
     const act = e.target.dataset.act;
-    if (act === "close" || e.target === dlg) dlg.close();
-    else if (act === "none") choose("");
+    if (act === "none") choose("");
     else if (act === "show" && picked) choose(picked.id);
     else if (e.target.dataset.crumb !== undefined) {
       const i = +e.target.dataset.crumb;
@@ -186,13 +182,16 @@ export function createResultsBrowser({ select, esc }) {
     e.preventDefault();
   });
 
-  button.addEventListener("click", () => {
-    if (!tree) return;
+  panel.onShow("results", () => {
+    if (!tree) {
+      dlg.querySelector(".finder-cols").innerHTML = `<div class="finder-empty">No results folder set.<br>Run <code>atlaslookup set-results DIR</code>.</div>`;
+      return;
+    }
     revealCurrent();
     render();
-    dlg.showModal();
-    cols.focus();
+    cols.focus({ preventScroll: true });
   });
+  button.addEventListener("click", () => panel.open("results"));
 
   return {
     setMaps(list, root) {
@@ -200,6 +199,7 @@ export function createResultsBrowser({ select, esc }) {
       dlg.querySelector(".finder-root").textContent = folder;
       button.disabled = !list.length;
       label();
+      if (panel.isOpen && panel.tab === "results") { revealCurrent(); render(); }
     },
     refresh: label,
   };

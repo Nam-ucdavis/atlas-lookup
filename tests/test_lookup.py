@@ -534,6 +534,9 @@ def test_viewer3d_is_wired():
     for el in ["viewTabs", "gl3wrap", "gl3", "v3Bar", "v3Style", "v3GlassRow", "v3Glass", "v3Views",
                "v3Regions", "statOpacity"]:
         assert re.search(rf'id="{el}"', html), el
+    assert 'from "/static/sidepanel.js"' in html
+    # Page-layout rules must not hit the side panel (also an <aside>).
+    assert "aside { display: contents" not in html.replace("main > aside { display: contents", "")
     js = (static / "viewer3d.js").read_text()
     assert "/api/brain_mesh.gii" in js and "export function createViewer3D" in js
 

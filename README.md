@@ -131,7 +131,7 @@ straight away.
   it, using the overlay's own threshold and colours. Only the cortex is shown,
   so subcortical and cerebellar results don't appear in this style. The
   projection runs in your browser, so local overlays still aren't uploaded.
-- **Regions…** opens a window to pick regions from any atlas. Search by name
+- **Regions…** opens the side panel's Regions tab to pick regions from any atlas. Search by name
   (common abbreviations like OFC, IFG, ACC work). Each chosen region is drawn
   as a solid shape in its own colour, and in Mesh brain painted onto the
   cortex. Tick **Show results only inside these regions** to hide everything
@@ -157,10 +157,17 @@ in `~/.atlaslookup/settings.json`, outside any repository, so it's safe to keep
 results out of version control. For one run you can use
 `atlaslookup serve --results DIR` instead.
 
-In the app, choose a map under **Stat map**. The button opens a Finder-style
-column browser of your results folder: click through the folders, see a map's
-contrast, df and grid on the right, and double-click (or press **Show**) to
-display it. Arrow keys and Enter work as in Finder.
+In the app, choose a map under **Stat map**. The button opens the side panel's
+Results tab, a Finder-style column browser of your results folder: click
+through the folders, see a map's contrast, df and grid below, and double-click
+(or press **Show**) to display it. Arrow keys and Enter work as in Finder.
+
+**Side panel.** Results and Regions live in a panel docked on the right, like a
+code editor's side bar: the page narrows to make room, so the viewer stays
+visible and usable. Drag its left edge to resize it; **»** or Esc collapses it
+to a slim rail on the right edge, and the rail's buttons bring it back. Its
+state, tab and width are remembered. When little room is left beside it, the
+page switches to one column with the viewer on top.
 
 - **Overlay:** thresholded at **T ≥** your value; positive orange, negative
   blue, or one sign only. **Opacity** sets how see-through it is (remembered,

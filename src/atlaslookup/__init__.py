@@ -1,3 +1,3 @@
 """Atlas Lookup: which brain region is this coordinate in?"""
 
-__version__ = "0.10.1"
+__version__ = "0.11.0"

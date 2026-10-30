@@ -1,6 +1,6 @@
-// "Regions" window for the 3D view: search every atlas's regions, tick the ones to
-// show, and optionally restrict the overlays to inside them. Each chosen region gets
-// its own colour. The choice is remembered and applied live as it changes.
+// Regions tab of the side panel, for the 3D view: search every atlas's regions, tick the
+// ones to show, and optionally restrict the overlays to inside them. Each chosen region
+// gets its own colour. The choice is remembered and applied live as it changes.
 
 const PALETTE = [  // distinct, readable on black and on the glass brain
   [230, 25, 75], [60, 180, 75], [255, 225, 25], [0, 130, 200], [245, 130, 48], [145, 30, 180],
@@ -28,17 +28,14 @@ export function matches(query, name, atlasName = "") {
     .every((w) => hay.includes(w) || (SYNONYMS[w] || []).some((phrase) => hay.includes(phrase)));
 }
 
-export function createRegionPicker({ button, store, esc, onChange }) {
+export function createRegionPicker({ button, store, esc, onChange, panel, host }) {
   let atlases = null;  // [{ atlas, atlas_name, regions: [...] }]
   let chosen = store.get("regions3d", []);       // [{ atlas, atlasName, value, side, name, color }]
   let maskResults = store.get("regions3dMask", false);
 
-  const dlg = document.createElement("dialog");
-  dlg.className = "regions-dlg";
-  dlg.setAttribute("aria-labelledby", "rgTitle");
+  const dlg = host;  // the side panel's Regions section
+  dlg.classList.add("regions-panel");
   dlg.innerHTML = `
-    <div class="prog-head"><h2 id="rgTitle">Regions to show in 3D</h2><span class="grow"></span>
-      <button type="button" class="btn" data-act="close">Done</button></div>
     <div class="rg-body">
       <div class="rg-find">
         <div class="rg-search">
@@ -54,8 +51,7 @@ export function createRegionPicker({ button, store, esc, onChange }) {
         <button type="button" class="linkish" data-act="clear">Clear all</button>
       </div>
     </div>
-    <p class="hint" style="margin:8px 0 0">Regions are drawn in 3D in the colours shown. Deep ones (hippocampus, amygdala, basal ganglia) are clearest with <b>Glass brain</b>; <b>Mesh brain</b> only shows the cortical surface.</p>`;
-  document.body.append(dlg);
+    <p class="hint rg-note">Shown in the 3D tab, in these colours. Deep regions (hippocampus, amygdala, basal ganglia) are clearest with <b>Glass brain</b>; <b>Mesh brain</b> only shows the cortical surface.</p>`;
   const search = dlg.querySelector("input[type=search]"), atlasSel = dlg.querySelector("select");
   const results = dlg.querySelector(".rg-results"), list = dlg.querySelector(".rg-list");
   const maskBox = dlg.querySelector("[data-opt=mask]");
@@ -101,7 +97,7 @@ export function createRegionPicker({ button, store, esc, onChange }) {
       ? chosen.map((c, i) => `<div class="rg-chip"><i style="background:rgb(${c.color.join(",")})"></i>
           <span>${esc(c.name)}<br><span class="muted">${esc(c.atlasName)}</span></span>
           <button type="button" class="btn small" data-remove="${i}" aria-label="Remove ${esc(c.name)}">✕</button></div>`).join("")
-      : `<div class="hint">Nothing chosen: the 3D view shows the whole brain. Tick regions on the left.</div>`;
+      : `<div class="hint">Nothing chosen: the 3D view shows the whole brain. Tick regions above.</div>`;
     maskBox.checked = maskResults;
     maskBox.disabled = !chosen.length;
   }
@@ -126,11 +122,10 @@ export function createRegionPicker({ button, store, esc, onChange }) {
   search.addEventListener("input", renderResults);
   atlasSel.addEventListener("change", renderResults);
   dlg.addEventListener("click", (e) => {
-    if (e.target.dataset.act === "close" || e.target === dlg) dlg.close();
     if (e.target.dataset.act === "clear") { chosen = []; maskResults = false; renderChosen(); renderResults(); emit(); }
   });
 
-  button.addEventListener("click", async () => {
+  panel.onShow("regions", async () => {
     if (!atlases) {
       atlases = await fetch("/api/regions").then((r) => r.json());
       atlasSel.innerHTML += atlases.map((a) => `<option value="${esc(a.atlas)}">${esc(a.atlas_name)}</option>`).join("");
@@ -139,9 +134,9 @@ export function createRegionPicker({ button, store, esc, onChange }) {
       if (chosen.some((c) => !have.has(keyOf(c)))) { chosen = chosen.filter((c) => have.has(keyOf(c))); emit(); }
     }
     renderResults(); renderChosen();
-    dlg.showModal();
-    search.focus();
+    search.focus({ preventScroll: true });
   });
+  button.addEventListener("click", () => panel.open("regions"));
 
   button.textContent = chosen.length ? `Regions (${chosen.length})` : "Regions…";
   return { get chosen() { return chosen; }, get maskResults() { return maskResults; } };

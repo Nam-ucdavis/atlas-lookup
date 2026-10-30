@@ -3,6 +3,13 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.11.0 (2026-10-29)
+- **Side panel** instead of pop-up windows: the results browser and the Regions picker
+  now open in a panel docked on the right (tabs: Results, Regions), so the viewer is
+  never covered. Drag its edge to resize; collapse it to a rail on the right edge (» or
+  Esc) and reopen it from there. Open state, tab and width are remembered; the page goes
+  to one column, viewer first, when the panel leaves little room. Hidden during the quiz.
+
 ## 0.10.1 (2026-10-29)
 - **Opacity slider** for the results-folder stat map (next to T and k). It applies live,
   is remembered, and carries over to the 3D view, including the mesh brain.
