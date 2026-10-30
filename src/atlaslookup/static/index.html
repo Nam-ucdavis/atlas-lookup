@@ -222,6 +222,14 @@
   .rg-chip .muted { font-size: 11px; color: var(--muted); }
   .rg-note { margin: 0; font-size: 12px; }
   .rg-tracts { flex: 0 0 auto; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 10px; }
+  /* Folded, the tract section shrinks to its header, docked at the bottom of the tab. */
+  .rg-tracts.collapsed { margin-top: auto; position: sticky; bottom: 0; background: var(--panel); padding-bottom: 2px; }
+  .rg-tracts.collapsed > :not(.tr-toggle) { display: none; }
+  .tr-toggle { display: flex; align-items: baseline; gap: 6px; width: 100%; border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+  .tr-toggle .section-title { margin: 0; }
+  .tr-toggle:hover .section-title, .tr-toggle:hover .tr-chev { color: var(--ink); }
+  .tr-chev { width: 10px; font-size: 11px; color: var(--muted); }
+  .tr-count { margin-left: auto; font-size: 11px; color: var(--muted); }
   .tr-opts { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 4px 0 6px; font-size: 12px; color: var(--muted); }
   .tr-opts[hidden] { display: none; }
   .tr-opts select { width: auto; max-width: 100%; padding: 4px 6px; }

@@ -2,6 +2,9 @@
 // passes near the chosen regions, with the regions each one links. Tick a tract to draw
 // it in the 3D view. With no regions chosen, every tract of the atlas is listed.
 //
+// The section folds down to its header, docked at the bottom of the tab (remembered);
+// folded, it shows how many tracts are drawn and skips looking up connections.
+//
 // Atlas-based proximity, not tractography of your data: a tract counts as touching a
 // region when its core (>= threshold % of subjects) comes within the distance of it.
 
@@ -16,10 +19,13 @@ export function createTractPanel({ host, store, esc, onChange }) {
   let settings = { atlas: "xtract-hcp", threshold: null, distance: 3, ...store.get("tractSettings", {}) };
   let shown = store.get("tracts3d", []);  // [{ atlas, value, name, color, threshold }]
   let token = 0;
+  let collapsed = store.get("tractsCollapsed", false);
 
   host.classList.add("tr-panel");
   host.innerHTML = `
-    <span class="section-title">Connecting tracts</span>
+    <button type="button" class="tr-toggle" aria-expanded="true" title="Show or hide the tract list">
+      <span class="tr-chev" aria-hidden="true">▾</span><span class="section-title">Connecting tracts</span>
+      <span class="tr-count"></span></button>
     <div class="tr-opts">
       <select data-k="atlas" aria-label="Tract atlas"></select>
       <label title="A tract's core: voxels where at least this % of subjects had the tract">core ≥ <input type="number" data-k="threshold" min="1" max="100" step="1">%</label>
@@ -38,7 +44,22 @@ export function createTractPanel({ host, store, esc, onChange }) {
   function emit() {
     store.set("tracts3d", shown);
     onChange(shown);
+    showCollapsed();
   }
+  function showCollapsed() {
+    host.classList.toggle("collapsed", collapsed);
+    const toggle = host.querySelector(".tr-toggle");
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    host.querySelector(".tr-chev").textContent = collapsed ? "▸" : "▾";
+    host.querySelector(".tr-count").textContent = collapsed && shown.length ? `${shown.length} shown in 3D` : "";
+  }
+  host.querySelector(".tr-toggle").addEventListener("click", () => {
+    collapsed = !collapsed;
+    store.set("tractsCollapsed", collapsed);
+    showCollapsed();
+    if (!collapsed) render();
+  });
+  showCollapsed();
   function nextColor() {
     const used = new Set(shown.map((s) => s.color.join()));
     return PALETTE.find((c) => !used.has(c.join())) || PALETTE[shown.length % PALETTE.length];
@@ -60,6 +81,7 @@ export function createTractPanel({ host, store, esc, onChange }) {
 
   async function render() {
     await load();
+    if (collapsed) return;  // refreshed when unfolded
     if (!atlases.length) return;
     input("atlas").value = settings.atlas;
     input("threshold").value = threshold();

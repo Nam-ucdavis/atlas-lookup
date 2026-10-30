@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.17.1 (2026-10-29)
+- **Connecting tracts folds away**: click its header to collapse it to one line docked at
+  the bottom of the Regions tab (showing how many tracts are drawn in 3D); click again to
+  unfold. The app remembers which.
+
 ## 0.17.0 (2026-10-29)
 - **White-matter tracts**: three new atlases, downloaded by `atlaslookup setup` from FSL's
   package server (pinned version, checked against FSL's sha256; ~50 MB):

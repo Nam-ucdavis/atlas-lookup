@@ -145,7 +145,8 @@ straight away.
   amygdala ↔ orbitofrontal cortex). Tick a tract to draw it in 3D. Choose the
   atlas (**XTRACT HCP**, 60 tracts, or **JHU**, 20), the core threshold (% of
   subjects with the tract there; XTRACT 25 %, JHU 10 % by default) and how
-  close it must come (mm). With no regions chosen it lists every tract.
+  close it must come (mm). With no regions chosen it lists every tract. Click
+  the **Connecting tracts** header to fold it down to the bottom of the tab.
   This is atlas-based proximity, not tractography of your own data:
   population tracts often stop short of the cortex (hence the distance), and
   bundles that merely pass nearby are listed too. Two regions that touch each
