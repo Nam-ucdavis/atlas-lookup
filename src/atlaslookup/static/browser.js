@@ -60,13 +60,10 @@ export function createResultsBrowser({ select, esc, panel, host }) {
 
   const current = () => maps.find((m) => m.id === select.value) || null;
 
+  // The button opens the browser; the open maps are listed under the viewer.
   function label() {
-    const m = current();
-    if (!m) { button.innerHTML = `<span class="finder-ico">▦</span> None <span class="muted">▾</span>`; return; }
-    const parts = m.id.split("/");
-    const short = parts.slice(-3).join(" / ");
-    button.innerHTML = `<span class="finder-ico">▦</span> ${parts.length > 3 ? "… / " : ""}${esc(short)} <span class="muted">▾</span>`;
-    button.title = `${m.id}\n${m.contrast}`;
+    button.innerHTML = `<span class="finder-ico">▦</span> Open spmT…`;
+    button.title = "Load a stat map from your results folder";
   }
 
   // The tree's file entries carry the display name; look maps up there.

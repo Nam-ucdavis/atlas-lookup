@@ -108,7 +108,7 @@ export function createOverlays({ NVImage, getNv, esc, head, list }) {
 
   head.innerHTML = `
     <button type="button" class="btn small primary" data-act="pick"
-      title="Add NIfTI files from this computer (or drop .nii files on the brain). Read in this browser, never uploaded; assumed MNI.">＋ Add overlay…</button>
+      title="Import a NIfTI map from this computer, from outside the results folder (or drop .nii files on the brain). Read in this browser, never uploaded; assumed MNI.">⤓ Import new map…</button>
     <input type="file" accept=".nii,.nii.gz,.gz" multiple hidden>
     <span class="hint" style="margin:0" data-k="count"></span>`;
   const input = head.querySelector("input[type=file]");

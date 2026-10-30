@@ -159,7 +159,7 @@ in `~/.atlaslookup/settings.json`, outside any repository, so it's safe to keep
 results out of version control. For one run you can use
 `atlaslookup serve --results DIR` instead.
 
-In the app, choose a map under **Stat maps**. The button opens the side panel's
+In the app, click **▦ Open spmT…** above the viewer. It opens the side panel's
 Results tab, a Finder-style column browser of your results folder: click
 through the folders, see a map's contrast, df and grid below, and double-click
 (or press **Show**) to display it. Arrow keys and Enter work as in Finder.
@@ -169,7 +169,7 @@ can overlay several: tick or untick a map to show or hide it, set its own
 opacity, or ✕ to close it. Click a map's name to make it active; the T-value
 range controls (T ≥, sign, k ≥), the cluster table and the T at the crosshair
 follow the active map. The small **t-table** next to Crosshair gives the
-critical one-sided T for p = .05, .01, .005 and .001 at the df you type.
+critical T, one- and two-tailed, for p = .05, .01, .005 and .001 at the df you type.
 
 **Left sidebar.** The lookup form, atlas overlay, atlas list and history (or
 the quiz setup) sit in a sidebar on the left that stays in view as you scroll.
@@ -194,7 +194,7 @@ page switches to one column with the viewer on top.
 
 ### Local overlays
 
-Click **＋ Add overlay…** (right of the Stat map button), or drop `.nii` / `.nii.gz`
+Click **⤓ Import new map…** (right of **Open spmT…**), or drop `.nii` / `.nii.gz`
 files on the brain) to overlay any stat map from your computer, inside the
 results folder or not. The file is read by your browser and never uploaded,
 not even to the local server. It should be in MNI space.

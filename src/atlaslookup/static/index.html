@@ -323,6 +323,7 @@
   .ttable th { font-weight: 600; padding: 0 6px 0 0; text-align: left; }
   .ttable td { padding: 0 5px; text-align: right; min-width: 30px; }
   .ttable tr + tr td { color: var(--ink); font-weight: 600; }
+  .ttable th { white-space: nowrap; }
   .stat-list[hidden] { display: none; }
   .stat-list { display: flex; flex-direction: column; gap: 2px; }
   .stat-list + .stat-ctl:not([hidden]) { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
@@ -482,10 +483,11 @@
         </div>
         <label class="lookup-only"><input type="checkbox" id="crosshairOn" checked> Crosshair</label>
         <button type="button" class="btn small" id="scrBtn" title="Save the three slices as a PNG (same size every time) in the image folder">scr</button>
-        <div class="ttable lookup-only" id="tTable" title="Critical T for a one-sided, uncorrected p with these degrees of freedom. For a two-sided p, use the column for half of it (two-sided .05 = one-sided .025).">
+        <div class="ttable lookup-only" id="tTable" title="Critical T (uncorrected) for p with these degrees of freedom: one-tailed and two-tailed.">
           <label>df <input type="number" id="tDf" min="1" step="1" placeholder="df" aria-label="Degrees of freedom for the t-table"></label>
           <table><tr><th>p</th><td>.05</td><td>.01</td><td>.005</td><td>.001</td></tr>
-            <tr><th>T</th><td data-p="0.05">–</td><td data-p="0.01">–</td><td data-p="0.005">–</td><td data-p="0.001">–</td></tr></table>
+            <tr><th>1-tailed</th><td data-p="0.05">–</td><td data-p="0.01">–</td><td data-p="0.005">–</td><td data-p="0.001">–</td></tr>
+            <tr><th>2-tailed</th><td data-p2="0.05">–</td><td data-p2="0.01">–</td><td data-p2="0.005">–</td><td data-p2="0.001">–</td></tr></table>
         </div>
         <span class="grow"></span>
         <span class="hint" style="margin:0" id="viewerHint">Click a slice to look up that point · left = left (neurological)</span>
@@ -513,7 +515,7 @@
         </span>
       </div>
       <div class="viewer-bar stat-bar lookup-only">
-        <label>Stat maps <select id="statMap"><option value="">None</option></select></label>
+        <select id="statMap" aria-label="Stat map" hidden><option value="">None</option></select>
         <span class="ov-head" id="ovHead"></span>
         <span class="hint" style="margin:0" id="statMsg"></span>
       </div>
@@ -902,12 +904,15 @@ function statLegend() {
   });
 }
 
-// t-table: critical one-sided T at p .05/.01/.005/.001 for the df typed in (filled from
-// the active map's df when empty).
+// t-table: critical T at p .05/.01/.005/.001, one- and two-tailed, for the df typed in
+// (filled from the active map's df when empty).
 function setTDf(df) {
   $("tDf").value = df ?? "";
   const ok = +df > 0;
-  for (const td of $("tTable").querySelectorAll("td[data-p]")) td.textContent = ok ? tFromP(+td.dataset.p, +df).toFixed(2) : "–";
+  for (const td of $("tTable").querySelectorAll("td[data-p], td[data-p2]")) {
+    const p = td.dataset.p ? +td.dataset.p : +td.dataset.p2 / 2;
+    td.textContent = ok ? tFromP(p, +df).toFixed(2) : "–";
+  }
   store.set("tDf", ok ? +df : null);
 }
 $("tDf").addEventListener("input", (ev) => setTDf(ev.target.value));

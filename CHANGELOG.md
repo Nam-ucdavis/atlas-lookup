@@ -3,6 +3,12 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.16.1 (2026-10-29)
+- **t-table** shows one-tailed and two-tailed critical T.
+- Above the viewer, the "Stat maps" picker is now a **▦ Open spmT…** button (load a map
+  from your results folder), and "Add overlay" is **⤓ Import new map…** (a map from
+  anywhere on this computer).
+
 ## 0.16.0 (2026-10-29)
 - **Several stat maps at once**: maps chosen in the results browser are added to a
   "Stat maps" list under the viewer (like FSLeyes' overlay list). Each has a show/hide
