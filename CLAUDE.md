@@ -49,7 +49,9 @@ src/atlaslookup/
   labels.py       label-file readers (tsv/csv, LUT txt, FSL xml)
   grids.py        voxel grids (voxel index <-> mm)
   query.py        input resolution (mm / voxel, 1-based default) + best_guess()
-  results.py      read-only access to the user's spmT maps: list, value, clusters
+  results.py      read-only access to the user's spmT maps: list, value, clusters, cluster_at
+                  (which cluster-table row a point falls in; clusters are cached per map +
+                  threshold/sign/k in _clusters, keyed by file mtime)
   quiz.py         quiz regions, interior points, masks, brain-division mapping
   server.py       FastAPI routes (docstring lists them all)
   __main__.py     CLI (`atlaslookup ...`)
@@ -57,7 +59,12 @@ src/atlaslookup/
   versions.py     version menu: lists vX.Y.Z tags (>= 0.6.0), checks them out as git worktrees under
                   ~/.atlaslookup/versions, and restarts the server in place (os.execve) with
                   PYTHONPATH=<worktree>/src. Never touch the user's checkout from here.
-  static/index.html   the whole lookup UI (inline module script)
+  static/index.html   the whole lookup UI (inline module script). Several results-folder maps can be
+                      open at once (state.stats, front first, each with its own visible/opacity/
+                      threshold/sign/k/max, saved as "statMaps"); one is active (state.stat) and
+                      drives the T-value range controls, the cluster table, and the T and cluster
+                      highlight at the crosshair (/api/lookup gets its threshold/sign/min_voxels).
+                      Each map's colour bars live in its row (viewertools barHost)
   static/quiz.js      quiz + progress UI; exports matchName() for tests
   screenshots.py  saves "scr" captures as DATA_DIR/image/<date_time>.png
   static/viewertools.js  crosshair toggle, slice coordinate labels, "scr" capture; exports sliceLabel() for tests
