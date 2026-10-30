@@ -101,6 +101,8 @@
   .meta { display: flex; gap: 6px; align-items: center; margin: 4px 0 12px; flex-wrap: wrap; }
   .badge { font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
   .badge.functional { background: var(--func-soft); color: var(--func); }
+  .badge.white-matter { background: #dff1ee; color: #1f6b62; }
+  @media (prefers-color-scheme: dark) { .badge.white-matter { background: #17302d; color: #8fd6cb; } }
   .meta .space { font-size: 12px; color: var(--muted); }
   .guess { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
   .guess.none { color: var(--muted); font-weight: 400; }
@@ -202,21 +204,35 @@
   .finder-path .linkish { margin: 0; color: var(--ink); text-decoration: none; }
   /* Regions tab */
   .regions-panel { padding: 12px; overflow: hidden; }
-  .rg-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
-  .rg-find { flex: 1 1 60%; min-height: 0; display: flex; flex-direction: column; }
-  .rg-chosen { flex: 0 1 auto; max-height: 40%; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 10px; }
+  /* Search, chosen regions and connecting tracts stack and the tab scrolls as a whole;
+     each list caps its own height so none squeezes the others away. */
+  .rg-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+  .rg-find { flex: 0 0 auto; display: flex; flex-direction: column; }
+  .rg-chosen { flex: 0 0 auto; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 10px; }
   .rg-row span, .rg-chip span { overflow-wrap: anywhere; }
   .rg-search { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
   .rg-search input { flex: 1 1 180px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; min-width: 0; }
   .rg-search select { flex: 1 1 140px; width: auto; }
-  .rg-results { flex: 1; min-height: 0; overflow-y: auto; }
-  .rg-list { min-height: 0; overflow-y: auto; }
+  .rg-results { max-height: 32vh; overflow-y: auto; }
+  .rg-list { max-height: 22vh; overflow-y: auto; }
   .rg-row { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; padding: 4px 2px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--line); }
   .rg-row .muted { grid-column: 2; font-size: 11px; color: var(--muted); }
   .rg-chip { display: grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items: center; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--line); }
   .rg-chip i { width: 14px; height: 14px; border-radius: 3px; }
   .rg-chip .muted { font-size: 11px; color: var(--muted); }
   .rg-note { margin: 0; font-size: 12px; }
+  .rg-tracts { flex: 0 0 auto; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 10px; }
+  .tr-opts { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 4px 0 6px; font-size: 12px; color: var(--muted); }
+  .tr-opts[hidden] { display: none; }
+  .tr-opts select { width: auto; max-width: 100%; padding: 4px 6px; }
+  .tr-opts input { width: 52px; padding: 3px 5px; }
+  .tr-list { max-height: 48vh; overflow-y: auto; }
+  .tr-group { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; margin: 8px 0 2px; }
+  .tr-row { display: grid; grid-template-columns: auto 14px 1fr; gap: 0 8px; align-items: start; padding: 4px 2px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--line); }
+  .tr-row i { width: 14px; height: 14px; margin-top: 2px; border-radius: 3px; border: 1px solid var(--line); }
+  .tr-row .muted { font-size: 11px; color: var(--muted); }
+  .tr-row span { overflow-wrap: anywhere; }
+  .tr-note { margin: 6px 0 0; font-size: 11px; }
   .rg-opt { display: flex; gap: 6px; align-items: center; margin-top: 12px; font-size: 13px; }
   .summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 14px; }
   .summary .panel { padding: 10px 12px; }
@@ -567,6 +583,7 @@ import { createViewerTools } from "/static/viewertools.js";
 import { createViewer3D } from "/static/viewer3d.js";
 import { createResultsBrowser } from "/static/browser.js";
 import { createRegionPicker } from "/static/regionpicker.js";
+import { createTractPanel } from "/static/tracts.js";
 import { createSidePanel } from "/static/sidepanel.js";
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -746,11 +763,18 @@ async function initViewer() {
     store, tabs: [{ id: "results", label: "Results" }, { id: "regions", label: "Regions" }],
     onLayout: relayoutViewers,  // the viewers got narrower or wider
   });
+  let tractPanel = null;
   const picker = createRegionPicker({
-    button: $("v3Regions"), store, esc, onChange: (list, opts) => view3d.setRegions(list, opts),
+    button: $("v3Regions"), store, esc,
+    onChange: (list, opts) => { view3d.setRegions(list, opts); tractPanel?.setRegions(list); },
     panel: sidePanel, host: sidePanel.section("regions"),
   });
   view3d.setRegions(picker.chosen, { maskResults: picker.maskResults });
+  // White-matter tracts near the chosen regions, listed under them in the same tab.
+  tractPanel = createTractPanel({ host: picker.tractHost, store, esc, onChange: (list) => view3d.setTracts(list) });
+  tractPanel.setRegions(picker.chosen);
+  picker.onShow(() => tractPanel.render());
+  view3d.setTracts(tractPanel.shown);
   resultsBrowser = createResultsBrowser({ select: $("statMap"), esc, panel: sidePanel, host: sidePanel.section("results") });
   initViewTabs();
   let t;

@@ -53,7 +53,8 @@ void main() {
 // Brain transparency (%) per style until the user changes it: glass starts see-through.
 const DEFAULT_TRANSPARENCY = { surface: 0, glass: 75, mesh: 0 };
 const DEPTHS = [0, 1, 2, 3, 4];  // mm beneath the pial surface sampled for the mesh style
-const REGION_SEE_THROUGH = 0.35;  // region opacity when results are shown only inside them
+const REGION_SEE_THROUGH = 0.35;
+const TRACT_OPACITY = 0.9;  // a touch see-through, so regions behind a tract still show  // region opacity when results are shown only inside them
 const W = 2400, H = 800, BAND = 160;  // capture size, matching the slice captures
 
 // --- sampling volumes at mesh vertices (pure, exported for tests) ---------------------
@@ -167,6 +168,10 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     mesh = await NVMesh.readMesh(buf, "brain.gii", nv3.gl, brainOpacity(), new Uint8Array(GLASS_RGBA), true);
     mesh.updateMesh(nv3.gl);
     nv3.addMesh(mesh);
+    // NiiVue draws meshes in list order. The see-through brain must come first, or
+    // regions and tracts added before it (e.g. restored on reload) disappear behind it.
+    nv3.meshes.splice(nv3.meshes.indexOf(mesh), 1);
+    nv3.meshes.unshift(mesh);
     normals = NVMeshUtilities.generateNormals(mesh.pts, mesh.tris);
     // Sampling goes inwards, so normals must point out of the brain: the left-most
     // vertex's normal should point left.
@@ -277,12 +282,38 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     wrap.hidden = !on;
     controls.bar.hidden = !on;
     if (!on) return;
-    if (!ready) ready = init().then(() => loadRegions());
+    if (!ready) ready = init().then(() => Promise.all([loadRegions(), loadTracts()]));
     await ready;
     await applyStyle();
     nv3.resizeListener?.();
     nv3.drawScene();
     setHint("3D: drag to rotate, scroll to zoom. Click on the slices to look up a point.");
+  }
+
+  // Tracts from the Regions tab's "Connecting tracts": [{ atlas, value, threshold, color }].
+  let tractWanted = [], tractKey = "", tractMeshes = [];
+  async function loadTracts() {
+    const key = tractWanted.map((t) => `${t.atlas}|${t.value}|${t.threshold}|${t.color.join()}`).join(",");
+    if (key === tractKey) return;
+    tractKey = key;
+    const meshes = await Promise.all(tractWanted.map(async (t) => {
+      const res = await fetch(`/api/tracts/mesh.gii?${new URLSearchParams({ atlas: t.atlas, value: t.value, threshold: t.threshold })}`);
+      if (!res.ok) return null;
+      return NVMesh.readMesh(await res.arrayBuffer(), "tract.gii", nv3.gl, TRACT_OPACITY, new Uint8Array([...t.color, 255]), true);
+    }));
+    if (key !== tractKey) return;  // a newer choice arrived meanwhile
+    for (const m of tractMeshes) nv3.removeMesh(m);
+    tractMeshes = meshes.filter(Boolean);
+    for (const m of tractMeshes) {
+      m.updateMesh(nv3.gl);
+      nv3.addMesh(m);
+      nv3.setMeshShader(m.id, "Phong");
+    }
+    nv3.drawScene();
+  }
+  async function setTracts(list) {
+    tractWanted = list;
+    if (nv3) await loadTracts();  // otherwise applied when the 3D view first opens
   }
 
   // regions: [{ atlas, value, side, color: [r,g,b] }] in display order.
@@ -375,6 +406,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   return {
     show,
     setRegions,
+    setTracts,
     get active() { return active; },
     get nv() { return nv3; },
     follow: () => active && sync(),

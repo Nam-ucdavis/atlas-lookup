@@ -45,7 +45,9 @@ README's Development section).
 src/atlaslookup/
   config.py       all paths: PACKAGE_DIR/STATIC_DIR (code) vs DATA_DIR (~/.atlaslookup or $ATLASLOOKUP_HOME)
   atlas.py        Atlas: lookup() -> label / probabilities / nearest / neighbourhood; add_atlas(); MNI resampling
-  sources.py      built-in atlas importers (nilearn) + `setup`
+  sources.py      built-in atlas importers (nilearn) + `setup` (skips atlases already installed);
+                  JHU + XTRACT tracts come from FSL's conda channel, pinned by version + sha256
+                  (FSL_PACKAGES), XTRACT resampled to 2 mm to keep memory down
   labels.py       label-file readers (tsv/csv, LUT txt, FSL xml)
   grids.py        voxel grids (voxel index <-> mm)
   query.py        input resolution (mm / voxel, 1-based default) + best_guess()
@@ -82,6 +84,10 @@ src/atlaslookup/
                       the page narrows (body.sp-open), one column when cramped (body.sp-narrow).
                       Note: it is an <aside>, so page-layout rules must target `main > aside`
   regions.py      region listing, 1 mm region masks, smooth region surface meshes
+  tracts.py       tract atlases (manifest extra.tract): which tracts' cores (>= threshold %) come
+                  within N mm of chosen regions ("Connecting tracts"), and tract surface meshes.
+                  Atlas-based proximity, not tractography; say so in any UI/docs you touch
+  static/tracts.js    "Connecting tracts" list under the Regions tab; ticked tracts drawn in 3D
   static/vendor/niivue-0.69.0.js   vendored NiiVue bundle; do not edit
 tests/test_lookup.py
 ```

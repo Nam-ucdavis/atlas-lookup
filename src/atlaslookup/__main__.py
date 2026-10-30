@@ -136,8 +136,10 @@ def main(argv=None):
             sys.exit(f"Port {args.port} is used by another program; try --port {args.port + 1}")
         if not _is_set_up():
             from .sources import bootstrap
-            print(f"First run: downloading atlases into {DATA_DIR} (one time, about 40 MB).")
+            print(f"First run: downloading atlases into {DATA_DIR} (one time, about 90 MB).")
             bootstrap()
+        elif not (ATLASES_DIR / "xtract-hcp" / "atlas.json").exists():
+            print("  new: white-matter tracts (JHU, XTRACT). Run `atlaslookup setup` once to add them (~50 MB from FSL).")
         if args.results:
             os.environ["ATLAS_RESULTS_DIR"] = args.results
         from .results import configured_dir, repo_warning

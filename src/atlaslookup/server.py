@@ -11,6 +11,10 @@ GET /api/brain_mesh.gii                  cortical surface (fsaverage5 pial) for 
 GET /api/regions                         every region of every atlas (per side), for the Regions window
 GET /api/regions/mask.nii.gz?sel=atlas|value|side,...   chosen regions as one 1 mm label volume
 GET /api/regions/mesh.gii?sel=atlas|value|side          one region as a smooth surface mesh
+GET /api/tracts                          tract atlases (JHU, XTRACT) and their tracts
+GET /api/tracts/connections?atlas=&sel=atlas|value|side,...&threshold=&distance=
+                                         tracts whose core passes near the chosen regions
+GET /api/tracts/mesh.gii?atlas=&value=&threshold=   one tract's core as a smooth surface mesh
 GET /api/atlases/{id}/label_map.nii.gz   parcellation in MNI space, for the viewer overlay
 GET /api/atlases/{id}/colormap           NiiVue label colormap for that overlay
 GET /api/quiz/regions?atlases=a,b        quizzable regions per atlas (with brain division)
@@ -39,7 +43,7 @@ from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
 from .config import IMAGE_DIR, MESH_FILE, STATIC_DIR, TEMPLATE_FILE
 from .grids import load_grids
 from .screenshots import MAX_BYTES, reveal, save_png
-from . import quiz, regions
+from . import quiz, regions, tracts
 from .results import Results, configured_dir, repo_warning
 from .query import best_guess, query, resolve_mm
 from .version import version_info
@@ -185,12 +189,13 @@ def brain_mesh():
 
 @app.get("/api/regions")
 def regions_list():
+    # Tracts have their own list (Connecting tracts); their label maps keep only the
+    # most likely tract per voxel, which would misdraw overlapping tracts as regions.
     return [{"atlas": a.id, "atlas_name": a.manifest.name, "regions": list(regions.regions(a))}
-            for a in ATLASES.values() if a.info()["can_overlay"]]
+            for a in ATLASES.values() if a.info()["can_overlay"] and not tracts.is_tract_atlas(a)]
 
 
-@app.get("/api/regions/mask.nii.gz")
-def regions_mask(sel: str = Query(..., min_length=1)):
+def _parse_regions(sel: str) -> list[tuple[str, int, str]]:
     selection = []
     for item in sel.split(","):
         try:
@@ -202,6 +207,12 @@ def regions_mask(sel: str = Query(..., min_length=1)):
         if a is None or not a.info()["can_overlay"] or side not in regions.SIDES:
             raise HTTPException(404, f"No region {item!r}")
         selection.append((atlas_id, value, side))
+    return selection
+
+
+@app.get("/api/regions/mask.nii.gz")
+def regions_mask(sel: str = Query(..., min_length=1)):
+    selection = _parse_regions(sel)
     if len(selection) > regions.MAX_REGIONS:
         raise HTTPException(400, f"At most {regions.MAX_REGIONS} regions")
     data = regions.mask_nifti(tuple(ATLASES.values()), tuple(selection))
@@ -222,6 +233,43 @@ def regions_mesh(sel: str):
         return Response(regions.mesh_gifti(a, value, side), media_type="application/octet-stream")
     except ValueError:
         raise HTTPException(404, f"Region {sel!r} is empty")
+
+
+def _tract_atlas(atlas_id: str):
+    a = ATLASES.get(atlas_id)
+    if a is None or not tracts.is_tract_atlas(a):
+        raise HTTPException(404, f"{atlas_id!r} is not a tract atlas")
+    return a
+
+
+@app.get("/api/tracts")
+def tracts_list():
+    return [tracts.listing(a) for a in ATLASES.values() if tracts.is_tract_atlas(a)]
+
+
+@app.get("/api/tracts/connections")
+def tracts_connections(
+    atlas: str,
+    sel: str = Query(..., min_length=1),
+    threshold: float = Query(25, gt=0, le=100),
+    distance: float = Query(3, ge=0, le=15),
+):
+    t = _tract_atlas(atlas)
+    selection = _parse_regions(sel)
+    if len(selection) > 20:
+        raise HTTPException(400, "At most 20 regions")
+    return tracts.connections(t, [(ATLASES[a], v, s) for a, v, s in selection], threshold, distance)
+
+
+@app.get("/api/tracts/mesh.gii")
+def tracts_mesh(atlas: str, value: int, threshold: float = Query(25, gt=0, le=100)):
+    t = _tract_atlas(atlas)
+    if value not in t.labels:
+        raise HTTPException(404, f"No tract {value} in {atlas}")
+    try:
+        return Response(tracts.mesh_gifti(t, value, threshold), media_type="application/octet-stream")
+    except ValueError:
+        raise HTTPException(404, "This tract has no voxels at that threshold")
 
 
 def _overlay_atlas(atlas_id: str):

@@ -1,4 +1,5 @@
-"""Built-in atlas importers (downloaded via nilearn on first run).
+"""Built-in atlas importers (downloaded via nilearn, or from FSL's package server, on
+first run).
 
 Paper atlases don't need code here: add them from files with
 `python -m atlaslookup add ...` (see README). Schaefer is imported that way
@@ -6,10 +7,18 @@ below, from its raw NIfTI + LUT, to keep that path exercised.
 """
 from __future__ import annotations
 
+import hashlib
+import tarfile
+import tempfile
+import urllib.request
+import xml.etree.ElementTree as ET
+import zipfile
+from pathlib import Path
+
 import numpy as np
 
 from .atlas import add_atlas
-from .config import MESH_FILE, TEMPLATE_FILE
+from .config import ATLASES_DIR, DOWNLOADS_DIR, GRIDS_DIR, MESH_FILE, TEMPLATE_FILE
 from .destrieux_names import readable
 from .grids import grid_from_image, save_grid
 
@@ -166,6 +175,137 @@ def import_talairach(overwrite=False):
                   role=role, order=order, description=desc, **common)
 
 
+# --- white-matter tracts (FSL's atlas packages) --------------------------------------
+# nilearn has no JHU or XTRACT fetcher, so these come from FSL's own conda channel,
+# pinned to a version and checked against its published sha256.
+FSL_CHANNEL = "https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/noarch"
+FSL_PACKAGES = {
+    "atlases": ("fsl-data_atlases-2103.0-0.tar.bz2",
+                "3ac89f5f67de84054e1e576c9ad5f7ef6f562cef7b2504a3fa992c079cf72f8c"),
+    "xtract": ("fsl-data_atlases_xtract-2.0.2-0.conda",
+               "b65f25c00527c0c631f962d5e21c267037f4dcdbf3d01b5cbe923b2e7774fef1"),
+}
+FSL_LICENCE = "FSL atlases: free for non-commercial use (FSL licence)."
+# Default core threshold (% of subjects) for drawing a tract and finding its connections.
+# JHU's 28-subject maps are thin (most tracts peak at 30-50%), so it gets a lower one.
+TRACT_THRESHOLD = {"jhu-tracts": 10, "xtract-hcp": 25}
+
+
+def _fsl_package(key: str) -> Path:
+    name, sha = FSL_PACKAGES[key]
+    path = DOWNLOADS_DIR / name
+    if not path.exists() or hashlib.sha256(path.read_bytes()).hexdigest() != sha:
+        DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
+        print(f"  downloading {name} from FSL ...")
+        req = urllib.request.Request(f"{FSL_CHANNEL}/{name}", headers={"User-Agent": "atlaslookup"})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            data = r.read()
+        if hashlib.sha256(data).hexdigest() != sha:
+            raise RuntimeError(f"{name}: checksum mismatch; not using it")
+        path.write_bytes(data)
+    return path
+
+
+def _extract(package: Path, wanted: list[str], dest: Path) -> None:
+    """Extract the members whose paths end with one of `wanted` (a .tar.bz2, or a
+    .conda: a zip holding a zstd-compressed tar) into dest, flat."""
+    def take(tar):
+        for m in tar:
+            if m.isfile() and any(m.name.endswith(w) for w in wanted):
+                (dest / Path(m.name).name).write_bytes(tar.extractfile(m).read())
+
+    if package.suffix == ".conda":
+        import zstandard
+
+        with zipfile.ZipFile(package) as z:
+            inner = next(n for n in z.namelist() if n.startswith("pkg-") and n.endswith(".tar.zst"))
+            with z.open(inner) as f, zstandard.ZstdDecompressor().stream_reader(f) as zs:
+                with tarfile.open(fileobj=zs, mode="r|") as tar:
+                    take(tar)
+    else:
+        with tarfile.open(package, "r:bz2") as tar:
+            take(tar)
+
+
+def _fsl_xml_names(path: Path, offset: int) -> dict[int, str]:
+    """FSL atlas XML: probabilistic atlases number images from 1 (offset 1), label
+    atlases use the index as the value (offset 0). Names keep FSL's L/R suffix."""
+    return {int(el.get("index")) + offset: " ".join((el.text or "").split())
+            for el in ET.parse(path).getroot().iter("label")}
+
+
+def _to_2mm(img):
+    """FSL MNI152 1 mm probability maps -> the FSL 2 mm grid (91x109x91), averaging
+    each 2 mm voxel's 1 mm neighbourhood. Keeps a 60-tract atlas at ~50 MB in memory
+    instead of ~400 MB."""
+    import nibabel as nib
+    from scipy import ndimage
+
+    data = np.asarray(img.dataobj, dtype=np.float32)
+    for axis in range(3):
+        data = ndimage.convolve1d(data, [0.25, 0.5, 0.25], axis=axis, mode="constant")
+    data = data[::2, ::2, ::2]
+    affine = img.affine.copy()
+    affine[:3, :3] *= 2  # same origin: 2 mm voxel I sits on 1 mm voxel 2I
+    return nib.Nifti1Image(data, affine)
+
+
+def import_white_matter(overwrite=False):
+    import nibabel as nib
+
+    jhu_cite = "Distributed with FSL. " + FSL_LICENCE
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        _extract(_fsl_package("atlases"), [
+            "JHU-tracts.xml", "JHU-labels.xml", "JHU-ICBM-tracts-prob-2mm.nii.gz",
+            "JHU-ICBM-tracts-maxprob-thr25-2mm.nii.gz", "JHU-ICBM-labels-1mm.nii.gz"], tmp)
+        _extract(_fsl_package("xtract"), [
+            "atlases/XTRACT.xml", "xtract-tract-atlases-prob-1mm.nii.gz"], tmp)
+        add_atlas(
+            id="jhu-tracts", name="JHU white-matter tractography", space=FSL_SPACE,
+            labels=_fsl_xml_names(tmp / "JHU-tracts.xml", 1),
+            label_map=tmp / "JHU-ICBM-tracts-maxprob-thr25-2mm.nii.gz",
+            prob_map=tmp / "JHU-ICBM-tracts-prob-2mm.nii.gz",
+            kind="white-matter", role="Tract (JHU)", order=30,
+            extra={"tract": True, "threshold": TRACT_THRESHOLD["jhu-tracts"]},
+            citation="Hua et al. (2008) NeuroImage 39:336-347; Wakana et al. (2007) NeuroImage 36:630-644. " + jhu_cite,
+            doi="10.1016/j.neuroimage.2007.07.053",
+            url="https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Atlases",
+            description="20 tracts from probabilistic tractography of 28 adults; values are the % of "
+                        "subjects with the tract there. Label = most likely tract (thr 25%).",
+            overwrite=overwrite,
+        )
+        add_atlas(
+            id="jhu-labels", name="JHU ICBM-DTI-81 white-matter labels", space=FSL_SPACE,
+            labels=_fsl_xml_names(tmp / "JHU-labels.xml", 0),
+            label_map=tmp / "JHU-ICBM-labels-1mm.nii.gz",
+            kind="white-matter", role="White matter", order=31,
+            citation="Mori et al. (2008) NeuroImage 40:570-582; Oishi et al. (2008) NeuroImage 43:447-457. " + jhu_cite,
+            doi="10.1016/j.neuroimage.2007.12.035",
+            url="https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Atlases",
+            description="48 white-matter regions hand-segmented on an 81-subject DTI average (e.g. fornix, "
+                        "internal capsule limbs, corpus callosum parts).",
+            overwrite=overwrite,
+        )
+        prob = _to_2mm(nib.load(str(tmp / "xtract-tract-atlases-prob-1mm.nii.gz")))
+        p = np.asarray(prob.dataobj)
+        maxprob = np.where(p.max(3) >= 5, p.argmax(3) + 1, 0).astype(np.int16)  # as FSL's maxprob5
+        add_atlas(
+            id="xtract-hcp", name="XTRACT HCP tracts", space=FSL_SPACE,
+            labels=_fsl_xml_names(tmp / "XTRACT.xml", 1),
+            label_map=nib.Nifti1Image(maxprob, prob.affine), prob_map=prob,
+            kind="white-matter", role="Tract (XTRACT)", order=32,
+            extra={"tract": True, "threshold": TRACT_THRESHOLD["xtract-hcp"]},
+            citation="Warrington et al. (2020) NeuroImage 217:116923; Assimopoulos et al. (2024) eLife "
+                     "(cortico-subcortical tracts). HCP data, WU-Minn Consortium. " + jhu_cite,
+            doi="10.1016/j.neuroimage.2020.116923",
+            url="https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/XTRACT",
+            description="60 tracts (incl. fornix, amygdalofugal, uncinate, arcuate) from 1021 HCP adults; "
+                        "values are the % of subjects with the tract there. Resampled to 2 mm.",
+            overwrite=overwrite,
+        )
+
+
 def export_template():
     """Save the MNI152 T1 (nilearn's ICBM 2009a, 1 mm) as uint8 for the viewer."""
     import nibabel as nib
@@ -206,19 +346,31 @@ def export_mesh():
 
 
 def bootstrap(overwrite=False):
-    print("Harvard-Oxford ...")
-    ho_map = import_harvard_oxford(overwrite)
-    print("Juelich ...")
-    import_juelich(overwrite)
-    print("Schaefer 2018 ...")
-    import_schaefer(overwrite=overwrite)
-    print("Destrieux 2009 ...")
-    import_destrieux(overwrite)
-    print("Talairach Daemon ...")
-    import_talairach(overwrite)
-    print("MNI template for the viewer ...")
-    export_template()
-    print("Brain mesh for the 3D view ...")
-    export_mesh()
-    save_grid(grid_from_image(ho_map, "mni-2mm-fsl", "MNI152 2 mm (FSL, 91x109x91)", FSL_SPACE))
+    """Download and register the built-in atlases. Atlases already installed are
+    skipped (unless overwrite), so re-running adds only what a newer version brings."""
+    def step(label, ids, fn):
+        if not overwrite and all((ATLASES_DIR / i / "atlas.json").exists() for i in ids):
+            print(f"{label}: already installed")
+            return
+        print(f"{label} ...")
+        fn()
+
+    step("Harvard-Oxford", ["harvard-oxford-cort", "harvard-oxford-sub"], lambda: import_harvard_oxford(overwrite))
+    step("Juelich", ["juelich"], lambda: import_juelich(overwrite))
+    step("Schaefer 2018", ["schaefer2018-400-7net"], lambda: import_schaefer(overwrite=overwrite))
+    step("Destrieux 2009", ["destrieux2009"], lambda: import_destrieux(overwrite))
+    step("Talairach Daemon", ["talairach-ba", "talairach-gyrus"], lambda: import_talairach(overwrite))
+    step("White-matter tracts (JHU, XTRACT; from FSL, ~50 MB)", ["jhu-tracts", "jhu-labels", "xtract-hcp"],
+         lambda: import_white_matter(overwrite))
+    if overwrite or not TEMPLATE_FILE.exists():
+        print("MNI template for the viewer ...")
+        export_template()
+    if overwrite or not MESH_FILE.exists():
+        print("Brain mesh for the 3D view ...")
+        export_mesh()
+    if overwrite or not (GRIDS_DIR / "mni-2mm-fsl.json").exists():
+        from nilearn import datasets
+
+        ho_map = datasets.fetch_atlas_harvard_oxford("cort-maxprob-thr25-2mm").maps  # cached by nilearn
+        save_grid(grid_from_image(ho_map, "mni-2mm-fsl", "MNI152 2 mm (FSL, 91x109x91)", FSL_SPACE))
     print("Done.")

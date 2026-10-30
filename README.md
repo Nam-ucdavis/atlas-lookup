@@ -6,8 +6,9 @@ several atlases at once. You can also load your own SPM T maps and get a
 labelled cluster table. A quiz mode helps you learn the regions.
 
 - **Lookup:** Harvard-Oxford (cortical and subcortical), Juelich
-  cytoarchitecture, Brodmann areas, gyri **and sulci** (Destrieux) and
-  resting-state networks (Schaefer 2018), side by side. You also get
+  cytoarchitecture, Brodmann areas, gyri **and sulci** (Destrieux),
+  resting-state networks (Schaefer 2018) and **white-matter tracts** (JHU,
+  XTRACT), side by side. You also get
   probabilities and a "what's within N mm" readout for borderline points.
 - **Viewer:** axial, coronal and sagittal slices of the MNI template. Click to
   look up a point, and overlay any atlas (Atlas overlay, in the left sidebar). Each slice shows its coordinate, the
@@ -16,7 +17,8 @@ labelled cluster table. A quiz mode helps you learn the regions.
   **glass brain**, or **mesh brain** with your results painted on the cortex),
   showing the same overlays and results as the slices. A **Regions** window
   picks regions to show as solid shapes, optionally showing results only
-  inside them.
+  inside them, and lists the **white-matter tracts that connect them**, which
+  you can draw in 3D.
 - **Your stat maps:** point it at a folder of `spmT_*.nii` files to get a
   thresholded overlay, T and p at any point, and a cluster/peak table labelled
   by region. The maps are only read, never copied anywhere.
@@ -136,6 +138,18 @@ straight away.
   cortex. Tick **Show results only inside these regions** to hide everything
   else; the regions then turn see-through so you can see the results inside.
   Deep regions (hippocampus, amygdala) are clearest in Glass brain.
+- **Connecting tracts** (under the chosen regions, same tab) lists the
+  white-matter tracts whose core passes near your regions. With one region
+  (say the hippocampus) you get the tracts touching it (cingulum, fornix, ...);
+  with several you also see which pairs each tract links (e.g. uncinate:
+  amygdala ↔ orbitofrontal cortex). Tick a tract to draw it in 3D. Choose the
+  atlas (**XTRACT HCP**, 60 tracts, or **JHU**, 20), the core threshold (% of
+  subjects with the tract there; XTRACT 25 %, JHU 10 % by default) and how
+  close it must come (mm). With no regions chosen it lists every tract.
+  This is atlas-based proximity, not tractography of your own data:
+  population tracts often stop short of the cortex (hence the distance), and
+  bundles that merely pass nearby are listed too. Two regions that touch each
+  other (hippocampus and amygdala) will share most of their nearby tracts.
 - **Brain transparency** (0-100 %) fades the brain in whichever style is
   showing, so overlays and regions inside show through: 0 % is solid, 100 %
   invisible. Each style remembers its own setting (Glass starts at 75 %).
@@ -260,8 +274,14 @@ and each card shows the converted coordinate.
 
 Please cite the atlases you report: each card in the app shows its citation
 and DOI. The atlases are downloaded on your machine and keep their own
-licences (see `THIRD_PARTY_NOTICES.md`); Harvard-Oxford and Juelich come with
-FSL and are for non-commercial use.
+licences (see `THIRD_PARTY_NOTICES.md`); Harvard-Oxford, Juelich, JHU and XTRACT
+come with FSL and are for non-commercial use.
+
+**White-matter tracts** need `atlaslookup setup` once (installs from before
+0.17 just run it again; atlases you already have are skipped). It downloads
+FSL's atlas packages (~50 MB) from `fsl.fmrib.ox.ac.uk`, checks them against
+FSL's published checksums, and registers JHU tracts, JHU ICBM-DTI-81 labels and
+XTRACT HCP.
 
 ## Working with Claude
 

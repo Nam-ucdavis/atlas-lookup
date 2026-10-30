@@ -25,6 +25,7 @@ dependencies = [
   "scipy>=1.11",
   "fastapi>=0.110",
   "uvicorn[standard]>=0.29",
+  "zstandard>=0.22",  # FSL's XTRACT atlas package is zstd-compressed
 ]
 
 [project.optional-dependencies]

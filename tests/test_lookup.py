@@ -547,7 +547,7 @@ def test_viewer3d_is_wired():
     for el in ["viewTabs", "gl3wrap", "gl3", "v3Bar", "v3Style", "v3Brain", "v3BrainOut", "v3Views",
                "v3Regions", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
         assert re.search(rf'id="{el}"', html), el
-    assert 'from "/static/sidepanel.js"' in html
+    assert 'from "/static/sidepanel.js"' in html and 'from "/static/tracts.js"' in html
     # Page-layout rules must not hit the side panel (also an <aside>).
     assert "aside { display: contents" not in html.replace("main > aside { display: contents", "")
     js = (static / "viewer3d.js").read_text()
@@ -717,3 +717,123 @@ def test_version_switch_endpoint_guards(monkeypatch):
     monkeypatch.setattr(versions, "switch", lambda *a: called.append(a))
     assert c.post("/api/versions/switch", json={"to": "v0.14.0"}).json() == {"switching_to": "v0.14.0"}
     assert called == [("v0.14.0", "127.0.0.1", 8765, None)]
+
+
+# --- white-matter tracts (synthetic; the real JHU/XTRACT come from `setup`) ----------
+
+FSL_LIKE_2MM = np.array([[-2, 0, 0, 20], [0, 2, 0, -20], [0, 0, 2, -20], [0, 0, 0, 1]], float)  # mirrored x, as FSL
+
+
+@pytest.fixture
+def tract_world(tmp_path):
+    """Two regions on the x axis (x -12..-8 and 8..12 mm) and three tracts: one bar
+    joining them, one touching only the left region, one far away."""
+    def x_slab(lo, hi, y=(-2, 2), z=(-2, 2)):
+        m = np.zeros((21, 21, 21), bool)
+        xs = 20 - 2 * np.arange(21)                       # x of voxel i (mirrored)
+        ys = -20 + 2 * np.arange(21)
+        m[np.ix_((xs >= lo) & (xs <= hi), (ys >= y[0]) & (ys <= y[1]), (ys >= z[0]) & (ys <= z[1]))] = True
+        return m
+
+    lab = np.zeros((21, 21, 21), np.int16)
+    lab[x_slab(-12, -8)] = 1
+    lab[x_slab(8, 12)] = 2
+    roi = Atlas(add_atlas("roi", "ROI", "MNI152NLin6Asym", {1: "Westland", 2: "Eastland"},
+                          label_map=nib.Nifti1Image(lab, FSL_LIKE_2MM), atlases_dir=tmp_path))
+    prob = np.zeros((21, 21, 21, 3), np.uint8)
+    prob[x_slab(-6, 6), 0] = 60                            # 2 mm from each region
+    prob[x_slab(-6, -4, y=(4, 6)), 1] = 40                 # beside the left region only
+    prob[x_slab(-4, 4, y=(16, 18)), 2] = 90                # far from both
+    wm = Atlas(add_atlas("wm", "WM", "MNI152NLin6Asym", {1: "Bridge", 2: "Spur", 3: "Faraway"},
+                         prob_map=nib.Nifti1Image(prob, FSL_LIKE_2MM), atlases_dir=tmp_path,
+                         kind="white-matter", extra={"tract": True, "threshold": 25}))
+    return roi, wm
+
+
+def test_tract_connections(tract_world):
+    from atlaslookup import tracts
+
+    roi, wm = tract_world
+    assert tracts.is_tract_atlas(wm) and not tracts.is_tract_atlas(roi)
+    both = [(roi, 1, "B"), (roi, 2, "B")]
+    d = tracts.connections(wm, both, threshold=25, distance_mm=3)
+    assert d["regions"] == ["Westland", "Eastland"]
+    by_name = {t["name"]: t for t in d["tracts"]}
+    assert d["tracts"][0]["name"] == "Bridge" and by_name["Bridge"]["links"] == [[0, 1]]
+    assert by_name["Spur"]["touches"] == [0] and by_name["Spur"]["links"] == []
+    assert "Faraway" not in by_name
+    assert all(c > 0 for c in by_name["Bridge"]["contacts"])
+    # Too far at 0 mm, and below threshold at 70%.
+    assert tracts.connections(wm, both, 25, 0)["tracts"] == []
+    assert [t["name"] for t in tracts.connections(wm, both, 70, 3)["tracts"]] == []
+
+
+def test_tract_mesh_faces_outward_on_mirrored_grid(tract_world):
+    """FSL grids mirror x; the surface must still be wound outwards (positive volume)."""
+    from atlaslookup import tracts
+
+    _, wm = tract_world
+    g = nib.GiftiImage.from_bytes(tracts.mesh_gifti(wm, 1, 25))
+    v, f = g.agg_data("pointset"), g.agg_data("triangle")
+    tri = v[f]
+    volume = np.einsum("ij,ij->i", tri[:, 0], np.cross(tri[:, 1], tri[:, 2])).sum() / 6
+    assert volume > 0
+    assert -9 < v[:, 0].min() < -5 and 5 < v[:, 0].max() < 9  # the bar spans x -6..6 (+ half voxels)
+    with pytest.raises(ValueError):
+        tracts.mesh_gifti(wm, 1, 99)
+
+
+def test_tracts_api(tract_world, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from atlaslookup import server
+
+    roi, wm = tract_world
+    monkeypatch.setattr(server, "ATLASES", {"roi": roi, "wm": wm})
+    c = TestClient(server.app)
+    listed = c.get("/api/tracts").json()
+    assert [a["atlas"] for a in listed] == ["wm"] and {t["name"] for t in listed[0]["tracts"]} == {"Bridge", "Spur", "Faraway"}
+    assert [a["atlas"] for a in c.get("/api/regions").json()] == ["roi"]  # tracts have their own list
+    d = c.get("/api/tracts/connections", params={"atlas": "wm", "sel": "roi|1|B,roi|2|B"}).json()
+    assert d["tracts"][0]["name"] == "Bridge"
+    assert c.get("/api/tracts/connections", params={"atlas": "roi", "sel": "roi|1|B"}).status_code == 404
+    assert c.get("/api/tracts/connections", params={"atlas": "wm", "sel": "nope"}).status_code == 400
+    assert c.get("/api/tracts/mesh.gii", params={"atlas": "wm", "value": 1}).status_code == 200
+    assert c.get("/api/tracts/mesh.gii", params={"atlas": "wm", "value": 9}).status_code == 404
+
+
+def test_fsl_package_helpers(tmp_path):
+    from atlaslookup.sources import _fsl_xml_names, _to_2mm
+
+    xml = tmp_path / "a.xml"
+    xml.write_text('<atlas><data><label index="0">Fornix  L</label><label index="1">Tract B</label></data></atlas>')
+    assert _fsl_xml_names(xml, 1) == {1: "Fornix L", 2: "Tract B"}
+    assert _fsl_xml_names(xml, 0) == {0: "Fornix L", 1: "Tract B"}
+    aff = np.array([[-1, 0, 0, 90], [0, 1, 0, -126], [0, 0, 1, -72], [0, 0, 0, 1]], float)
+    img = _to_2mm(nib.Nifti1Image(np.full((8, 8, 8, 2), 50, np.float32), aff))
+    assert img.shape == (4, 4, 4, 2)
+    assert np.allclose(img.affine[:3, :3], np.diag([-2, 2, 2])) and np.allclose(img.affine[:3, 3], aff[:3, 3])
+    assert np.allclose(np.asarray(img.dataobj)[1:3, 1:3, 1:3], 50)  # interior keeps its value
+
+
+def test_setup_skips_installed_atlases(tmp_path, monkeypatch):
+    from atlaslookup import sources
+
+    for i in ["harvard-oxford-cort", "harvard-oxford-sub", "juelich", "schaefer2018-400-7net", "destrieux2009",
+              "talairach-ba", "talairach-gyrus", "jhu-tracts", "jhu-labels"]:
+        (tmp_path / "atlases" / i).mkdir(parents=True)
+        (tmp_path / "atlases" / i / "atlas.json").write_text("{}")
+    (tmp_path / "grids").mkdir()
+    (tmp_path / "grids" / "mni-2mm-fsl.json").write_text("{}")
+    for f in ["TEMPLATE_FILE", "MESH_FILE"]:
+        p = tmp_path / f
+        p.write_text("x")
+        monkeypatch.setattr(sources, f, p)
+    monkeypatch.setattr(sources, "ATLASES_DIR", tmp_path / "atlases")
+    monkeypatch.setattr(sources, "GRIDS_DIR", tmp_path / "grids")
+    ran = []
+    for name in ["import_harvard_oxford", "import_juelich", "import_schaefer", "import_destrieux",
+                 "import_talairach", "import_white_matter"]:
+        monkeypatch.setattr(sources, name, lambda *a, _n=name, **k: ran.append(_n))
+    sources.bootstrap()
+    assert ran == ["import_white_matter"]  # xtract-hcp is missing, so only that step runs

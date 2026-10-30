@@ -116,6 +116,8 @@ def surface(mask: np.ndarray, affine: np.ndarray, smooth: int = 12) -> tuple[np.
     for _ in range(smooth):
         for f in (0.5, -0.53):
             verts = verts + f * (norm @ verts - verts)
+    if np.linalg.det(affine[:3, :3]) < 0:  # a mirrored grid (e.g. FSL's -x) flips the winding
+        tris = tris[:, ::-1]
     # Corners sit half a voxel from voxel centres; back to mm via the grid's affine.
     vox = verts - 0.5 + lo - 1  # undo the crop and the padding
     mm = vox @ affine[:3, :3].T + affine[:3, 3]

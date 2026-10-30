@@ -3,6 +3,25 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.17.0 (2026-10-29)
+- **White-matter tracts**: three new atlases, downloaded by `atlaslookup setup` from FSL's
+  package server (pinned version, checked against FSL's sha256; ~50 MB):
+  JHU white-matter tractography (20 tracts), JHU ICBM-DTI-81 white-matter labels (48,
+  incl. fornix and internal-capsule limbs) and XTRACT HCP (60 tracts from 1021 HCP
+  adults, incl. fornix, amygdalofugal, uncinate, arcuate). Every lookup shows which
+  tract a point is in and with what probability.
+- **Connecting tracts** in the Regions tab: tracts whose core (>= threshold % of
+  subjects) passes within N mm of your chosen regions; with several regions, which pairs
+  each tract links. Tick a tract to draw it in 3D. Atlas, threshold and distance are
+  adjustable. Atlas-based proximity, not tractography of your data.
+- `atlaslookup setup` now skips atlases that are already installed, so existing installs
+  just run it again to add the tracts. The app reminds you on start until you do.
+- Regions and tracts restored on reload are no longer hidden behind the glass/mesh brain
+  (the brain mesh is now always drawn first).
+- The Regions tab scrolls as a whole, so the region search, chosen regions and tract
+  list all stay usable on smaller screens.
+- New dependency: `zstandard` (FSL's XTRACT package is zstd-compressed).
+
 ## 0.16.6 (2026-10-29)
 - **Mesh brain transparency no longer fades the results**: the Transparency slider now
   applies to the grey brain only. Results (and regions) painted on the mesh stay fully

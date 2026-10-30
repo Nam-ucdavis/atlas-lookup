@@ -203,11 +203,16 @@ SOFTWARE.
 ## Atlases and template (not bundled)
 
 No atlas or template data ships with this package. `atlaslookup setup` downloads
-them on the user's machine through [nilearn](https://nilearn.github.io), and each
-keeps its own licence and citation requirements, shown on its card in the app:
+them on the user's machine through [nilearn](https://nilearn.github.io), or for the
+white-matter tracts from FSL's own package server, and each keeps its own licence
+and citation requirements, shown on its card in the app:
 
 - **Harvard-Oxford** and **Juelich** atlases are distributed with FSL under the
   [FSL licence](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Licence) (non-commercial use).
+- The **JHU** white-matter tractography atlas and ICBM-DTI-81 labels (from the
+  `fsl-data_atlases` package) and the **XTRACT** HCP tract atlases (from
+  `fsl-data_atlases_xtract`) are distributed with FSL under the same FSL licence
+  (non-commercial use). XTRACT uses Human Connectome Project data (WU-Minn Consortium).
 - **Schaefer 2018**, **Destrieux 2009**, the **Talairach Daemon** and the
   **MNI152 (ICBM 2009a)** template are subject to their authors' terms.
 

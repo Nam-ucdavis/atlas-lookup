@@ -22,3 +22,4 @@ TEMPLATE_FILE = DATA_DIR / "templates" / "mni152_2009a_1mm.nii.gz"
 MESH_FILE = DATA_DIR / "templates" / "fsaverage5_pial.gii"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 IMAGE_DIR = DATA_DIR / "image"
+DOWNLOADS_DIR = DATA_DIR / "downloads"  # packages fetched by `setup` (kept so re-runs skip the download)

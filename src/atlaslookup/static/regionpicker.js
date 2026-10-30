@@ -32,6 +32,7 @@ export function createRegionPicker({ button, store, esc, onChange, panel, host }
   let atlases = null;  // [{ atlas, atlas_name, regions: [...] }]
   let chosen = store.get("regions3d", []);       // [{ atlas, atlasName, value, side, name, color }]
   let maskResults = store.get("regions3dMask", false);
+  const showHooks = [];  // run when the tab opens (the tract list refreshes then)
 
   const dlg = host;  // the side panel's Regions section
   dlg.classList.add("regions-panel");
@@ -50,6 +51,7 @@ export function createRegionPicker({ button, store, esc, onChange, panel, host }
         <label class="rg-opt"><input type="checkbox" data-opt="mask"> Show results only inside these regions</label>
         <button type="button" class="linkish" data-act="clear">Clear all</button>
       </div>
+      <div class="rg-tracts"></div>
     </div>
     <p class="hint rg-note">Shown in the 3D tab, in these colours. Deep regions (hippocampus, amygdala, basal ganglia) are clearest with <b>Glass brain</b>; <b>Mesh brain</b> only shows the cortical surface.</p>`;
   const search = dlg.querySelector("input[type=search]"), atlasSel = dlg.querySelector("select");
@@ -134,10 +136,12 @@ export function createRegionPicker({ button, store, esc, onChange, panel, host }
       if (chosen.some((c) => !have.has(keyOf(c)))) { chosen = chosen.filter((c) => have.has(keyOf(c))); emit(); }
     }
     renderResults(); renderChosen();
+    for (const fn of showHooks) fn();
     search.focus({ preventScroll: true });
   });
   button.addEventListener("click", () => panel.open("regions"));
 
   button.textContent = chosen.length ? `Regions (${chosen.length})` : "Regions…";
-  return { get chosen() { return chosen; }, get maskResults() { return maskResults; } };
+  return { get chosen() { return chosen; }, get maskResults() { return maskResults; },
+           tractHost: dlg.querySelector(".rg-tracts"), onShow: (fn) => showHooks.push(fn) };
 }
