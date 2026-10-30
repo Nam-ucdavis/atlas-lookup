@@ -3,6 +3,16 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.17.2 (2026-10-29)
+- **Whole networks**: new atlas *Yeo 2011 7 networks*, made by merging the 400 Schaefer
+  parcels into their network (no download; `atlaslookup setup` adds it). The default mode
+  and frontoparietal control networks (and the other five) can now be looked up, searched
+  in the Regions tab ("default mode", "dmn", "frontoparietal", "fpn"), shown in 3D and
+  used with Connecting tracts, one region per hemisphere.
+- References for the networks on the atlas card and in the README: Yeo et al. 2011 and
+  Schaefer et al. 2018 (parcellation); Raichle et al. 2001 and Buckner et al. 2008
+  (default mode); Vincent et al. 2008 and Dosenbach et al. 2007 (frontoparietal control).
+
 ## 0.17.1 (2026-10-29)
 - **Connecting tracts folds away**: click its header to collapse it to one line docked at
   the bottom of the Regions tab (showing how many tracts are drawn in 3D); click again to

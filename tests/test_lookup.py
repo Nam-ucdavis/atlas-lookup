@@ -820,7 +820,7 @@ def test_setup_skips_installed_atlases(tmp_path, monkeypatch):
     from atlaslookup import sources
 
     for i in ["harvard-oxford-cort", "harvard-oxford-sub", "juelich", "schaefer2018-400-7net", "destrieux2009",
-              "talairach-ba", "talairach-gyrus", "jhu-tracts", "jhu-labels"]:
+              "talairach-ba", "talairach-gyrus", "jhu-tracts", "jhu-labels", "yeo2011-7networks"]:
         (tmp_path / "atlases" / i).mkdir(parents=True)
         (tmp_path / "atlases" / i / "atlas.json").write_text("{}")
     (tmp_path / "grids").mkdir()
@@ -833,7 +833,40 @@ def test_setup_skips_installed_atlases(tmp_path, monkeypatch):
     monkeypatch.setattr(sources, "GRIDS_DIR", tmp_path / "grids")
     ran = []
     for name in ["import_harvard_oxford", "import_juelich", "import_schaefer", "import_destrieux",
-                 "import_talairach", "import_white_matter"]:
+                 "import_talairach", "import_white_matter", "import_schaefer_networks"]:
         monkeypatch.setattr(sources, name, lambda *a, _n=name, **k: ran.append(_n))
     sources.bootstrap()
     assert ran == ["import_white_matter"]  # xtract-hcp is missing, so only that step runs
+
+
+def test_yeo_networks_merged_from_schaefer(tmp_path):
+    from atlaslookup.sources import import_schaefer_networks
+
+    lab = np.zeros((11, 11, 11), np.int16)
+    lab[:5] = 1   # x < 0
+    lab[6:] = 2   # x > 0
+    lab[:5, :3] = 3
+    names = {1: "7Networks_LH_Default_PFC_1", 2: "7Networks_RH_Cont_Par_1", 3: "7Networks_LH_Default_pCunPCC_2"}
+    add_atlas("schaefer2018-400-7net", "Schaefer", "MNI152NLin6Asym", names,
+              label_map=nib.Nifti1Image(lab, AFFINE_2MM), atlases_dir=tmp_path)
+    import_schaefer_networks(atlases_dir=tmp_path)
+    a = Atlas(tmp_path / "yeo2011-7networks")
+    assert a.labels[7] == "Default mode network" and a.labels[6] == "Frontoparietal control network"
+    data, _ = a.mni_labels
+    assert set(np.unique(data[:5]).tolist()) == {7}       # both Default parcels merged
+    assert set(np.unique(data[6:]).tolist()) == {6}
+    assert a.lookup([-6, 0, 0])["label"]["name"] == "Left Default mode network"
+
+
+def test_network_synonyms():
+    import subprocess
+
+    js = Path(__file__).parents[1] / "src/atlaslookup/static/regionpicker.js"
+    code = (f'import {{ matches }} from "{js.as_uri()}";'
+            'console.log(JSON.stringify([matches("dmn", "Left Default mode network"), '
+            'matches("fpn", "Right Frontoparietal control network"), matches("dmn", "Left Visual network")]));')
+    try:
+        out = subprocess.run(["node", "--input-type=module", "-e", code], capture_output=True, text=True, timeout=20)
+    except FileNotFoundError:
+        pytest.skip("node not installed")
+    assert out.stdout.strip() == "[true,true,false]", out.stderr

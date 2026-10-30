@@ -278,6 +278,21 @@ and DOI. The atlases are downloaded on your machine and keep their own
 licences (see `THIRD_PARTY_NOTICES.md`); Harvard-Oxford, Juelich, JHU and XTRACT
 come with FSL and are for non-commercial use.
 
+**Networks.** *Yeo 2011 7 networks* merges the 400 Schaefer parcels into the 7
+resting-state networks they belong to, so a whole network can be looked up or
+shown in 3D (search "default mode" or "dmn", "frontoparietal" or "fpn"). It is
+made from your installed Schaefer atlas, with no extra download. If you report it, cite:
+
+- Network parcellation: Yeo et al. (2011) *J Neurophysiol* 106:1125-1165,
+  doi:10.1152/jn.00338.2011; Schaefer et al. (2018) *Cereb Cortex* 28:3095-3114,
+  doi:10.1093/cercor/bhx179.
+- Default mode network: Raichle et al. (2001) *PNAS* 98:676-682,
+  doi:10.1073/pnas.98.2.676; Buckner, Andrews-Hanna & Schacter (2008) *Ann N Y
+  Acad Sci* 1124:1-38, doi:10.1196/annals.1440.011.
+- Frontoparietal control network: Vincent et al. (2008) *J Neurophysiol*
+  100:3328-3342, doi:10.1152/jn.90355.2008; Dosenbach et al. (2007) *PNAS*
+  104:11073-11078, doi:10.1073/pnas.0704320104.
+
 **White-matter tracts** need `atlaslookup setup` once (installs from before
 0.17 just run it again; atlases you already have are skipped). It downloads
 FSL's atlas packages (~50 MB) from `fsl.fmrib.ox.ac.uk`, checks them against

@@ -122,6 +122,60 @@ def import_schaefer(n_rois=400, networks=7, overwrite=False):
     )
 
 
+# Yeo et al. (2011) 7 networks, as Schaefer names them, with their usual names.
+YEO7 = {
+    "Vis": "Visual network", "SomMot": "Somatomotor network", "DorsAttn": "Dorsal attention network",
+    "SalVentAttn": "Salience / ventral attention network", "Limbic": "Limbic network",
+    "Cont": "Frontoparietal control network", "Default": "Default mode network",
+}
+
+
+YEO7_CITATION = (
+    "Networks as defined by Yeo et al. (2011) J Neurophysiol 106:1125-1165 (doi:10.1152/jn.00338.2011), "
+    "parcels from Schaefer et al. (2018) Cereb Cortex 28:3095-3114 (doi:10.1093/cercor/bhx179). "
+    "Default mode network: Raichle et al. (2001) PNAS 98:676-682 (doi:10.1073/pnas.98.2.676); "
+    "Buckner, Andrews-Hanna & Schacter (2008) Ann N Y Acad Sci 1124:1-38 (doi:10.1196/annals.1440.011). "
+    "Frontoparietal control network: Vincent et al. (2008) J Neurophysiol 100:3328-3342 "
+    "(doi:10.1152/jn.90355.2008); Dosenbach et al. (2007) PNAS 104:11073-11078 (doi:10.1073/pnas.0704320104)."
+)
+
+
+def import_schaefer_networks(source_id="schaefer2018-400-7net", overwrite=False, atlases_dir=None):
+    """Whole networks from the installed Schaefer parcellation: every parcel is merged
+    into its Yeo 7 network (parcel names read <networks>_<hemi>_<network>_...), so
+    the default mode or frontoparietal network can be looked up and shown as one
+    region per hemisphere. Needs no download."""
+    import nibabel as nib
+
+    from .labels import read_labels
+
+    atlases_dir = atlases_dir or ATLASES_DIR
+    src = atlases_dir / source_id
+    parcels = read_labels(src / "labels.tsv")
+    img = nib.load(str(src / "label_map.nii.gz"))
+    data = np.asarray(img.dataobj).astype(np.int32)
+    order = list(YEO7)
+    to_net = np.zeros(max(parcels) + 1, np.int16)
+    for value, name in parcels.items():
+        net = name.split("_")[2] if name.count("_") >= 2 else ""
+        if net in YEO7:
+            to_net[value] = order.index(net) + 1
+    add_atlas(
+        id="yeo2011-7networks",
+        name="Yeo 2011 7 networks (from Schaefer 2018)",
+        space=FSL_SPACE,
+        labels={i + 1: YEO7[k] for i, k in enumerate(order)},
+        label_map=nib.Nifti1Image(to_net[np.clip(data, 0, len(to_net) - 1)], img.affine),
+        kind="functional", lateralize=True, order=51, role="Network (whole)",
+        citation=YEO7_CITATION,
+        doi="10.1152/jn.00338.2011",
+        url="https://github.com/ThomasYeoLab/CBIG/tree/master/stable_projects/brain_parcellation/Yeo2011_fcMRI_clustering",
+        description="The 7 resting-state networks, made by merging the 400 Schaefer parcels into the network "
+                    "each belongs to. Default mode = Schaefer 'Default'; frontoparietal control = 'Cont'.",
+        atlases_dir=atlases_dir, overwrite=overwrite,
+    )
+
+
 def import_destrieux(overwrite=False):
     from nilearn import datasets
 
@@ -358,6 +412,7 @@ def bootstrap(overwrite=False):
     step("Harvard-Oxford", ["harvard-oxford-cort", "harvard-oxford-sub"], lambda: import_harvard_oxford(overwrite))
     step("Juelich", ["juelich"], lambda: import_juelich(overwrite))
     step("Schaefer 2018", ["schaefer2018-400-7net"], lambda: import_schaefer(overwrite=overwrite))
+    step("Yeo 7 networks (merged from Schaefer)", ["yeo2011-7networks"], lambda: import_schaefer_networks(overwrite=overwrite))
     step("Destrieux 2009", ["destrieux2009"], lambda: import_destrieux(overwrite))
     step("Talairach Daemon", ["talairach-ba", "talairach-gyrus"], lambda: import_talairach(overwrite))
     step("White-matter tracts (JHU, XTRACT; from FSL, ~50 MB)", ["jhu-tracts", "jhu-labels", "xtract-hcp"],

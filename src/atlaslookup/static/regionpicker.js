@@ -18,7 +18,8 @@ const SYNONYMS = {
   sfg: ["superior frontal"], stg: ["superior temporal"], mtg: ["middle temporal"], itg: ["inferior temporal"],
   ips: ["intraparietal", "intra-parietal"], m1: ["precentral", "primary motor"], s1: ["postcentral", "somatosensory"],
   sma: ["supplementary motor", "juxtapositional"], nacc: ["accumbens"], striatum: ["caudate", "putamen", "accumbens"],
-  ba: ["brodmann area"],
+  ba: ["brodmann area"], dmn: ["default mode"], fpn: ["frontoparietal"], fpcn: ["frontoparietal"],
+  cen: ["frontoparietal"], executive: ["frontoparietal"], salience: ["salience"], dan: ["dorsal attention"],
 };
 
 /** Does `name` (plus its atlas name) match every word of the query? Exported for tests. */
