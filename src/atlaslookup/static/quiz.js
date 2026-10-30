@@ -286,7 +286,7 @@ export function createQuiz(ctx) {
   async function enter() {
     S.active = true;
     document.body.classList.add("quiz");
-    $("quizToggle").textContent = "Back to lookup";
+    $("quizToggle").innerHTML = '<span class="mt-ico" aria-hidden="true">↩</span> Back to lookup';
     if (!S.data) showPrompt("Loading regions…", "", "");
     await loadData();
     renderSetup(); renderStats();
@@ -297,7 +297,7 @@ export function createQuiz(ctx) {
     S.active = false;
     S.token++;
     document.body.classList.remove("quiz");
-    $("quizToggle").textContent = "Quiz mode";
+    $("quizToggle").innerHTML = '<span class="mt-ico" aria-hidden="true">🧠</span> Quiz me!';
     await clearMask();
     ctx.restoreLookup();
   }

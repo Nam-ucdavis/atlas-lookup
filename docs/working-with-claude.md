@@ -89,7 +89,7 @@ the atlas, then checks it against known landmarks and tells you how it went.
 **Learn**
 - "Explain the difference between the Harvard-Oxford and Juelich labels at this point."
 - "Quiz me on limbic regions." Claude can explain things, but the in-app
-  **Quiz mode → Progress → Practise** is the better drill.
+  **Quiz me! → Progress → Practise** is the better drill.
 
 ## 4. Developing with Claude
 

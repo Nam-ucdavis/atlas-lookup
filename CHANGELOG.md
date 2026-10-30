@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.13.0 (2026-10-29)
+- **Progress** now lives in quiz mode, next to the way back to lookup.
+- The quiz button is now a slightly crooked **🧠 Quiz me!** sticker that wobbles on
+  hover (still while "reduce motion" is on); inside the quiz it reads **↩ Back to lookup**.
+
 ## 0.12.1 (2026-10-29)
 - **Smoother 3D rotation.** NiiVue redrew the whole 3D scene about three times per
   mouse movement, so fast drags queued up frames and the brain lagged behind the

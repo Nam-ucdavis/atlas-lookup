@@ -188,9 +188,27 @@
   .empty { color: var(--muted); padding: 30px 0; text-align: center; }
   .err { color: var(--bad); }
   .titlebar .grow { flex: 1; }
-  button.mode-toggle { border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
-    border-radius: 8px; padding: 6px 14px; font: inherit; font-weight: 600; cursor: pointer; }
-  body.quiz button.mode-toggle { background: var(--accent); color: var(--panel); }
+  /* "Quiz me!": a slightly crooked sticker that wobbles when you hover over it. */
+  button.mode-toggle { position: relative; font-family: "Chalkboard SE", "Comic Neue", "Comic Sans MS", "Marker Felt", cursive;
+    font-size: 15px; font-weight: 700; letter-spacing: .01em; color: #3b2400; cursor: pointer;
+    padding: 6px 16px 7px; border: 2px solid #3b2400; border-radius: 14px 10px 16px 9px;
+    background: linear-gradient(135deg, #ffb3a7 0%, #ffe07a 45%, #9fe2c8 100%);
+    box-shadow: 3px 3px 0 #3b2400; transform: rotate(-2.5deg);
+    transition: transform .15s ease, box-shadow .15s ease; }
+  button.mode-toggle .mt-ico { display: inline-block; transform-origin: 50% 70%; }
+  button.mode-toggle:hover { transform: rotate(1.5deg) scale(1.05); box-shadow: 4px 4px 0 #3b2400; }
+  button.mode-toggle:hover .mt-ico { animation: mt-bob .6s ease-in-out infinite alternate; }
+  button.mode-toggle:active { transform: rotate(0) translate(2px, 2px); box-shadow: 1px 1px 0 #3b2400; }
+  button.mode-toggle:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  @keyframes mt-bob { from { transform: rotate(-14deg) translateY(0); } to { transform: rotate(14deg) translateY(-2px); } }
+  /* In the quiz it becomes the plainer way back. */
+  body.quiz button.mode-toggle { font-family: inherit; font-size: 14px; font-weight: 600; color: var(--panel);
+    background: var(--accent); border-color: var(--accent); border-radius: 8px; box-shadow: none; transform: none; }
+  body.quiz button.mode-toggle:hover .mt-ico { animation: none; }
+  @media (prefers-reduced-motion: reduce) {
+    button.mode-toggle, button.mode-toggle:hover, button.mode-toggle:active { transition: none; transform: rotate(-2.5deg); }
+    button.mode-toggle:hover .mt-ico { animation: none; }
+  }
   body.quiz .lookup-only, body:not(.quiz) .quiz-only { display: none !important; }
   .quiz-card { margin-bottom: 14px; }
   .quiz-card .top { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
@@ -305,8 +323,8 @@
 <body>
 <header>
   <div class="titlebar"><h1>Atlas Lookup</h1><span class="version" id="version" title="Live version · git commit">…</span>
-    <span class="grow"></span><button type="button" class="btn" id="progressBtn">Progress</button>
-    <button type="button" class="mode-toggle" id="quizToggle">Quiz mode</button></div>
+    <span class="grow"></span><button type="button" class="btn quiz-only" id="progressBtn" title="Your learning progress by brain division">Progress</button>
+    <button type="button" class="mode-toggle" id="quizToggle"><span class="mt-ico" aria-hidden="true">🧠</span> Quiz me!</button></div>
   <p class="lookup-only">Enter an MNI coordinate or voxel index, or click the brain, to see which region it falls in across atlases.</p>
   <p class="quiz-only">Learn Harvard-Oxford, Juelich and Brodmann regions. Missed regions come back more often.</p>
 </header>

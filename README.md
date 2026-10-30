@@ -202,13 +202,14 @@ so your maps aren't reachable from other machines.
 
 ## Quiz and progress
 
-Click **Quiz mode** to practise Harvard-Oxford, Juelich and Brodmann regions.
+Click **🧠 Quiz me!** (top right) to practise Harvard-Oxford, Juelich and Brodmann regions;
+**↩ Back to lookup** returns.
 
 - **Find it:** click to move the crosshair, then press Submit (↵).
 - **Name it:** type the highlighted region. Suggestions appear as you type,
   typos are tolerated, and IFG/STG-style abbreviations work.
 
-**Progress** shows what you've mastered per brain division, and **Practise**
+In quiz mode, **Progress** (next to Back to lookup) shows what you've mastered per brain division, and **Practise**
 focuses the quiz on one division. Quiz history is kept in your browser.
 
 ## Adding an atlas from a paper
