@@ -1,26 +1,24 @@
-# Branches and keeping in sync with ccn-spark
+# Branches
 
 This repository has two branches with different jobs:
 
 | Branch | What it is | Who changes it |
 |---|---|---|
-| `main` | An **exact copy** of [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup)'s `main`. | Only updates pulled from ccn-spark. Never commit here directly. |
-| `dev` | **Your version:** ccn-spark's code plus your own changes. New features go here. This is the **default branch** on GitHub, so the repo page, `git clone` and `pip install` all get it. | You. |
+| `dev` | **Where all new work goes.** The **default branch** on GitHub, so the repo page, `git clone` and `pip install` all get it. Releases are tagged here (e.g. `v0.17.3`). | You. |
+| `main` | **The stable version:** `dev` merged in once it has been tried. Nothing is committed to `main` directly. | Only merges from `dev`. |
 
 ```
-ccn-spark/main ──► main  (mirror: identical, fast-forward only)
-                     │
-                     └──► dev  (main + your work; merge main in to stay up to date)
+dev  (new work, tagged releases) ──► main  (stable: merged from dev)
 ```
 
-Because `main` always matches ccn-spark, `git diff main dev` shows exactly what your
-version adds. That also makes it easy to offer a change back to them.
+`main` used to be an exact copy of [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup).
+It no longer follows ccn-spark; ccn-spark is just another remote you can pull from.
 
 ## One-time setup on a new computer
 
 ```bash
 git clone https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup   # checks out dev
-git remote add ccn-spark https://github.com/ccn-spark/atlas-lookup.git
+git remote add ccn-spark https://github.com/ccn-spark/atlas-lookup.git     # optional
 ```
 
 ## Everyday work (on `dev`)
@@ -40,59 +38,66 @@ git switch -c my-feature dev
 git switch dev && git merge my-feature && git push
 ```
 
-## Pulling in updates from ccn-spark
+## Moving `dev` to `main`
 
-1. Update the mirror:
-   ```bash
-   git switch main
-   git pull --ff-only ccn-spark main
-   git push origin main
-   ```
-   `--ff-only` refuses to run if `main` has drifted from ccn-spark. That's the signal
-   that someone committed to `main` by mistake; see "Fixing mistakes" below.
-2. Bring the updates into your version:
-   ```bash
-   git switch dev
-   git merge main
-   ```
-   If a file was changed both by ccn-spark and by you, git reports a conflict. Open the
-   file, keep the right parts, then `git add <file>` and `git commit`. Claude can do this
-   for you: "merge main into dev and resolve the conflicts".
-3. Run the tests (`.venv/bin/pytest`) and push: `git push`.
+When `dev` has been tried and you want it to be the stable version:
+
+```bash
+git switch main
+git merge --ff-only dev        # main only ever moves forward to dev
+git push origin main
+git switch dev
+```
+
+`--ff-only` refuses to run if `main` has a commit that `dev` lacks. That means someone
+committed to `main` directly; see "Fixing mistakes" below.
+
+## Pulling in updates from ccn-spark (optional)
+
+```bash
+git fetch ccn-spark
+git switch dev
+git merge ccn-spark/main
+```
+
+If a file was changed both by ccn-spark and by you, git reports a conflict. Open the
+file, keep the right parts, then `git add <file>` and `git commit`. Claude can do this
+for you: "merge ccn-spark into dev and resolve the conflicts". Run the tests
+(`.venv/bin/pytest`) and push. It reaches `main` the next time `dev` is merged in.
 
 ## Offering a change back to ccn-spark
 
-Make the change on a branch that starts from `main`, so it contains only that change
-and none of your other `dev` work:
+Make the change on a branch that starts from ccn-spark's `main`, so it contains only
+that change and none of your other work:
 
 ```bash
-git switch -c fix-something main
+git fetch ccn-spark
+git switch -c fix-something ccn-spark/main
 # ...change, test, commit...
 git push -u origin fix-something
 ```
 
 Then open a pull request on GitHub from `Nam-ucdavis/atlas-lookup:fix-something` to
-`ccn-spark/atlas-lookup:main`. Once they accept it, it reaches your `main` the next time
-you pull, and your `dev` the next time you merge `main` in.
+`ccn-spark/atlas-lookup:main`.
 
 ## Installing a particular branch
 
 ```bash
-pipx install git+https://github.com/Nam-ucdavis/atlas-lookup         # dev: your version (default)
-pipx install git+https://github.com/Nam-ucdavis/atlas-lookup@main    # ccn-spark's version
+pipx install git+https://github.com/Nam-ucdavis/atlas-lookup          # dev: newest (default)
+pipx install git+https://github.com/Nam-ucdavis/atlas-lookup@main     # stable
+pipx install git+https://github.com/Nam-ucdavis/atlas-lookup@v0.17.3  # one release
 ```
-
-Releases of your version are tagged on `dev` (e.g. `v0.8.0`); install one with `@v0.8.0`.
 
 ## Fixing mistakes
 
-- **Committed to `main` by accident:** move the commit to `dev`, then put `main` back.
+- **Committed to `main` by accident:** move the commit to `dev`, then put `main` back
+  to where GitHub has it (if it wasn't pushed yet).
   ```bash
   git switch dev && git cherry-pick main     # copies the last main commit onto dev
-  git switch main && git reset --hard ccn-spark/main
+  git switch main && git reset --hard origin/main
   ```
-  If that commit was already pushed, finish with `git push --force-with-lease origin main`.
+  If it was already pushed, use `git reset --hard main~1` instead, then
+  `git push --force-with-lease origin main`.
 - **Not sure which branch you're on:** `git branch --show-current`, or look at the
   prompt in GitHub Desktop.
-- **See what your version adds:** `git log --oneline main..dev` lists the commits, and
-  `git diff main dev` shows the changes.
+- **See what `dev` has that `main` doesn't yet:** `git log --oneline main..dev`.

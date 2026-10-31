@@ -369,11 +369,11 @@ copies: `rm -rf ~/.atlaslookup/versions && git worktree prune`.
 
 ## Branches
 
-`main` is an exact copy of [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup);
-`dev` is this version, with its own changes on top, and is the default branch. New
-work goes on `dev`. See
-[BRANCHES.md](BRANCHES.md) for everyday commands, pulling in ccn-spark's updates, and
-offering changes back.
+`dev` is the default branch, where all new work goes and releases are tagged. `main`
+is the stable version: `dev` is merged into it once it has been tried. (`main` used to
+mirror [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup); it no longer
+does.) See [BRANCHES.md](BRANCHES.md) for everyday commands, moving `dev` to `main`,
+pulling in ccn-spark's updates, and offering changes back.
 
 ## Contributors
 
