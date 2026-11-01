@@ -3,6 +3,18 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.18.0 (2026-10-31)
+- **Inflated brain** in the 3D view, next to Surface, Glass brain and Mesh brain:
+  fsaverage6 (~41k points per hemisphere), shaded by sulcal depth, with the hemispheres
+  set apart. Results and cortical regions are sampled at the folded cortex and drawn on
+  the inflated surface, so effects inside sulci show.
+  - **Inflation** slider (0–100 %) morphs between the folded and the inflated cortex.
+  - **Both / Left / Right** hemispheres (view one from the other side for its medial wall).
+  - **Click to look up**: a click on the inflated brain looks up that point's position on
+    the folded cortex; the slice crosshair is shown at the nearest surface point.
+  - Tracts and region shapes are hidden in this style; chosen cortical regions are painted on.
+  - `atlaslookup setup` downloads fsaverage6 once (from OSF through nilearn, ~8 MB).
+
 ## 0.17.3 (2026-10-29)
 - **AT / PM memory systems** (Ranganath & Ritchey 2012): two new atlases, built from the
   installed ones (no download; `atlaslookup setup` adds them). *AT / PM memory systems*

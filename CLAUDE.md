@@ -73,7 +73,9 @@ src/atlaslookup/
   screenshots.py  saves "scr" captures as DATA_DIR/image/<date_time>.png
   static/viewertools.js  crosshair toggle, slice coordinate labels, "scr" capture; exports sliceLabel() for tests
   static/overlays.js  local NIfTI overlays read in the browser (never uploaded); exports tSf/tFromP/dfFromHeader for tests
-  static/viewer3d.js  3D tab: a second NiiVue instance that mirrors the slice viewer's overlays
+  static/viewer3d.js  3D tab: a second NiiVue instance that mirrors the slice viewer's overlays;
+                      the inflated style morphs fsaverage6 pial -> inflated (sources.export_inflated
+                      writes the morph file) and samples overlays at the pial positions
                       (clones volumes + copies display settings); surface or glass-brain mesh
                       (/api/brain_mesh.gii, fsaverage5 pial built by sources.export_mesh);
                       mesh style projects overlays onto the mesh in the browser; chosen regions

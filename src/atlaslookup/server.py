@@ -8,6 +8,8 @@ GET /api/grids                           registered voxel grids
 GET /api/lookup?x=&y=&z=[&mode=voxel&grid=&base=1&radius=4&atlases=a,b]
 GET /api/template.nii.gz                 MNI152 T1 background for the viewer
 GET /api/brain_mesh.gii                  cortical surface (fsaverage5 pial) for the 3D glass/mesh brain
+GET /api/inflated_mesh.gii               fsaverage6 pial surface for the 3D inflated brain
+GET /api/inflated_morph.bin              its inflated vertex positions + sulcal shading (see sources.export_inflated)
 GET /api/regions                         every region of every atlas (per side), for the Regions window
 GET /api/regions/mask.nii.gz?sel=atlas|value|side,...   chosen regions as one 1 mm label volume
 GET /api/regions/mesh.gii?sel=atlas|value|side          one region as a smooth surface mesh
@@ -40,7 +42,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
-from .config import IMAGE_DIR, MESH_FILE, STATIC_DIR, TEMPLATE_FILE
+from .config import IMAGE_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FILE, STATIC_DIR, TEMPLATE_FILE
 from .grids import load_grids
 from .screenshots import MAX_BYTES, reveal, save_png
 from . import quiz, regions, tracts
@@ -185,6 +187,22 @@ def brain_mesh():
         from .sources import export_mesh
         export_mesh()
     return FileResponse(MESH_FILE, media_type="application/octet-stream")
+
+
+def _inflated(path):
+    if not (INFLATED_MESH_FILE.exists() and INFLATED_MORPH_FILE.exists()):  # needs a download: not done here
+        raise HTTPException(404, "No inflated brain yet: run `atlaslookup setup` once (downloads fsaverage6, ~8 MB).")
+    return FileResponse(path, media_type="application/octet-stream")
+
+
+@app.get("/api/inflated_mesh.gii")
+def inflated_mesh():
+    return _inflated(INFLATED_MESH_FILE)
+
+
+@app.get("/api/inflated_morph.bin")
+def inflated_morph():
+    return _inflated(INFLATED_MORPH_FILE)
 
 
 @app.get("/api/regions")

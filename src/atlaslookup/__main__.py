@@ -24,7 +24,7 @@ import webbrowser
 
 from . import __version__
 from .atlas import add_atlas, load_atlases
-from .config import ATLASES_DIR, DATA_DIR, IMAGE_DIR, TEMPLATE_FILE
+from .config import ATLASES_DIR, DATA_DIR, IMAGE_DIR, INFLATED_MORPH_FILE, TEMPLATE_FILE
 from .grids import grid_from_image, load_grids, save_grid
 from .query import best_guess, query, resolve_mm
 
@@ -136,10 +136,12 @@ def main(argv=None):
             sys.exit(f"Port {args.port} is used by another program; try --port {args.port + 1}")
         if not _is_set_up():
             from .sources import bootstrap
-            print(f"First run: downloading atlases into {DATA_DIR} (one time, about 90 MB).")
+            print(f"First run: downloading atlases into {DATA_DIR} (one time, about 100 MB).")
             bootstrap()
         elif not (ATLASES_DIR / "xtract-hcp" / "atlas.json").exists():
             print("  new: white-matter tracts (JHU, XTRACT). Run `atlaslookup setup` once to add them (~50 MB from FSL).")
+        elif not INFLATED_MORPH_FILE.exists():
+            print("  new: inflated brain in the 3D view. Run `atlaslookup setup` once to add it (~8 MB from OSF).")
         if args.results:
             os.environ["ATLAS_RESULTS_DIR"] = args.results
         from .results import configured_dir, repo_warning

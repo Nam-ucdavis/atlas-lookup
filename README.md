@@ -132,6 +132,22 @@ straight away.
   it, using the overlay's own threshold and colours. Only the cortex is shown,
   so subcortical and cerebellar results don't appear in this style. The
   projection runs in your browser, so local overlays still aren't uploaded.
+- **Inflated:** the cortex inflated, so results hidden inside sulci show. It is
+  fsaverage6 (~41k points per hemisphere), shaded by sulcal depth (dark = sulci,
+  light = gyri), with the hemispheres set apart. Results and cortical regions are
+  sampled at the folded (pial) cortex, as in Mesh brain, then drawn where each
+  point sits on the inflated surface.
+  - **Inflation** (0–100 %) morphs between the folded and the inflated cortex, so
+    you can watch a blob come out of its sulcus.
+  - **Both / Left / Right** shows one hemisphere on its own: view a left hemisphere
+    from **R** to see its medial side.
+  - **Click** the inflated brain to look up that point (its position on the folded
+    cortex); the slice crosshair is shown at the nearest point of the surface.
+  - Tracts and region shapes are hidden here; chosen cortical regions are painted on.
+  - Needs `atlaslookup setup` once (installs from before 0.18 just run it again): it
+    downloads fsaverage6 from OSF through nilearn (~8 MB).
+  - fsaverage lines up with MNI152 only to within a few mm, and values come from the
+    volume: this is for looking, not a surface-based analysis.
 - **Regions…** opens the side panel's Regions tab to pick regions from any atlas. Search by name
   (common abbreviations like OFC, IFG, ACC work). Each chosen region is drawn
   as a solid shape in its own colour, and in Mesh brain painted onto the

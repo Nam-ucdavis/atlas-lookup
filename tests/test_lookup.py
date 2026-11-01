@@ -535,6 +535,38 @@ def test_brain_mesh(tmp_path, monkeypatch):
     assert -110 < v[:, 1].min() < -95 and 60 < v[:, 1].max() < 80
 
 
+def test_inflated_targets_and_shade():
+    """Inflated hemispheres are scaled to the pial length, centred on it, and set apart
+    with a gap at the midline; sulci (positive sulcal depth) are darker."""
+    from atlaslookup.sources import inflated_targets, sulcal_shade
+
+    rng = np.random.default_rng(0)
+    pial_l = rng.uniform([-70, -105, -45], [-1, 70, 78], (500, 3))
+    pial_r = pial_l * [-1, 1, 1]
+    infl = rng.uniform([-42, -105, -71], [42, 105, 71], (500, 3))  # centred, overlapping, bigger
+    left, right = inflated_targets([pial_l, pial_r], [infl, infl], gap=10)
+    assert np.isclose(left[:, 0].max(), -5) and np.isclose(right[:, 0].min(), 5)
+    assert np.isclose(np.ptp(left[:, 1]), np.ptp(pial_l[:, 1]), atol=1e-3)
+    assert np.isclose((left[:, 2].min() + left[:, 2].max()) / 2, (pial_l[:, 2].min() + pial_l[:, 2].max()) / 2, atol=1e-3)
+    shade = sulcal_shade(np.array([-1.0, 0.0, 1.0]))
+    assert shade[0] > shade[1] > shade[2] and 0 < shade.min() and shade.max() < 1
+
+
+def test_inflated_endpoints_need_setup(tmp_path, monkeypatch):
+    """Without the files the endpoints say to run setup (no download inside a request)."""
+    from fastapi.testclient import TestClient
+
+    from atlaslookup import server
+
+    monkeypatch.setattr(server, "INFLATED_MESH_FILE", tmp_path / "a.gii")
+    monkeypatch.setattr(server, "INFLATED_MORPH_FILE", tmp_path / "a.bin")
+    c = TestClient(server.app)
+    r = c.get("/api/inflated_morph.bin")
+    assert r.status_code == 404 and "atlaslookup setup" in r.json()["detail"]
+    (tmp_path / "a.gii").write_bytes(b"g"); (tmp_path / "a.bin").write_bytes(b"b")
+    assert c.get("/api/inflated_morph.bin").content == b"b" and c.get("/api/inflated_mesh.gii").content == b"g"
+
+
 def test_viewer3d_is_wired():
     """index.html loads the 3D module and gives it the controls it looks up."""
     import re
@@ -545,13 +577,14 @@ def test_viewer3d_is_wired():
     html = (static / "index.html").read_text()
     assert 'from "/static/viewer3d.js"' in html
     for el in ["viewTabs", "gl3wrap", "gl3", "v3Bar", "v3Style", "v3Brain", "v3BrainOut", "v3Views",
-               "v3Regions", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
+               "v3Regions", "v3Infl", "v3Inflate", "v3InflateOut", "v3Hemi", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
         assert re.search(rf'id="{el}"', html), el
     assert 'from "/static/sidepanel.js"' in html and 'from "/static/tracts.js"' in html
     # Page-layout rules must not hit the side panel (also an <aside>).
     assert "aside { display: contents" not in html.replace("main > aside { display: contents", "")
     js = (static / "viewer3d.js").read_text()
     assert "/api/brain_mesh.gii" in js and "export function createViewer3D" in js
+    assert "/api/inflated_mesh.gii" in js and "/api/inflated_morph.bin" in js and 'data-style="inflated"' in html
 
 
 # --- regions window, region meshes, mesh-brain projection, Finder-style browser ------
@@ -638,7 +671,7 @@ def test_js_region_search_browser_tree_and_projection():
     out = _node(f"""
       import {{ matches }} from {str(static / "regionpicker.js")!r};
       import {{ buildTree, entries }} from {str(static / "browser.js")!r};
-      import {{ volumeSampler, projectToVertices }} from {str(static / "viewer3d.js")!r};
+      import {{ volumeSampler, projectToVertices, parseMorph, morph, nearestVertex }} from {str(static / "viewer3d.js")!r};
       const m = [
         matches("medial orbitofrontal", "Left olfactory sulcus (medial orbital sulcus)"),
         matches("hippocampus", "Left Hippocampus"), matches("ifg", "Left Inferior Temporal Gyrus"),
@@ -654,13 +687,23 @@ def test_js_region_search_browser_tree_and_projection():
       // A vertex at x=+1 with an outward normal +x sees 5 at depth 1 and -7 at depth 2 -> keeps -7 (largest |v|).
       const proj = projectToVertices(s, new Float32Array([1, 0, 0]), new Float32Array([1, 0, 0]), [0, 1, 2]);
       const lab = projectToVertices(s, new Float32Array([1, 0, 0]), new Float32Array([1, 0, 0]), [0, 1, 2], true);
-      console.log(JSON.stringify({{ m, top, t1, proj: Array.from(proj), lab: Array.from(lab), out: s(9, 9, 9) }}));
+      // Inflated-brain helpers: the morph file, the pial -> inflated blend, nearest vertex.
+      const buf = new ArrayBuffer(8 + 4 * 3 * 2 + 4 * 2);
+      new Uint32Array(buf, 0, 2).set([1, 2]);
+      new Float32Array(buf, 8).set([0, 0, 0, 10, 10, 10, 0.25, 0.75]);
+      const mo = parseMorph(buf);
+      const mid = morph(new Float32Array([0, 0, 0, 0, 0, 0]), mo.target, 0.5);
+      const near = nearestVertex(mid, [4, 5, 5]), nearR = nearestVertex(mid, [0, 0, 0], 1, 2);
+      console.log(JSON.stringify({{ m, top, t1, proj: Array.from(proj), lab: Array.from(lab), out: s(9, 9, 9),
+        mo: [mo.nLeft, mo.n, Array.from(mo.shade)], mid: Array.from(mid), near: [near.index, near.distance], nearR: nearR.index }}));
     """)
     r = json.loads(out)
     assert r["m"] == [True, True, False, True, True]
     assert r["top"] == ["S1", "S2"]
     assert r["t1"] == ["dir:a", "dir:b"]
     assert r["proj"] == [-7] and r["lab"] == [5] and r["out"] == 0
+    assert r["mo"] == [1, 2, [0.25, 0.75]] and r["mid"] == [0, 0, 0, 5, 5, 5]
+    assert r["near"] == [1, 1] and r["nearR"] == 1  # nearest within [1, 2) only
 
 
 # --- version menu ---------------------------------------------------------------------
@@ -826,7 +869,7 @@ def test_setup_skips_installed_atlases(tmp_path, monkeypatch):
         (tmp_path / "atlases" / i / "atlas.json").write_text("{}")
     (tmp_path / "grids").mkdir()
     (tmp_path / "grids" / "mni-2mm-fsl.json").write_text("{}")
-    for f in ["TEMPLATE_FILE", "MESH_FILE"]:
+    for f in ["TEMPLATE_FILE", "MESH_FILE", "INFLATED_MESH_FILE", "INFLATED_MORPH_FILE"]:
         p = tmp_path / f
         p.write_text("x")
         monkeypatch.setattr(sources, f, p)

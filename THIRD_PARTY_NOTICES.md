@@ -215,5 +215,8 @@ and citation requirements, shown on its card in the app:
   (non-commercial use). XTRACT uses Human Connectome Project data (WU-Minn Consortium).
 - **Schaefer 2018**, **Destrieux 2009**, the **Talairach Daemon** and the
   **MNI152 (ICBM 2009a)** template are subject to their authors' terms.
+- The **fsaverage5** and **fsaverage6** cortical surfaces (3D view; fsaverage6 is
+  downloaded by nilearn from OSF) come from FreeSurfer (Fischl et al. 1999) and are
+  subject to the [FreeSurfer licence](https://surfer.nmr.mgh.harvard.edu/fswiki/FreeSurferSoftwareLicense).
 
 Please cite the atlases you report results with.
