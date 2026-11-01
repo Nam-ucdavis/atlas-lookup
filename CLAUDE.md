@@ -78,7 +78,8 @@ src/atlaslookup/
                       writes the morph file) and samples overlays at the pial positions
   static/focus3d.js   3D "Focus: MTL": its own NiiVue instance (meshes only, so the camera frames the
                       MTL), structure meshes from /api/regions/mesh.gii smoothed client-side,
-                      continuous slice overlays painted on, per-structure peaks; MTL_SETS lists them
+                      continuous slice overlays painted on, per-structure peaks; FOCI lists each
+                      focus (MTL, mPFC) with a coarse and a fine level of structures
                       (clones volumes + copies display settings); surface or glass-brain mesh
                       (/api/brain_mesh.gii, fsaverage5 pial built by sources.export_mesh);
                       mesh style projects overlays onto the mesh in the browser; chosen regions

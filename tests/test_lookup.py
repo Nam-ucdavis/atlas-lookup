@@ -581,7 +581,7 @@ def test_viewer3d_is_wired():
                "v3FocusBar", "fcLevel", "fcHemi", "fcColors", "fcFill", "gl3f", "fcLegend", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
         assert re.search(rf'id="{el}"', html), el
     assert 'from "/static/sidepanel.js"' in html and 'from "/static/tracts.js"' in html
-    assert 'from "/static/focus3d.js"' in html and 'data-focus="mtl"' in html
+    assert 'from "/static/focus3d.js"' in html and 'data-focus="mtl"' in html and 'data-focus="mpfc"' in html
     # Page-layout rules must not hit the side panel (also an <aside>).
     assert "aside { display: contents" not in html.replace("main > aside { display: contents", "")
     js = (static / "viewer3d.js").read_text()
@@ -664,18 +664,21 @@ def _node(script):
     return out.stdout.strip()
 
 
-def test_focus_mtl_helpers():
-    """Focus: MTL: the structure list per level/hemisphere (Harvard-Oxford subcortical
-    right = left + 10), Taubin smoothing keeps size, and per-structure peaks."""
+def test_focus_helpers():
+    """3D focus: the structure list per focus/level/hemisphere (atlases with one region
+    per hemisphere use their right-hand value; medial strips carry |xmax), Taubin
+    smoothing keeps size, and per-structure peaks."""
     import json
 
     import atlaslookup
 
     static = Path(atlaslookup.__file__).parent / "static"
     out = _node(f"""
-      import {{ mtlParts, smoothMesh, structurePeaks }} from {str(static / "focus3d.js")!r};
-      const both = mtlParts("structures", "both").map((p) => p.key);
-      const left = mtlParts("subfields", "L").map((p) => p.name);
+      import {{ focusParts, smoothMesh, structurePeaks }} from {str(static / "focus3d.js")!r};
+      const both = focusParts("mtl", "coarse", "both").map((p) => p.key);
+      const left = focusParts("mtl", "fine", "L").map((p) => p.name);
+      const mpfc = focusParts("mpfc", "coarse", "R").map((p) => p.key);
+      const gyri = focusParts("mpfc", "fine", "R").map((p) => p.key);
       // A bumpy sphere (radius 10 +- 1): smoothing evens out the bumps but keeps its size.
       const N = 24, P = [], T = [], radii = (arr) => {{ const r = [];
         for (let i = 0; i < arr.length; i += 3) r.push(Math.hypot(arr[i], arr[i + 1], arr[i + 2])); return r; }};
@@ -695,16 +698,43 @@ def test_focus_mtl_helpers():
       // 2x1x1 mask: voxel 1 = structure 1, voxel 2 = structure 2; sample = x coordinate - 0.5.
       const mask = {{ img: new Uint8Array([1, 2]), dims: [2, 1, 1], affine: [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]] }};
       const pk = structurePeaks(mask, (x) => (x === 0 ? -3 : 4), 3, -2);
-      console.log(JSON.stringify({{ both, left, r, pk }}));
+      console.log(JSON.stringify({{ both, left, mpfc, gyri, r, pk }}));
     """)
     r = json.loads(out)
     assert r["both"][:2] == ["harvard-oxford-sub|9|B", "harvard-oxford-sub|19|B"]
     assert "juelich|11|L" in r["both"] and "juelich|11|R" in r["both"] and len(r["both"]) == 10
     assert r["left"][:3] == ["Cornu ammonis (CA)", "Dentate gyrus", "Subiculum"] and len(r["left"]) == 8
+    assert r["mpfc"][0] == "harvard-oxford-cort|25|R" and "harvard-oxford-cort|1|R|20" in r["mpfc"]
+    assert "harvard-oxford-cort|33|R" in r["mpfc"] and len(r["mpfc"]) == 7
+    assert r["gyri"][0] == "destrieux2009|106|B" and "destrieux2009|91|B|20" in r["gyri"]
     mean0, sd0, mean1, sd1 = r["r"]
     assert sd1 < sd0 / 3 and abs(mean1 - mean0) < 0.6  # smoother, same size
     assert r["pk"]["1"]["neg"] == -3 and r["pk"]["1"]["above"] == 1 and r["pk"]["1"]["negAt"] == [0, 0, 0]
     assert r["pk"]["2"]["pos"] == 4 and r["pk"]["2"]["above"] == 1 and r["pk"]["2"]["n"] == 1
+
+
+def test_region_medial_strip(tmp_path, monkeypatch):
+    """atlas|value|side|xmax keeps only |x| <= xmax mm, in the mask and the mesh."""
+    from fastapi.testclient import TestClient
+
+    from atlaslookup import server
+
+    lab = np.zeros((11, 11, 11), np.int16)
+    lab[:, 3:8, 3:8] = 1  # x from -10 to +10 mm (2 mm voxels)
+    add_atlas("wide", "Wide", "MNI152NLin6Asym", {1: "slab"}, label_map=nib.Nifti1Image(lab, AFFINE_2MM),
+              lateralize=True, atlases_dir=tmp_path)
+    monkeypatch.setitem(server.ATLASES, "wide", Atlas(tmp_path / "wide"))
+    c = TestClient(server.app)
+    def xs(sel):
+        img = nib.Nifti1Image.from_bytes(__import__("gzip").decompress(c.get("/api/regions/mask.nii.gz", params={"sel": sel}).content))
+        ijk = np.argwhere(np.asarray(img.dataobj) > 0)
+        return (ijk @ img.affine[:3, :3].T + img.affine[:3, 3])[:, 0]
+    full, strip = xs("wide|1|L"), xs("wide|1|L|4")
+    assert full.min() < -9 and strip.min() >= -4 and strip.max() < 0
+    g = nib.GiftiImage.from_bytes(c.get("/api/regions/mesh.gii", params={"sel": "wide|1|L|4"}).content)
+    assert g.agg_data("pointset")[:, 0].min() >= -5
+    assert c.get("/api/regions/mesh.gii", params={"sel": "wide|1|L|0"}).status_code == 400
+    assert c.get("/api/tracts/connections", params={"atlas": "x", "sel": "wide|1|L|4"}).status_code in (400, 404)
 
 
 def test_js_region_search_browser_tree_and_projection():

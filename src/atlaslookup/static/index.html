@@ -139,6 +139,7 @@
     border-radius: 6px; font: inherit; font-size: 13px; cursor: pointer; }
   .v3-menu button:hover, .v3-menu button:focus-visible { background: var(--accent-soft); outline: none; }
   .v3-menu button span { display: block; color: var(--muted); font-size: 12px; }
+  .v3-menu button.on b::after { content: " ✓"; color: var(--accent); }
   /* Focus: MTL legend, over the right of the 3D canvas */
   .fc-legend { position: absolute; top: 8px; right: 8px; bottom: 8px; width: 270px; overflow-y: auto;
     background: rgba(20, 20, 19, .82); border: 1px solid #333; border-radius: 8px; padding: 6px 8px; color: #e6e5e0; font-size: 12px; }
@@ -557,6 +558,7 @@
         </div>
         <div class="v3-menu" id="v3FocusMenu" role="menu" aria-label="Focus on" hidden>
           <button type="button" role="menuitem" data-focus="mtl"><b>MTL</b> <span>medial temporal lobe: hippocampus, amygdala, entorhinal and parahippocampal cortex</span></button>
+          <button type="button" role="menuitem" data-focus="mpfc"><b>mPFC</b> <span>medial and ventromedial prefrontal cortex: vmPFC, subgenual and anterior cingulate, paracingulate, medial frontal pole and SFG, OFC</span></button>
         </div>
         </span>
         <span class="v3-mode" id="v3Whole">
@@ -579,8 +581,8 @@
         </span>
         <span class="v3-mode" id="v3FocusBar" hidden>
           <span class="seg" id="fcLevel" role="group" aria-label="MTL detail">
-            <button type="button" data-v="structures" class="on">Structures</button>
-            <button type="button" data-v="subfields" title="Juelich hippocampal subfields and amygdala groups (coarse, 2 mm)">Subfields</button>
+            <button type="button" data-v="coarse" class="on">Structures</button>
+            <button type="button" data-v="fine">Detail</button>
           </span>
           <span class="seg" id="fcHemi" role="group" aria-label="Hemispheres">
             <button type="button" data-v="both" class="on">Both</button>

@@ -3,6 +3,19 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.19.1 (2026-11-01)
+- **Focus: mPFC** (Focus ▾ → mPFC): the medial and ventromedial prefrontal cortex, like
+  Focus: MTL. Structures (Harvard-Oxford): frontal medial cortex (vmPFC), subcallosal
+  cortex, anterior cingulate and paracingulate gyri, medial frontal pole and superior
+  frontal gyrus (|x| ≤ 20 mm), and the frontal orbital cortex (lateral / central OFC).
+  Gyri & sulci (Destrieux): gyrus rectus, medial orbital and suborbital sulci,
+  subcallosal gyrus, anterior cingulate gyrus and sulcus, medial transverse frontopolar
+  gyri and superior frontal gyrus, and the orbital gyri.
+- The second level button is named for each focus (Subfields for the MTL, Gyri & sulci
+  for the mPFC); each focus remembers its own level. Hemispheres, Hue / Gray and Fill
+  are shared.
+- Region endpoints accept `atlas|value|side|xmax` to keep only |x| ≤ xmax mm.
+
 ## 0.19.0 (2026-11-01)
 - **Focus: MTL** in the 3D view: a **Focus ▾** button next to Inflated opens a menu;
   pick **MTL** to see the medial temporal lobe on its own (the button then reads

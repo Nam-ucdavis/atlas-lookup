@@ -11,8 +11,9 @@ GET /api/brain_mesh.gii                  cortical surface (fsaverage5 pial) for 
 GET /api/inflated_mesh.gii               fsaverage6 pial surface for the 3D inflated brain
 GET /api/inflated_morph.bin              its inflated vertex positions + sulcal shading (see sources.export_inflated)
 GET /api/regions                         every region of every atlas (per side), for the Regions window
-GET /api/regions/mask.nii.gz?sel=atlas|value|side,...   chosen regions as one 1 mm label volume
-GET /api/regions/mesh.gii?sel=atlas|value|side          one region as a smooth surface mesh
+GET /api/regions/mask.nii.gz?sel=atlas|value|side[|xmax],...   chosen regions as one 1 mm label volume
+GET /api/regions/mesh.gii?sel=atlas|value|side[|xmax]          one region as a smooth surface mesh
+                                         (xmax: keep only |x| <= xmax mm, for the 3D focus views)
 GET /api/tracts                          tract atlases (JHU, XTRACT) and their tracts
 GET /api/tracts/connections?atlas=&sel=atlas|value|side,...&threshold=&distance=
                                          tracts whose core passes near the chosen regions
@@ -213,24 +214,31 @@ def regions_list():
             for a in ATLASES.values() if a.info()["can_overlay"] and not tracts.is_tract_atlas(a)]
 
 
-def _parse_regions(sel: str) -> list[tuple[str, int, str]]:
+def _parse_regions(sel: str, clip: bool = False) -> list[tuple]:
+    """atlas|value|side items; with clip, an optional 4th field xmax (mm) as well, and
+    the tuples are (atlas_id, value, side, xmax or None)."""
     selection = []
     for item in sel.split(","):
+        parts = item.split("|")
         try:
-            atlas_id, value, side = item.split("|")
-            value = int(value)
+            if len(parts) not in ((3, 4) if clip else (3,)):
+                raise ValueError
+            atlas_id, value, side = parts[0], int(parts[1]), parts[2]
+            xmax = float(parts[3]) if len(parts) == 4 else None
+            if xmax is not None and not 0 < xmax <= 100:
+                raise ValueError
         except ValueError:
-            raise HTTPException(400, f"Bad region {item!r}; expected atlas|value|side")
+            raise HTTPException(400, f"Bad region {item!r}; expected atlas|value|side" + ("[|xmax]" if clip else ""))
         a = ATLASES.get(atlas_id)
         if a is None or not a.info()["can_overlay"] or side not in regions.SIDES:
             raise HTTPException(404, f"No region {item!r}")
-        selection.append((atlas_id, value, side))
+        selection.append((atlas_id, value, side, xmax) if clip else (atlas_id, value, side))
     return selection
 
 
 @app.get("/api/regions/mask.nii.gz")
 def regions_mask(sel: str = Query(..., min_length=1)):
-    selection = _parse_regions(sel)
+    selection = _parse_regions(sel, clip=True)
     if len(selection) > regions.MAX_REGIONS:
         raise HTTPException(400, f"At most {regions.MAX_REGIONS} regions")
     data = regions.mask_nifti(tuple(ATLASES.values()), tuple(selection))
@@ -239,16 +247,12 @@ def regions_mask(sel: str = Query(..., min_length=1)):
 
 @app.get("/api/regions/mesh.gii")
 def regions_mesh(sel: str):
+    selection = _parse_regions(sel, clip=True)
+    if len(selection) != 1:
+        raise HTTPException(400, "Expected one region: atlas|value|side[|xmax]")
+    atlas_id, value, side, xmax = selection[0]
     try:
-        atlas_id, value, side = sel.split("|")
-        value = int(value)
-    except ValueError:
-        raise HTTPException(400, "Expected atlas|value|side")
-    a = ATLASES.get(atlas_id)
-    if a is None or not a.info()["can_overlay"] or side not in regions.SIDES:
-        raise HTTPException(404, f"No region {sel!r}")
-    try:
-        return Response(regions.mesh_gifti(a, value, side), media_type="application/octet-stream")
+        return Response(regions.mesh_gifti(ATLASES[atlas_id], value, side, xmax), media_type="application/octet-stream")
     except ValueError:
         raise HTTPException(404, f"Region {sel!r} is empty")
 

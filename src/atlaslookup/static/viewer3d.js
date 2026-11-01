@@ -164,7 +164,9 @@ const samplerOf = (vol) => volumeSampler({
 
 export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, controls, crosshairToggle, setHint, onPick, focus }) {
   // "Focus: MTL" swaps this whole-brain scene for focus3d.js's, in the same panel.
-  let focused = store.get("view3dFocus", "") === "mtl";
+  let focusId = store.get("view3dFocus", "");  // "" = whole brain, else a focus3d FOCI key
+  if (focusId && !focus?.label(focusId)) focusId = "";
+  let focused = !!focusId;
   let nv3 = null, ready = null, mesh = null, normals = null, active = false;
   // Inflated brain: { mesh, pial, normals, target, shade, nLeft, allTris }, loaded on first use.
   let infl = null, inflError = null;
@@ -402,7 +404,8 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     for (const b of controls.style.querySelectorAll("button")) {
       b.classList.toggle("on", focused ? b.dataset.style === "focus" : b.dataset.style === style);
     }
-    controls.focusBtn.firstChild.textContent = focused ? "Focus: MTL " : "Focus ";
+    controls.focusBtn.firstChild.textContent = focused ? `Focus: ${focus.label(focusId)} ` : "Focus ";
+    for (const b of controls.focusMenu.querySelectorAll("button")) b.classList.toggle("on", b.dataset.focus === focusId);
     controls.whole.hidden = focused;
     canvas.hidden = focused;
   }
@@ -412,8 +415,9 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     if (open) controls.focusMenu.querySelector("button")?.focus();
   }
   async function setFocus(f) {
-    focused = f === "mtl";
-    store.set("view3dFocus", focused ? "mtl" : "");
+    focusId = f;
+    focused = !!f;
+    store.set("view3dFocus", f);
     showFocusMode();
     if (active) { await focus?.show(false); await show(true); }
   }
@@ -422,7 +426,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     const f = e.target.closest("button")?.dataset.focus;
     if (!f) return;
     openFocusMenu(false);
-    if (!focused) setFocus(f);
+    if (f !== focusId) setFocus(f);
   });
   document.addEventListener("click", (e) => { if (!e.target.closest(".v3-style-wrap")) openFocusMenu(false); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !controls.focusMenu.hidden) { openFocusMenu(false); controls.focusBtn.focus(); } });
@@ -432,7 +436,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     wrap.hidden = !on;
     controls.bar.hidden = !on;
     if (focus && (!on || focused)) {
-      await focus.show(on && focused);
+      await focus.show(on && focused, focusId);
       if (on) { focusSources(); return; }
     }
     if (!on) return;

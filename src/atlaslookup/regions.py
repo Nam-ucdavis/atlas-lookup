@@ -71,10 +71,19 @@ def _paint(out: np.ndarray, atlas: Atlas, value: int, side: str, k: int) -> None
     out[tuple(vox[ok].T)] = k
 
 
-def _region_1mm(atlas: Atlas, value: int, side: str) -> np.ndarray:
+def _region_1mm(atlas: Atlas, value: int, side: str, xmax: float | None = None) -> np.ndarray:
     out = np.zeros(MNI_1MM_SHAPE, np.uint8)
     _paint(out, atlas, value, side, 1)
+    if xmax is not None:
+        _clip_x(out, xmax)
     return out
+
+
+def _clip_x(out: np.ndarray, xmax: float) -> None:
+    """Keep only voxels with |x| <= xmax mm (the medial strip of a region that also
+    reaches the lateral surface, e.g. frontal pole for the 3D view's mPFC focus)."""
+    x = np.arange(MNI_1MM_SHAPE[0]) * MNI_1MM_AFFINE[0, 0] + MNI_1MM_AFFINE[0, 3]
+    out[np.abs(x) > xmax] = 0
 
 
 def surface(mask: np.ndarray, affine: np.ndarray, smooth: int = 12) -> tuple[np.ndarray, np.ndarray]:
@@ -125,8 +134,8 @@ def surface(mask: np.ndarray, affine: np.ndarray, smooth: int = 12) -> tuple[np.
 
 
 @lru_cache(maxsize=64)
-def mesh_gifti(atlas: Atlas, value: int, side: str) -> bytes:
-    mask = _region_1mm(atlas, value, side)
+def mesh_gifti(atlas: Atlas, value: int, side: str, xmax: float | None = None) -> bytes:
+    mask = _region_1mm(atlas, value, side, xmax)
     if not mask.any():
         raise ValueError("empty region")
     verts, tris = surface(mask, MNI_1MM_AFFINE)
@@ -138,12 +147,16 @@ def mesh_gifti(atlas: Atlas, value: int, side: str) -> bytes:
 
 
 @lru_cache(maxsize=16)
-def mask_nifti(atlases: tuple[Atlas, ...], selection: tuple[tuple[str, int, str], ...]) -> bytes:
-    """selection: ((atlas_id, value, side), ...); region k (1-based) gets value k.
-    Later regions win where two overlap."""
+def mask_nifti(atlases: tuple[Atlas, ...], selection: tuple[tuple, ...]) -> bytes:
+    """selection: ((atlas_id, value, side[, xmax]), ...); region k (1-based) gets value k,
+    kept to |x| <= xmax mm when given. Later regions win where two overlap."""
     by_id = {a.id: a for a in atlases}
     out = np.zeros(MNI_1MM_SHAPE, np.uint8)
-    for k, (atlas_id, value, side) in enumerate(selection[:MAX_REGIONS], 1):
-        _paint(out, by_id[atlas_id], value, side, k)
+    for k, (atlas_id, value, side, *rest) in enumerate(selection[:MAX_REGIONS], 1):
+        if rest and rest[0] is not None:
+            one = _region_1mm(by_id[atlas_id], value, side, rest[0])
+            out[one > 0] = k
+        else:
+            _paint(out, by_id[atlas_id], value, side, k)
     img = nib.Nifti1Image(out, MNI_1MM_AFFINE)
     return gzip.compress(img.to_bytes(), compresslevel=3)

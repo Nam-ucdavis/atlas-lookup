@@ -165,6 +165,16 @@ straight away.
     its whole volume (of the front-most map on the slices) and how many mm³ pass that
     map's threshold. Click a peak, or a structure, to look the point up.
   - Pick another style (Surface, Glass, Mesh, Inflated) to leave focus.
+- **Focus ▾ → mPFC:** the medial and ventromedial prefrontal cortex, the same way.
+  - **Structures** (Harvard-Oxford): frontal medial cortex (vmPFC / medial OFC),
+    subcallosal cortex (subgenual ACC), anterior cingulate gyrus, paracingulate gyrus,
+    the medial part of the frontal pole and of the superior frontal gyrus, and the
+    frontal orbital cortex (lateral / central OFC).
+  - **Gyri & sulci** (Destrieux): gyrus rectus, medial orbital (olfactory) and
+    suborbital sulci, subcallosal gyrus, anterior cingulate gyrus and sulcus, the
+    medial part of the transverse frontopolar gyri and of the superior frontal gyrus,
+    and the orbital gyri (lateral / central OFC).
+  - "Medial part" keeps |x| ≤ 20 mm of regions that also cover the lateral surface.
 - **Regions…** opens the side panel's Regions tab to pick regions from any atlas. Search by name
   (common abbreviations like OFC, IFG, ACC work). Each chosen region is drawn
   as a solid shape in its own colour, and in Mesh brain painted onto the
