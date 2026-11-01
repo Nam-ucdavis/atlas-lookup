@@ -148,6 +148,23 @@ straight away.
     downloads fsaverage6 from OSF through nilearn (~8 MB).
   - fsaverage lines up with MNI152 only to within a few mm, and values come from the
     volume: this is for looking, not a surface-based analysis.
+- **Focus ▾ → MTL:** the medial temporal lobe on its own, zoomed in and rotating
+  around it. Each structure is a faint tint with a solid outline in its own colour,
+  and your results are painted on (the strongest value up to 3 mm inside it).
+  - **Structures:** hippocampus, amygdala (Harvard-Oxford), entorhinal cortex
+    (Juelich), anterior parahippocampal gyrus (≈ perirhinal + entorhinal cortex) and
+    posterior parahippocampal gyrus (≈ parahippocampal cortex).
+  - **Subfields:** Juelich cornu ammonis, dentate gyrus, subiculum, entorhinal cortex,
+    hippocampal-amygdaloid transition area and three amygdala groups. These are 2 mm
+    maximum-probability maps, so they are coarse, and some sit inside others (lower
+    **Fill** or untick CA to see the dentate gyrus).
+  - **Both / Left / Right**, **Hue / Gray** (Gray draws every structure in one grey,
+    so only the results are in colour; remembered for every focus), **Fill** (how
+    see-through each structure is), and the usual L R A P S I views.
+  - The legend lists each structure with the peak positive / negative value inside
+    its whole volume (of the front-most map on the slices) and how many mm³ pass that
+    map's threshold. Click a peak, or a structure, to look the point up.
+  - Pick another style (Surface, Glass, Mesh, Inflated) to leave focus.
 - **Regions…** opens the side panel's Regions tab to pick regions from any atlas. Search by name
   (common abbreviations like OFC, IFG, ACC work). Each chosen region is drawn
   as a solid shape in its own colour, and in Mesh brain painted onto the

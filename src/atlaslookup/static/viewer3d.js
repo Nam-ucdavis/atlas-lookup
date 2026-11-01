@@ -162,7 +162,9 @@ const samplerOf = (vol) => volumeSampler({
 
 // --- the view ------------------------------------------------------------------------
 
-export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, controls, crosshairToggle, setHint, onPick }) {
+export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, controls, crosshairToggle, setHint, onPick, focus }) {
+  // "Focus: MTL" swaps this whole-brain scene for focus3d.js's, in the same panel.
+  let focused = store.get("view3dFocus", "") === "mtl";
   let nv3 = null, ready = null, mesh = null, normals = null, active = false;
   // Inflated brain: { mesh, pial, normals, target, shade, nLeft, allTris }, loaded on first use.
   let infl = null, inflError = null;
@@ -267,7 +269,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   }
 
   async function applyStyle() {
-    for (const b of controls.style.querySelectorAll("button")) b.classList.toggle("on", b.dataset.style === style);
+    showFocusMode();
     showTransparency();
     controls.inflBar.hidden = style !== "inflated";
     nv3.setOpacity(0, style === "surface" ? brainOpacity() : 0);
@@ -385,12 +387,54 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   // Follow every change on the slice viewer (overlays added, thresholds dragged, ...).
   const nv = getNv();
   const update = nv.updateGLVolume.bind(nv);
-  nv.updateGLVolume = (...args) => { const r = update(...args); if (active) scheduleSync(); return r; };
+  let focusTimer;
+  const focusSources = () => focus?.setSources(getNv().volumes.slice(1));
+  nv.updateGLVolume = (...args) => {
+    const r = update(...args);
+    if (active && focused) { clearTimeout(focusTimer); focusTimer = setTimeout(focusSources, 120); }
+    else if (active) scheduleSync();
+    return r;
+  };
+
+  // Focus sits with the styles: its button opens a menu of what to focus on, and once
+  // one is picked reads "Focus: MTL". Picking another style leaves focus.
+  function showFocusMode() {
+    for (const b of controls.style.querySelectorAll("button")) {
+      b.classList.toggle("on", focused ? b.dataset.style === "focus" : b.dataset.style === style);
+    }
+    controls.focusBtn.firstChild.textContent = focused ? "Focus: MTL " : "Focus ";
+    controls.whole.hidden = focused;
+    canvas.hidden = focused;
+  }
+  function openFocusMenu(open) {
+    controls.focusMenu.hidden = !open;
+    controls.focusBtn.setAttribute("aria-expanded", String(open));
+    if (open) controls.focusMenu.querySelector("button")?.focus();
+  }
+  async function setFocus(f) {
+    focused = f === "mtl";
+    store.set("view3dFocus", focused ? "mtl" : "");
+    showFocusMode();
+    if (active) { await focus?.show(false); await show(true); }
+  }
+  showFocusMode();
+  controls.focusMenu.addEventListener("click", (e) => {
+    const f = e.target.closest("button")?.dataset.focus;
+    if (!f) return;
+    openFocusMenu(false);
+    if (!focused) setFocus(f);
+  });
+  document.addEventListener("click", (e) => { if (!e.target.closest(".v3-style-wrap")) openFocusMenu(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !controls.focusMenu.hidden) { openFocusMenu(false); controls.focusBtn.focus(); } });
 
   async function show(on) {
     active = on;
     wrap.hidden = !on;
     controls.bar.hidden = !on;
+    if (focus && (!on || focused)) {
+      await focus.show(on && focused);
+      if (on) { focusSources(); return; }
+    }
     if (!on) return;
     if (!ready) ready = init().then(() => Promise.all([loadRegions(), loadTracts()]));
     await ready;
@@ -477,9 +521,12 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   }
 
   controls.style.addEventListener("click", async (e) => {
-    const s = e.target.dataset.style;
-    if (!s || s === style) return;
+    const s = e.target.closest("button")?.dataset.style;
+    if (!s) return;
+    if (s === "focus") { openFocusMenu(controls.focusMenu.hidden); return; }
+    if (s === style && !focused) return;
     style = s; store.set("view3dStyle", s);
+    if (focused) { await setFocus(""); return; }
     await applyStyle();
   });
   function showTransparency() {
@@ -499,7 +546,8 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   showTransparency();
   controls.views.addEventListener("click", (e) => {
     const v = VIEWS[e.target.dataset.view];
-    if (v && nv3) nv3.setRenderAzimuthElevation(...v);
+    if (v && focused) focus?.setView(...v);
+    else if (v && nv3) nv3.setRenderAzimuthElevation(...v);
   });
   crosshairToggle.addEventListener("change", () => active && sync());
 
@@ -550,8 +598,9 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   // "scr" while the 3D tab is open: the render plus the colour bars, same size as the
   // slice captures. Copy right after a redraw (the WebGL canvas is not preserved).
   function capture(drawBars) {
-    drawNow();  // must be synchronous: the WebGL canvas is copied right after
-    const src = nv3.canvas, out = document.createElement("canvas");
+    // must be synchronous: the WebGL canvas is copied right after
+    if (focused) focus.redraw(); else drawNow();
+    const src = focused ? focus.canvas : nv3.canvas, out = document.createElement("canvas");
     out.width = W; out.height = H + BAND;
     const ctx = out.getContext("2d");
     ctx.fillStyle = "#000"; ctx.fillRect(0, 0, out.width, out.height);
@@ -568,6 +617,6 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     get active() { return active; },
     get nv() { return nv3; },
     follow: () => active && sync(),
-    capture: (drawBars) => (active && nv3 ? capture(drawBars) : null),
+    capture: (drawBars) => (active && (focused || nv3) ? capture(drawBars) : null),
   };
 }

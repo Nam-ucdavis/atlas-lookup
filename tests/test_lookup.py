@@ -577,9 +577,11 @@ def test_viewer3d_is_wired():
     html = (static / "index.html").read_text()
     assert 'from "/static/viewer3d.js"' in html
     for el in ["viewTabs", "gl3wrap", "gl3", "v3Bar", "v3Style", "v3Brain", "v3BrainOut", "v3Views",
-               "v3Regions", "v3Infl", "v3Inflate", "v3InflateOut", "v3Hemi", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
+               "v3Regions", "v3Infl", "v3Inflate", "v3InflateOut", "v3Hemi", "v3FocusBtn", "v3FocusMenu", "v3Whole",
+               "v3FocusBar", "fcLevel", "fcHemi", "fcColors", "fcFill", "gl3f", "fcLegend", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
         assert re.search(rf'id="{el}"', html), el
     assert 'from "/static/sidepanel.js"' in html and 'from "/static/tracts.js"' in html
+    assert 'from "/static/focus3d.js"' in html and 'data-focus="mtl"' in html
     # Page-layout rules must not hit the side panel (also an <aside>).
     assert "aside { display: contents" not in html.replace("main > aside { display: contents", "")
     js = (static / "viewer3d.js").read_text()
@@ -660,6 +662,49 @@ def _node(script):
     out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
     assert out.returncode == 0, out.stderr
     return out.stdout.strip()
+
+
+def test_focus_mtl_helpers():
+    """Focus: MTL: the structure list per level/hemisphere (Harvard-Oxford subcortical
+    right = left + 10), Taubin smoothing keeps size, and per-structure peaks."""
+    import json
+
+    import atlaslookup
+
+    static = Path(atlaslookup.__file__).parent / "static"
+    out = _node(f"""
+      import {{ mtlParts, smoothMesh, structurePeaks }} from {str(static / "focus3d.js")!r};
+      const both = mtlParts("structures", "both").map((p) => p.key);
+      const left = mtlParts("subfields", "L").map((p) => p.name);
+      // A bumpy sphere (radius 10 +- 1): smoothing evens out the bumps but keeps its size.
+      const N = 24, P = [], T = [], radii = (arr) => {{ const r = [];
+        for (let i = 0; i < arr.length; i += 3) r.push(Math.hypot(arr[i], arr[i + 1], arr[i + 2])); return r; }};
+      for (let i = 1; i < N; i++) for (let j = 0; j < N; j++) {{
+        const th = Math.PI * i / N, ph = 2 * Math.PI * j / N, rad = 10 + ((i + j) % 2 ? 1 : -1);
+        P.push(rad * Math.sin(th) * Math.cos(ph), rad * Math.sin(th) * Math.sin(ph), rad * Math.cos(th));
+      }}
+      P.push(0, 0, 10, 0, 0, -10);
+      const id = (i, j) => (i - 1) * N + (j % N), top = (N - 1) * N, bot = top + 1;
+      for (let i = 1; i < N - 1; i++) for (let j = 0; j < N; j++) T.push(id(i, j), id(i + 1, j), id(i, j + 1), id(i, j + 1), id(i + 1, j), id(i + 1, j + 1));
+      for (let j = 0; j < N; j++) T.push(top, id(1, j), id(1, j + 1), bot, id(N - 1, j + 1), id(N - 1, j));
+      const pts = new Float32Array(P), before = radii(pts);
+      smoothMesh(pts, T, 20);
+      const after = radii(pts), sd = (r) => {{ const m = r.reduce((a, b) => a + b) / r.length;
+        return [m, Math.sqrt(r.reduce((a, b) => a + (b - m) ** 2, 0) / r.length)]; }};
+      const r = [...sd(before), ...sd(after)];
+      // 2x1x1 mask: voxel 1 = structure 1, voxel 2 = structure 2; sample = x coordinate - 0.5.
+      const mask = {{ img: new Uint8Array([1, 2]), dims: [2, 1, 1], affine: [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]] }};
+      const pk = structurePeaks(mask, (x) => (x === 0 ? -3 : 4), 3, -2);
+      console.log(JSON.stringify({{ both, left, r, pk }}));
+    """)
+    r = json.loads(out)
+    assert r["both"][:2] == ["harvard-oxford-sub|9|B", "harvard-oxford-sub|19|B"]
+    assert "juelich|11|L" in r["both"] and "juelich|11|R" in r["both"] and len(r["both"]) == 10
+    assert r["left"][:3] == ["Cornu ammonis (CA)", "Dentate gyrus", "Subiculum"] and len(r["left"]) == 8
+    mean0, sd0, mean1, sd1 = r["r"]
+    assert sd1 < sd0 / 3 and abs(mean1 - mean0) < 0.6  # smoother, same size
+    assert r["pk"]["1"]["neg"] == -3 and r["pk"]["1"]["above"] == 1 and r["pk"]["1"]["negAt"] == [0, 0, 0]
+    assert r["pk"]["2"]["pos"] == 4 and r["pk"]["2"]["above"] == 1 and r["pk"]["2"]["n"] == 1
 
 
 def test_js_region_search_browser_tree_and_projection():

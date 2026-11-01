@@ -3,6 +3,19 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.19.0 (2026-11-01)
+- **Focus: MTL** in the 3D view: a **Focus ▾** button next to Inflated opens a menu;
+  pick **MTL** to see the medial temporal lobe on its own (the button then reads
+  "Focus: MTL").
+  - Structures (hippocampus, amygdala, entorhinal cortex, anterior and posterior
+    parahippocampal gyrus) or Juelich subfields (CA, dentate gyrus, subiculum,
+    entorhinal, HATA, amygdala groups), each in its own hue, drawn as a faint tint
+    with a solid outline; results on the slices are painted onto them.
+  - Both / Left / Right hemispheres, a Fill slider, and **Hue / Gray**: Gray draws every
+    structure in one grey so the effects stand out (applies to every focus).
+  - Legend with each structure's peak positive / negative value and the mm³ past the
+    threshold; click a peak or a structure to look it up.
+
 ## 0.18.0 (2026-10-31)
 - **Inflated brain** in the 3D view, next to Surface, Glass brain and Mesh brain:
   fsaverage6 (~41k points per hemisphere), shaded by sulcal depth, with the hemispheres

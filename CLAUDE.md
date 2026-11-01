@@ -76,6 +76,9 @@ src/atlaslookup/
   static/viewer3d.js  3D tab: a second NiiVue instance that mirrors the slice viewer's overlays;
                       the inflated style morphs fsaverage6 pial -> inflated (sources.export_inflated
                       writes the morph file) and samples overlays at the pial positions
+  static/focus3d.js   3D "Focus: MTL": its own NiiVue instance (meshes only, so the camera frames the
+                      MTL), structure meshes from /api/regions/mesh.gii smoothed client-side,
+                      continuous slice overlays painted on, per-structure peaks; MTL_SETS lists them
                       (clones volumes + copies display settings); surface or glass-brain mesh
                       (/api/brain_mesh.gii, fsaverage5 pial built by sources.export_mesh);
                       mesh style projects overlays onto the mesh in the browser; chosen regions
