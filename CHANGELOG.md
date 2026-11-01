@@ -3,6 +3,20 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.19.2 (2026-11-01)
+- **Focus: PFC** replaces Focus: mPFC: the whole prefrontal cortex in six groups
+  (ventromedial, dorsomedial & ACC, orbitofrontal, dorsolateral, ventrolateral,
+  frontopolar), at Harvard-Oxford or Destrieux detail. The superior and middle frontal
+  gyri stop at y = +10 mm (premotor cortex left out); the superior frontal gyrus is
+  split at |x| = 20 mm into medial (dmPFC) and lateral (dlPFC) parts.
+- **Groups in every focus**: tick a group to show or hide all its structures, or single
+  structures (the group box is half-ticked when only some show); fold a group with ▾.
+  Group rows show the group's peaks and mm³ past the threshold. MTL groups:
+  hippocampus, amygdala and parahippocampal region (subfields: hippocampal formation,
+  entorhinal cortex, amygdala).
+- Region cuts are now conditions: `atlas|value|side|ax<=20;y>=10` (`ax` = |x|; a bare
+  number still means |x| ≤ that).
+
 ## 0.19.1 (2026-11-01)
 - **Focus: mPFC** (Focus ▾ → mPFC): the medial and ventromedial prefrontal cortex, like
   Focus: MTL. Structures (Harvard-Oxford): frontal medial cortex (vmPFC), subcallosal

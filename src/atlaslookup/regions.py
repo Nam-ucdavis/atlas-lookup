@@ -71,19 +71,49 @@ def _paint(out: np.ndarray, atlas: Atlas, value: int, side: str, k: int) -> None
     out[tuple(vox[ok].T)] = k
 
 
-def _region_1mm(atlas: Atlas, value: int, side: str, xmax: float | None = None) -> np.ndarray:
+def _region_1mm(atlas: Atlas, value: int, side: str, clip: tuple = ()) -> np.ndarray:
     out = np.zeros(MNI_1MM_SHAPE, np.uint8)
     _paint(out, atlas, value, side, 1)
-    if xmax is not None:
-        _clip_x(out, xmax)
+    _clip(out, clip)
     return out
 
 
-def _clip_x(out: np.ndarray, xmax: float) -> None:
-    """Keep only voxels with |x| <= xmax mm (the medial strip of a region that also
-    reaches the lateral surface, e.g. frontal pole for the 3D view's mPFC focus)."""
-    x = np.arange(MNI_1MM_SHAPE[0]) * MNI_1MM_AFFINE[0, 0] + MNI_1MM_AFFINE[0, 3]
-    out[np.abs(x) > xmax] = 0
+CLIP_OPS = {"<=": np.less_equal, ">=": np.greater_equal, "<": np.less, ">": np.greater}
+
+
+def parse_clip(text: str) -> tuple:
+    """Conditions a region is cut to, for the 3D focus views: ";"-separated
+    <axis><op><mm>, axis one of x, y, z or ax (= |x|), op one of <= >= < >. E.g.
+    "ax<=20" keeps the medial strip, "y>=10" drops what lies behind y = 10 mm. A bare
+    number N means ax<=N. Raises ValueError."""
+    out = []
+    for cond in filter(None, text.split(";")):
+        try:
+            out.append(("ax", "<=", float(cond)))
+            continue
+        except ValueError:
+            pass
+        for op in ("<=", ">=", "<", ">"):
+            axis, sep, num = cond.partition(op)
+            if sep:
+                if axis not in ("x", "y", "z", "ax"):
+                    raise ValueError(cond)
+                out.append((axis, op, float(num)))
+                break
+        else:
+            raise ValueError(cond)
+    return tuple(out)
+
+
+def _clip(out: np.ndarray, clip: tuple) -> None:
+    """Zero the voxels of a 1 mm mask that fail any (axis, op, mm) condition."""
+    for axis, op, mm in clip:
+        k = 0 if axis in ("x", "ax") else "xyz".index(axis)
+        c = np.arange(MNI_1MM_SHAPE[k]) * MNI_1MM_AFFINE[k, k] + MNI_1MM_AFFINE[k, 3]
+        keep = CLIP_OPS[op](np.abs(c) if axis == "ax" else c, mm)
+        idx = [slice(None)] * 3
+        idx[k] = ~keep
+        out[tuple(idx)] = 0
 
 
 def surface(mask: np.ndarray, affine: np.ndarray, smooth: int = 12) -> tuple[np.ndarray, np.ndarray]:
@@ -134,8 +164,8 @@ def surface(mask: np.ndarray, affine: np.ndarray, smooth: int = 12) -> tuple[np.
 
 
 @lru_cache(maxsize=64)
-def mesh_gifti(atlas: Atlas, value: int, side: str, xmax: float | None = None) -> bytes:
-    mask = _region_1mm(atlas, value, side, xmax)
+def mesh_gifti(atlas: Atlas, value: int, side: str, clip: tuple = ()) -> bytes:
+    mask = _region_1mm(atlas, value, side, clip)
     if not mask.any():
         raise ValueError("empty region")
     verts, tris = surface(mask, MNI_1MM_AFFINE)
@@ -148,12 +178,12 @@ def mesh_gifti(atlas: Atlas, value: int, side: str, xmax: float | None = None) -
 
 @lru_cache(maxsize=16)
 def mask_nifti(atlases: tuple[Atlas, ...], selection: tuple[tuple, ...]) -> bytes:
-    """selection: ((atlas_id, value, side[, xmax]), ...); region k (1-based) gets value k,
-    kept to |x| <= xmax mm when given. Later regions win where two overlap."""
+    """selection: ((atlas_id, value, side[, clip]), ...); region k (1-based) gets value k,
+    cut to `clip` (see parse_clip) when given. Later regions win where two overlap."""
     by_id = {a.id: a for a in atlases}
     out = np.zeros(MNI_1MM_SHAPE, np.uint8)
     for k, (atlas_id, value, side, *rest) in enumerate(selection[:MAX_REGIONS], 1):
-        if rest and rest[0] is not None:
+        if rest and rest[0]:
             one = _region_1mm(by_id[atlas_id], value, side, rest[0])
             out[one > 0] = k
         else:

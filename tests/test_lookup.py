@@ -581,7 +581,7 @@ def test_viewer3d_is_wired():
                "v3FocusBar", "fcLevel", "fcHemi", "fcColors", "fcFill", "gl3f", "fcLegend", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
         assert re.search(rf'id="{el}"', html), el
     assert 'from "/static/sidepanel.js"' in html and 'from "/static/tracts.js"' in html
-    assert 'from "/static/focus3d.js"' in html and 'data-focus="mtl"' in html and 'data-focus="mpfc"' in html
+    assert 'from "/static/focus3d.js"' in html and 'data-focus="mtl"' in html and 'data-focus="pfc"' in html
     # Page-layout rules must not hit the side panel (also an <aside>).
     assert "aside { display: contents" not in html.replace("main > aside { display: contents", "")
     js = (static / "viewer3d.js").read_text()
@@ -677,8 +677,9 @@ def test_focus_helpers():
       import {{ focusParts, smoothMesh, structurePeaks }} from {str(static / "focus3d.js")!r};
       const both = focusParts("mtl", "coarse", "both").map((p) => p.key);
       const left = focusParts("mtl", "fine", "L").map((p) => p.name);
-      const mpfc = focusParts("mpfc", "coarse", "R").map((p) => p.key);
-      const gyri = focusParts("mpfc", "fine", "R").map((p) => p.key);
+      const pfc = focusParts("pfc", "coarse", "R");
+      const mpfc = pfc.map((p) => p.key), groups = pfc.map((p) => p.group);
+      const gyri = focusParts("pfc", "fine", "R").map((p) => p.key);
       // A bumpy sphere (radius 10 +- 1): smoothing evens out the bumps but keeps its size.
       const N = 24, P = [], T = [], radii = (arr) => {{ const r = [];
         for (let i = 0; i < arr.length; i += 3) r.push(Math.hypot(arr[i], arr[i + 1], arr[i + 2])); return r; }};
@@ -698,23 +699,25 @@ def test_focus_helpers():
       // 2x1x1 mask: voxel 1 = structure 1, voxel 2 = structure 2; sample = x coordinate - 0.5.
       const mask = {{ img: new Uint8Array([1, 2]), dims: [2, 1, 1], affine: [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]] }};
       const pk = structurePeaks(mask, (x) => (x === 0 ? -3 : 4), 3, -2);
-      console.log(JSON.stringify({{ both, left, mpfc, gyri, r, pk }}));
+      console.log(JSON.stringify({{ both, left, mpfc, groups, gyri, r, pk }}));
     """)
     r = json.loads(out)
     assert r["both"][:2] == ["harvard-oxford-sub|9|B", "harvard-oxford-sub|19|B"]
     assert "juelich|11|L" in r["both"] and "juelich|11|R" in r["both"] and len(r["both"]) == 10
     assert r["left"][:3] == ["Cornu ammonis (CA)", "Dentate gyrus", "Subiculum"] and len(r["left"]) == 8
-    assert r["mpfc"][0] == "harvard-oxford-cort|25|R" and "harvard-oxford-cort|1|R|20" in r["mpfc"]
-    assert "harvard-oxford-cort|33|R" in r["mpfc"] and len(r["mpfc"]) == 7
-    assert r["gyri"][0] == "destrieux2009|106|B" and "destrieux2009|91|B|20" in r["gyri"]
+    assert r["mpfc"][0] == "harvard-oxford-cort|25|R" and "harvard-oxford-cort|1|R" in r["mpfc"]
+    assert "harvard-oxford-cort|3|R|ax<=20;y>=10" in r["mpfc"] and "harvard-oxford-cort|3|R|ax>20;y>=10" in r["mpfc"]
+    assert r["groups"] == sorted(r["groups"]) and r["groups"][-1] == 5  # six groups, in order
+    assert r["gyri"][0] == "destrieux2009|106|B" and "destrieux2009|90|B|y>=10" in r["gyri"]
     mean0, sd0, mean1, sd1 = r["r"]
     assert sd1 < sd0 / 3 and abs(mean1 - mean0) < 0.6  # smoother, same size
     assert r["pk"]["1"]["neg"] == -3 and r["pk"]["1"]["above"] == 1 and r["pk"]["1"]["negAt"] == [0, 0, 0]
     assert r["pk"]["2"]["pos"] == 4 and r["pk"]["2"]["above"] == 1 and r["pk"]["2"]["n"] == 1
 
 
-def test_region_medial_strip(tmp_path, monkeypatch):
-    """atlas|value|side|xmax keeps only |x| <= xmax mm, in the mask and the mesh."""
+def test_region_clip(tmp_path, monkeypatch):
+    """atlas|value|side|clip cuts a region: "4" or "ax<=4" keeps |x| <= 4 mm, "ax>4" the
+    rest, "y>=0" drops what lies behind y = 0; in the mask and the mesh."""
     from fastapi.testclient import TestClient
 
     from atlaslookup import server
@@ -734,6 +737,14 @@ def test_region_medial_strip(tmp_path, monkeypatch):
     g = nib.GiftiImage.from_bytes(c.get("/api/regions/mesh.gii", params={"sel": "wide|1|L|4"}).content)
     assert g.agg_data("pointset")[:, 0].min() >= -5
     assert c.get("/api/regions/mesh.gii", params={"sel": "wide|1|L|0"}).status_code == 400
+    assert c.get("/api/regions/mesh.gii", params={"sel": "wide|1|L|q<3"}).status_code == 400
+    lateral = xs("wide|1|L|ax>4")
+    assert lateral.max() <= -5 and lateral.min() < -9
+    both = nib.Nifti1Image.from_bytes(__import__("gzip").decompress(
+        c.get("/api/regions/mask.nii.gz", params={"sel": "wide|1|L|ax<=4;y>=0"}).content))
+    ijk = np.argwhere(np.asarray(both.dataobj) > 0)
+    mm = ijk @ both.affine[:3, :3].T + both.affine[:3, 3]
+    assert mm[:, 1].min() >= 0 and np.abs(mm[:, 0]).max() <= 4
     assert c.get("/api/tracts/connections", params={"atlas": "x", "sel": "wide|1|L|4"}).status_code in (400, 404)
 
 

@@ -165,16 +165,25 @@ straight away.
     its whole volume (of the front-most map on the slices) and how many mm³ pass that
     map's threshold. Click a peak, or a structure, to look the point up.
   - Pick another style (Surface, Glass, Mesh, Inflated) to leave focus.
-- **Focus ▾ → mPFC:** the medial and ventromedial prefrontal cortex, the same way.
-  - **Structures** (Harvard-Oxford): frontal medial cortex (vmPFC / medial OFC),
-    subcallosal cortex (subgenual ACC), anterior cingulate gyrus, paracingulate gyrus,
-    the medial part of the frontal pole and of the superior frontal gyrus, and the
-    frontal orbital cortex (lateral / central OFC).
-  - **Gyri & sulci** (Destrieux): gyrus rectus, medial orbital (olfactory) and
-    suborbital sulci, subcallosal gyrus, anterior cingulate gyrus and sulcus, the
-    medial part of the transverse frontopolar gyri and of the superior frontal gyrus,
-    and the orbital gyri (lateral / central OFC).
-  - "Medial part" keeps |x| ≤ 20 mm of regions that also cover the lateral surface.
+- **Focus ▾ → PFC:** the prefrontal cortex, the same way, in six groups:
+
+  | Group | Structures (Harvard-Oxford) | Gyri & sulci (Destrieux) |
+  |---|---|---|
+  | Ventromedial PFC | frontal medial cortex, subcallosal cortex | gyrus rectus, medial orbital and suborbital sulci, subcallosal gyrus |
+  | Dorsomedial PFC & ACC | anterior cingulate, paracingulate, SFG medial part | ACC gyrus and sulcus, SFG medial part |
+  | Orbitofrontal (lateral / central) | frontal orbital cortex | orbital gyri, lateral orbital sulcus, H-shaped orbital sulci |
+  | Dorsolateral PFC | middle frontal gyrus, SFG lateral part | middle frontal gyrus, SFG lateral part, superior / middle / inferior frontal sulci |
+  | Ventrolateral PFC | IFG pars triangularis and opercularis, frontal operculum | IFG triangular, opercular and orbital parts |
+  | Frontopolar | frontal pole | transverse frontopolar gyri, fronto-marginal gyrus and sulcus |
+
+  The superior and middle frontal gyri (and frontal sulci) stop at y = +10 mm, leaving
+  out premotor cortex; the superior frontal gyrus is split at |x| = 20 mm into its
+  medial and lateral parts.
+- **Groups (every focus):** the legend lists structures under their group (the MTL's
+  are hippocampus / hippocampal formation, amygdala, parahippocampal region / entorhinal
+  cortex). Tick a group to show or hide all of it, or single structures within it (the
+  group's box is half-ticked when only some show); ▾ folds a group. A group's row shows
+  its strongest values and total mm³ past the threshold.
 - **Regions…** opens the side panel's Regions tab to pick regions from any atlas. Search by name
   (common abbreviations like OFC, IFG, ACC work). Each chosen region is drawn
   as a solid shape in its own colour, and in Mesh brain painted onto the

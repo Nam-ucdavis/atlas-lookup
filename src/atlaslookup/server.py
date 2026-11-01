@@ -11,9 +11,9 @@ GET /api/brain_mesh.gii                  cortical surface (fsaverage5 pial) for 
 GET /api/inflated_mesh.gii               fsaverage6 pial surface for the 3D inflated brain
 GET /api/inflated_morph.bin              its inflated vertex positions + sulcal shading (see sources.export_inflated)
 GET /api/regions                         every region of every atlas (per side), for the Regions window
-GET /api/regions/mask.nii.gz?sel=atlas|value|side[|xmax],...   chosen regions as one 1 mm label volume
-GET /api/regions/mesh.gii?sel=atlas|value|side[|xmax]          one region as a smooth surface mesh
-                                         (xmax: keep only |x| <= xmax mm, for the 3D focus views)
+GET /api/regions/mask.nii.gz?sel=atlas|value|side[|clip],...   chosen regions as one 1 mm label volume
+GET /api/regions/mesh.gii?sel=atlas|value|side[|clip]          one region as a smooth surface mesh
+                                         (clip: e.g. "ax<=20;y>=10", see regions.parse_clip; 3D focus views)
 GET /api/tracts                          tract atlases (JHU, XTRACT) and their tracts
 GET /api/tracts/connections?atlas=&sel=atlas|value|side,...&threshold=&distance=
                                          tracts whose core passes near the chosen regions
@@ -215,8 +215,8 @@ def regions_list():
 
 
 def _parse_regions(sel: str, clip: bool = False) -> list[tuple]:
-    """atlas|value|side items; with clip, an optional 4th field xmax (mm) as well, and
-    the tuples are (atlas_id, value, side, xmax or None)."""
+    """atlas|value|side items; with clip, an optional 4th field of cut conditions
+    (regions.parse_clip) as well, and the tuples are (atlas_id, value, side, clip)."""
     selection = []
     for item in sel.split(","):
         parts = item.split("|")
@@ -224,15 +224,15 @@ def _parse_regions(sel: str, clip: bool = False) -> list[tuple]:
             if len(parts) not in ((3, 4) if clip else (3,)):
                 raise ValueError
             atlas_id, value, side = parts[0], int(parts[1]), parts[2]
-            xmax = float(parts[3]) if len(parts) == 4 else None
-            if xmax is not None and not 0 < xmax <= 100:
+            cut = regions.parse_clip(parts[3]) if len(parts) == 4 else ()
+            if any(not -150 <= mm <= 150 or (axis == "ax" and mm <= 0 and op in ("<=", "<")) for axis, op, mm in cut):
                 raise ValueError
         except ValueError:
-            raise HTTPException(400, f"Bad region {item!r}; expected atlas|value|side" + ("[|xmax]" if clip else ""))
+            raise HTTPException(400, f"Bad region {item!r}; expected atlas|value|side" + ("[|clip]" if clip else ""))
         a = ATLASES.get(atlas_id)
         if a is None or not a.info()["can_overlay"] or side not in regions.SIDES:
             raise HTTPException(404, f"No region {item!r}")
-        selection.append((atlas_id, value, side, xmax) if clip else (atlas_id, value, side))
+        selection.append((atlas_id, value, side, cut) if clip else (atlas_id, value, side))
     return selection
 
 
@@ -249,10 +249,10 @@ def regions_mask(sel: str = Query(..., min_length=1)):
 def regions_mesh(sel: str):
     selection = _parse_regions(sel, clip=True)
     if len(selection) != 1:
-        raise HTTPException(400, "Expected one region: atlas|value|side[|xmax]")
-    atlas_id, value, side, xmax = selection[0]
+        raise HTTPException(400, "Expected one region: atlas|value|side[|clip]")
+    atlas_id, value, side, cut = selection[0]
     try:
-        return Response(regions.mesh_gifti(ATLASES[atlas_id], value, side, xmax), media_type="application/octet-stream")
+        return Response(regions.mesh_gifti(ATLASES[atlas_id], value, side, cut), media_type="application/octet-stream")
     except ValueError:
         raise HTTPException(404, f"Region {sel!r} is empty")
 

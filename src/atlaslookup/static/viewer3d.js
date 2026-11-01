@@ -165,6 +165,7 @@ const samplerOf = (vol) => volumeSampler({
 export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, controls, crosshairToggle, setHint, onPick, focus }) {
   // "Focus: MTL" swaps this whole-brain scene for focus3d.js's, in the same panel.
   let focusId = store.get("view3dFocus", "");  // "" = whole brain, else a focus3d FOCI key
+  if (focusId === "mpfc") focusId = "pfc";  // 0.19.1's medial PFC grew into the PFC
   if (focusId && !focus?.label(focusId)) focusId = "";
   let focused = !!focusId;
   let nv3 = null, ready = null, mesh = null, normals = null, active = false;

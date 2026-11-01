@@ -1,5 +1,5 @@
 // "Focus" in the 3D tab: one part of the brain on its own (the medial temporal lobe,
-// the medial prefrontal cortex), as see-through structures with solid outlines, the
+// the prefrontal cortex), as see-through structures with solid outlines, the
 // slice viewer's results painted onto them.
 //
 // Its own NiiVue instance on its own canvas, holding meshes only, so the camera frames
@@ -20,73 +20,113 @@ import { volumeSampler, projectToVertices } from "./viewer3d.js";
 const C = {
   violet: [170, 120, 240], gold: [235, 205, 110], cyan: [90, 200, 215], green: [120, 210, 120],
   pink: [240, 130, 195], orange: [235, 150, 110], brick: [215, 110, 110], tan: [200, 180, 140], blue: [120, 140, 240],
+  lime: [180, 220, 100], silver: [205, 205, 235],
 };
-// Medial strip kept of regions that also reach the lateral surface (|x| <= mm).
-const MEDIAL_MM = 20;
-// Each focus: two levels of detail (coarse, fine), each a list of structures:
-// { atlas, value, right?, name, color, xmax? }. With `right`, the atlas has one region
-// per hemisphere already (value = left, right = right); otherwise the region is split at
-// the midline. xmax keeps only |x| <= xmax mm.
+// Cuts (see regions.parse_clip): PFC ends at y = +10 mm (premotor cortex behind it), and
+// the superior frontal gyrus is split at |x| = 20 mm into its medial and lateral parts.
+const PFC = "y>=10", SFG_MEDIAL = "ax<=20;y>=10", SFG_LATERAL = "ax>20;y>=10";
+// Each focus: two levels of detail (coarse, fine), each a list of groups of structures,
+// { name, parts: [{ atlas, value, right?, name, color, clip? }] }. With `right`, the atlas
+// has one region per hemisphere already (value = left, right = right); otherwise the
+// region is split at the midline. clip cuts the region (see regions.parse_clip).
+const g = (name, ...parts) => ({ name, parts });
+const ho = (value, name, color, clip) => ({ atlas: "harvard-oxford-cort", value, name, color, clip });
+const ds = (value, name, color, clip) => ({ atlas: "destrieux2009", value, right: value + 75, name, color, clip });
 export const FOCI = {
   mtl: {
     label: "MTL", view: [110, 20],
     levels: {
-      coarse: { label: "Structures", parts: [
-        { atlas: "harvard-oxford-sub", value: 9, right: 19, name: "Hippocampus", color: C.violet },
-        { atlas: "harvard-oxford-sub", value: 10, right: 20, name: "Amygdala", color: C.orange },
-        { atlas: "juelich", value: 11, name: "Entorhinal cortex", color: C.green },
-        { atlas: "harvard-oxford-cort", value: 34, name: "Anterior parahippocampal gyrus", color: C.gold },
-        { atlas: "harvard-oxford-cort", value: 35, name: "Posterior parahippocampal gyrus (PHC)", color: C.cyan },
+      coarse: { label: "Structures", groups: [
+        g("Hippocampus", { atlas: "harvard-oxford-sub", value: 9, right: 19, name: "Hippocampus", color: C.violet }),
+        g("Amygdala", { atlas: "harvard-oxford-sub", value: 10, right: 20, name: "Amygdala", color: C.orange }),
+        g("Parahippocampal region",
+          { atlas: "juelich", value: 11, name: "Entorhinal cortex", color: C.green },
+          ho(34, "Anterior parahippocampal gyrus", C.gold),
+          ho(35, "Posterior parahippocampal gyrus (PHC)", C.cyan)),
       ] },
-      fine: { label: "Subfields", title: "Juelich hippocampal subfields and amygdala groups (coarse, 2 mm)", parts: [
-        { atlas: "juelich", value: 9, name: "Cornu ammonis (CA)", color: C.violet },
-        { atlas: "juelich", value: 10, name: "Dentate gyrus", color: C.gold },
-        { atlas: "juelich", value: 13, name: "Subiculum", color: C.cyan },
-        { atlas: "juelich", value: 11, name: "Entorhinal cortex", color: C.green },
-        { atlas: "juelich", value: 12, name: "Hippocampal-amygdaloid transition area", color: C.pink },
-        { atlas: "juelich", value: 1, name: "Amygdala, centromedial", color: C.orange },
-        { atlas: "juelich", value: 2, name: "Amygdala, laterobasal", color: C.brick },
-        { atlas: "juelich", value: 3, name: "Amygdala, superficial", color: C.tan },
+      fine: { label: "Subfields", title: "Juelich hippocampal subfields and amygdala groups (coarse, 2 mm)", groups: [
+        g("Hippocampal formation",
+          { atlas: "juelich", value: 9, name: "Cornu ammonis (CA)", color: C.violet },
+          { atlas: "juelich", value: 10, name: "Dentate gyrus", color: C.gold },
+          { atlas: "juelich", value: 13, name: "Subiculum", color: C.cyan },
+          { atlas: "juelich", value: 12, name: "Hippocampal-amygdaloid transition area", color: C.pink }),
+        g("Entorhinal cortex", { atlas: "juelich", value: 11, name: "Entorhinal cortex", color: C.green }),
+        g("Amygdala",
+          { atlas: "juelich", value: 1, name: "Amygdala, centromedial", color: C.orange },
+          { atlas: "juelich", value: 2, name: "Amygdala, laterobasal", color: C.brick },
+          { atlas: "juelich", value: 3, name: "Amygdala, superficial", color: C.tan }),
       ] },
     },
   },
-  mpfc: {
-    label: "mPFC", view: [140, 10],
+  pfc: {
+    label: "PFC", view: [150, 15],
     levels: {
-      coarse: { label: "Structures", parts: [
-        { atlas: "harvard-oxford-cort", value: 25, name: "Frontal medial cortex (vmPFC)", color: C.violet },
-        { atlas: "harvard-oxford-cort", value: 27, name: "Subcallosal cortex (subgenual ACC)", color: C.pink },
-        { atlas: "harvard-oxford-cort", value: 29, name: "Anterior cingulate gyrus", color: C.cyan },
-        { atlas: "harvard-oxford-cort", value: 28, name: "Paracingulate gyrus", color: C.green },
-        { atlas: "harvard-oxford-cort", value: 1, name: "Frontal pole, medial part", color: C.gold, xmax: MEDIAL_MM },
-        { atlas: "harvard-oxford-cort", value: 3, name: "Superior frontal gyrus, medial part", color: C.orange, xmax: MEDIAL_MM },
-        { atlas: "harvard-oxford-cort", value: 33, name: "Frontal orbital cortex (lateral / central OFC)", color: C.brick },
+      coarse: { label: "Structures", groups: [
+        g("Ventromedial PFC",
+          ho(25, "Frontal medial cortex", C.violet),
+          ho(27, "Subcallosal cortex (subgenual ACC)", C.pink)),
+        g("Dorsomedial PFC & ACC",
+          ho(29, "Anterior cingulate gyrus", C.cyan),
+          ho(28, "Paracingulate gyrus", C.green),
+          ho(3, "Superior frontal gyrus, medial part", C.orange, SFG_MEDIAL)),
+        g("Orbitofrontal (lateral / central)",
+          ho(33, "Frontal orbital cortex", C.brick)),
+        g("Dorsolateral PFC",
+          ho(4, "Middle frontal gyrus", C.blue, PFC),
+          ho(3, "Superior frontal gyrus, lateral part", C.tan, SFG_LATERAL)),
+        g("Ventrolateral PFC",
+          ho(5, "Inferior frontal gyrus, pars triangularis", C.gold),
+          ho(6, "Inferior frontal gyrus, pars opercularis", C.lime),
+          ho(41, "Frontal operculum", C.pink)),
+        g("Frontopolar",
+          ho(1, "Frontal pole", C.silver)),
       ] },
-      fine: { label: "Gyri & sulci", title: "Destrieux gyri and sulci", parts: [
-        { atlas: "destrieux2009", value: 31, right: 106, name: "Gyrus rectus", color: C.violet },
-        { atlas: "destrieux2009", value: 64, right: 139, name: "Medial orbital (olfactory) sulcus", color: C.blue },
-        { atlas: "destrieux2009", value: 71, right: 146, name: "Suborbital sulcus", color: C.tan },
-        { atlas: "destrieux2009", value: 32, right: 107, name: "Subcallosal gyrus", color: C.pink },
-        { atlas: "destrieux2009", value: 6, right: 81, name: "Anterior cingulate gyrus and sulcus", color: C.cyan },
-        { atlas: "destrieux2009", value: 5, right: 80, name: "Transverse frontopolar gyri, medial part", color: C.gold, xmax: MEDIAL_MM },
-        { atlas: "destrieux2009", value: 16, right: 91, name: "Superior frontal gyrus, medial part", color: C.orange, xmax: MEDIAL_MM },
-        { atlas: "destrieux2009", value: 24, right: 99, name: "Orbital gyri (lateral / central OFC)", color: C.brick },
+      fine: { label: "Gyri & sulci", title: "Destrieux gyri and sulci", groups: [
+        g("Ventromedial PFC",
+          ds(31, "Gyrus rectus", C.violet),
+          ds(64, "Medial orbital (olfactory) sulcus", C.blue),
+          ds(71, "Suborbital sulcus", C.tan),
+          ds(32, "Subcallosal gyrus", C.pink)),
+        g("Dorsomedial PFC & ACC",
+          ds(6, "Anterior cingulate gyrus and sulcus", C.cyan),
+          ds(16, "Superior frontal gyrus, medial part", C.orange, SFG_MEDIAL)),
+        g("Orbitofrontal (lateral / central)",
+          ds(24, "Orbital gyri", C.brick),
+          ds(63, "Lateral orbital sulcus", C.gold),
+          ds(65, "H-shaped orbital sulci", C.green)),
+        g("Dorsolateral PFC",
+          ds(15, "Middle frontal gyrus", C.blue, PFC),
+          ds(16, "Superior frontal gyrus, lateral part", C.tan, SFG_LATERAL),
+          ds(55, "Superior frontal sulcus", C.lime, PFC),
+          ds(54, "Middle frontal sulcus", C.pink, PFC),
+          ds(53, "Inferior frontal sulcus", C.green, PFC)),
+        g("Ventrolateral PFC",
+          ds(14, "Inferior frontal gyrus, triangular part", C.gold),
+          ds(12, "Inferior frontal gyrus, opercular part", C.lime),
+          ds(13, "Inferior frontal gyrus, orbital part", C.brick)),
+        g("Frontopolar",
+          ds(5, "Transverse frontopolar gyri and sulci", C.silver),
+          ds(1, "Fronto-marginal gyrus and sulcus", C.violet)),
       ] },
     },
   },
 };
 
 /** The structures of a focus to draw for a level ("coarse" | "fine") and hemisphere
- * ("both" | "L" | "R"), with the atlas|value|side[|xmax] key the region endpoints take. */
+ * ("both" | "L" | "R"), group by group, with the atlas|value|side[|clip] key the region
+ * endpoints take and the index of their group. */
 export function focusParts(focus, level, hemi) {
   const out = [];
-  for (const { atlas, value, right, name, color, xmax } of FOCI[focus].levels[level].parts) {
-    for (const h of ["L", "R"]) {
-      if (hemi !== "both" && hemi !== h) continue;
-      const v = right && h === "R" ? right : value, s = right ? "B" : h;
-      out.push({ atlas, value: v, side: s, name, hemi: h, color, key: `${atlas}|${v}|${s}${xmax ? `|${xmax}` : ""}` });
+  FOCI[focus].levels[level].groups.forEach((grp, gi) => {
+    for (const { atlas, value, right, name, color, clip } of grp.parts) {
+      for (const h of ["L", "R"]) {
+        if (hemi !== "both" && hemi !== h) continue;
+        const v = right && h === "R" ? right : value, s = right ? "B" : h;
+        out.push({ atlas, value: v, side: s, name, hemi: h, color, group: gi,
+          key: `${atlas}|${v}|${s}${clip ? `|${clip}` : ""}` });
+      }
     }
-  }
+  });
   return out;
 }
 
@@ -253,38 +293,85 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     nv.drawScene();
   }
 
-  function renderLegend() {
+  // Legend: one header per group (tick it to show or hide the whole group, ▸ to fold it,
+  // with the group's strongest values) and a row per structure.
+  const collapsed = new Set(store.get("focusCollapsed", []));
+  const groupsOf = () => FOCI[focus].levels[level].groups;
+  let peaks = {};
+  // recompute = false reuses the last peaks (folding a group, switching colours).
+  function renderLegend(recompute = true) {
     const front = sources[sources.length - 1];  // the map drawn in front on the slices
     // A sign is hidden on the slices by pushing its window beyond the data (index.html).
-    let peaks = {};
-    if (front && mask) {
+    if (recompute) peaks = {};
+    if (recompute && front && mask) {
       // NiiVue leaves cal_minNeg NaN when the negative window mirrors the positive one.
       const posThr = front.cal_min;
       const negThr = !front.colormapNegative ? null : Number.isFinite(front.cal_minNeg) ? front.cal_minNeg : -front.cal_min;
       peaks = structurePeaks(mask, samplerOf(front), posThr, negThr);
     }
     const at = (v, p, cls) => p ? `<button type="button" class="fc-peak ${cls}" data-mm="${p.join(",")}" title="Look up (${p.join(", ")})">${v.toFixed(2)}</button>` : "–";
+    const vals = (o) => o ? `${at(o.pos, o.posAt, "pos")} / ${at(o.neg, o.negAt, "neg")}` : "";
+    const sub = (o) => o ? `<span class="fc-sub">${o.above} of ${o.n} mm³ past the threshold</span>` : "";
+    const rows = parts.map((p, i) => ({ p, o: peaks[i + 1] }));
     legend.innerHTML = `<div class="fc-head">${front ? `Peak T · ${esc(front.name)}` : "Open a stat map to see peaks"}</div>` +
-      parts.map((p, i) => {
-        const o = peaks[i + 1];
-        return `<label class="fc-row"><input type="checkbox" data-key="${esc(p.key)}" ${hidden.has(p.key) ? "" : "checked"}>
-          <i style="background:rgb(${colorOf(p).join(",")})"></i><span class="fc-name">${p.hemi === "L" ? "L" : "R"} ${esc(p.name)}</span>
-          <span class="fc-val">${o ? `${at(o.pos, o.posAt, "pos")} / ${at(o.neg, o.negAt, "neg")}` : ""}</span>
-          ${o ? `<span class="fc-sub">${o.above} of ${o.n} mm³ past the threshold</span>` : ""}</label>`;
+      groupsOf().map((grp, gi) => {
+        const mine = rows.filter((r) => r.p.group === gi);
+        if (!mine.length) return "";
+        // The group's strongest values and totals, over its structures.
+        let o = null;
+        for (const { o: x } of mine) {
+          if (!x) continue;
+          o ??= { pos: 0, posAt: null, neg: 0, negAt: null, n: 0, above: 0 };
+          if (x.pos > o.pos) { o.pos = x.pos; o.posAt = x.posAt; }
+          if (x.neg < o.neg) { o.neg = x.neg; o.negAt = x.negAt; }
+          o.n += x.n; o.above += x.above;
+        }
+        const ck = `${focus}:${grp.name}`, folded = collapsed.has(ck);
+        return `<div class="fc-group">
+          <div class="fc-row fc-grow"><input type="checkbox" data-group="${gi}" aria-label="Show ${esc(grp.name)}">
+            <button type="button" class="fc-fold" data-fold="${esc(ck)}" aria-expanded="${!folded}" title="${folded ? "Show" : "Hide"} its structures">${folded ? "▸" : "▾"}</button>
+            <span class="fc-name">${esc(grp.name)}</span><span class="fc-val">${vals(o)}</span>${sub(o)}</div>
+          ${folded ? "" : mine.map(({ p, o: x }) => `<label class="fc-row fc-part"><input type="checkbox" data-key="${esc(p.key)}" ${hidden.has(p.key) ? "" : "checked"}>
+            <i style="background:rgb(${colorOf(p).join(",")})"></i><span class="fc-name">${p.hemi} ${esc(p.name)}</span>
+            <span class="fc-val">${vals(x)}</span>${sub(x)}</label>`).join("")}
+        </div>`;
       }).join("");
+    markGroups();
+  }
+  // Group boxes: ticked when all its structures show, half-ticked when some do.
+  function markGroups() {
+    for (const box of legend.querySelectorAll("input[data-group]")) {
+      const keys = parts.filter((p) => p.group === +box.dataset.group).map((p) => p.key);
+      const shown = keys.filter((k) => !hidden.has(k)).length;
+      box.checked = shown === keys.length;
+      box.indeterminate = shown > 0 && shown < keys.length;
+    }
+  }
+  function showHidden() {
+    store.set("focusHidden", [...hidden]);
+    for (const x of meshes) nv.setMeshProperty(x.mesh.id, "visible", !hidden.has(x.part.key));
+    for (const box of legend.querySelectorAll("input[data-key]")) box.checked = !hidden.has(box.dataset.key);
+    markGroups();
+    nv.drawScene();
   }
 
   legend.addEventListener("change", (e) => {
-    const k = e.target.dataset.key;
-    if (!k) return;
-    e.target.checked ? hidden.delete(k) : hidden.add(k);
-    store.set("focusHidden", [...hidden]);
-    for (const x of meshes) nv.setMeshProperty(x.mesh.id, "visible", !hidden.has(x.part.key));
-    nv.drawScene();
+    const k = e.target.dataset.key, gi = e.target.dataset.group;
+    if (k) e.target.checked ? hidden.delete(k) : hidden.add(k);
+    else if (gi !== undefined) {
+      for (const p of parts) if (p.group === +gi) e.target.checked ? hidden.delete(p.key) : hidden.add(p.key);
+    } else return;
+    showHidden();
   });
   legend.addEventListener("click", (e) => {
     const b = e.target.closest(".fc-peak");
-    if (b) { e.preventDefault(); onPick?.(b.dataset.mm.split(",").map(Number)); }
+    if (b) { e.preventDefault(); onPick?.(b.dataset.mm.split(",").map(Number)); return; }
+    const f = e.target.closest(".fc-fold");
+    if (f) {
+      collapsed.has(f.dataset.fold) ? collapsed.delete(f.dataset.fold) : collapsed.add(f.dataset.fold);
+      store.set("focusCollapsed", [...collapsed]);
+      renderLegend(false);
+    }
   });
 
   // Controls: level of detail, hemispheres, colours, fill.
@@ -300,7 +387,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     gray = v === "gray"; store.set("focusGray", gray);
     if (!nv) return;
     for (const x of meshes) nv.setMeshProperty(x.mesh.id, "rgba255", [...colorOf(x.part), 255]);
-    renderLegend();
+    renderLegend(false);
     nv.drawScene();
   });
   controls.fill.value = fill;

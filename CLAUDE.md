@@ -79,7 +79,8 @@ src/atlaslookup/
   static/focus3d.js   3D "Focus: MTL": its own NiiVue instance (meshes only, so the camera frames the
                       MTL), structure meshes from /api/regions/mesh.gii smoothed client-side,
                       continuous slice overlays painted on, per-structure peaks; FOCI lists each
-                      focus (MTL, mPFC) with a coarse and a fine level of structures
+                      focus (MTL, PFC) with a coarse and a fine level, each groups of structures
+                      (cuts like "ax<=20;y>=10" go to the server: regions.parse_clip)
                       (clones volumes + copies display settings); surface or glass-brain mesh
                       (/api/brain_mesh.gii, fsaverage5 pial built by sources.export_mesh);
                       mesh style projects overlays onto the mesh in the browser; chosen regions

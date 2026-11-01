@@ -150,6 +150,11 @@
   .fc-row input { margin: 0; }
   .fc-val { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .fc-sub { grid-column: 3 / 5; color: #8d8c86; font-size: 11px; margin-top: -2px; }
+  .fc-group + .fc-group { margin-top: 2px; }
+  .fc-grow { grid-template-columns: 16px 12px 1fr auto; border-top: 1px solid #44443f; font-weight: 600; }
+  .fc-grow .fc-sub { font-weight: 400; }
+  .fc-part { padding-left: 14px; border-top-color: #262624; }
+  .fc-fold { border: 0; background: none; color: #9a9993; padding: 0; font: inherit; font-size: 10px; cursor: pointer; width: 12px; }
   .fc-peak { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; text-decoration: underline dotted; }
   .fc-peak.pos { color: #ffb06b; } .fc-peak.neg { color: #7fb5ff; }
   .v3-brain output { display: inline-block; width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
@@ -558,7 +563,7 @@
         </div>
         <div class="v3-menu" id="v3FocusMenu" role="menu" aria-label="Focus on" hidden>
           <button type="button" role="menuitem" data-focus="mtl"><b>MTL</b> <span>medial temporal lobe: hippocampus, amygdala, entorhinal and parahippocampal cortex</span></button>
-          <button type="button" role="menuitem" data-focus="mpfc"><b>mPFC</b> <span>medial and ventromedial prefrontal cortex: vmPFC, subgenual and anterior cingulate, paracingulate, medial frontal pole and SFG, OFC</span></button>
+          <button type="button" role="menuitem" data-focus="pfc"><b>PFC</b> <span>prefrontal cortex: ventromedial, dorsomedial &amp; ACC, orbitofrontal, dorsolateral, ventrolateral, frontopolar</span></button>
         </div>
         </span>
         <span class="v3-mode" id="v3Whole">
