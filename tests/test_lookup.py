@@ -675,7 +675,7 @@ def test_focus_helpers():
 
     static = Path(atlaslookup.__file__).parent / "static"
     out = _node(f"""
-      import {{ focusParts, smoothMesh, structurePeaks, voxelSurface, sphere }} from {str(static / "focus3d.js")!r};
+      import {{ focusParts, smoothMesh, structurePeaks, voxelSurface }} from {str(static / "focus3d.js")!r};
       // The MTL is the last three groups of the temporal focus.
       const mtl = (level, hemi) => focusParts("temporal", level, hemi).filter((p) => p.group >= 5);
       const both = mtl("coarse", "both").map((p) => p.key);
@@ -706,7 +706,7 @@ def test_focus_helpers():
       // 2x1x1 mask: voxel 1 = structure 1, voxel 2 = structure 2; sample = x coordinate - 0.5.
       const mask = {{ img: new Uint8Array([1, 2]), dims: [2, 1, 1], affine: [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]] }};
       const pk = structurePeaks(mask, (x) => (x === 0 ? -3 : 4), 3, -2);
-      // Voxel surfaces and dots: counts, and every triangle facing out of its shape.
+      // Voxel surfaces: counts, and every triangle facing out of its shape.
       const outward = ({{ pts, tris }}, c) => {{ let ok = 0;
         for (let t = 0; t < tris.length; t += 3) {{
           const [a, b, d] = [tris[t], tris[t + 1], tris[t + 2]].map((v) => [pts[3 * v], pts[3 * v + 1], pts[3 * v + 2]]);
@@ -718,10 +718,9 @@ def test_focus_helpers():
         return ok === tris.length / 3; }};
       const I = [[1, 0, 0, 10], [0, 1, 0, 20], [0, 0, 1, 30], [0, 0, 0, 1]], M = [[-1, 0, 0, 10], [0, 1, 0, 20], [0, 0, 1, 30], [0, 0, 0, 1]];
       const one = voxelSurface(new Uint8Array([1]), [1, 1, 1], I), two = voxelSurface(new Uint8Array([1, 1]), [2, 1, 1], I);
-      const mir = voxelSurface(new Uint8Array([1, 1]), [2, 1, 1], M), ball = sphere([1, 2, 3], 2);
+      const mir = voxelSurface(new Uint8Array([1, 1]), [2, 1, 1], M);
       const vox = {{ one: [one.pts.length / 3, one.tris.length / 3, outward(one, [10, 20, 30]), Math.min(...one.pts), Math.max(...one.pts)],
-        two: [two.pts.length / 3, two.tris.length / 3, outward(two, [10.5, 20, 30])], mir: outward(mir, [9.5, 20, 30]),
-        ball: [ball.pts.length / 3, ball.tris.length / 3, outward(ball, [1, 2, 3]), Math.hypot(ball.pts[0] - 1, ball.pts[1] - 2, ball.pts[2] - 3)] }};
+        two: [two.pts.length / 3, two.tris.length / 3, outward(two, [10.5, 20, 30])], mir: outward(mir, [9.5, 20, 30]) }};
       console.log(JSON.stringify({{ both, left, mpfc, groups, gyri, temporal, cing, par, occ, r, pk, vox }}));
     """)
     r = json.loads(out)
@@ -742,7 +741,6 @@ def test_focus_helpers():
     assert r["occ"][:2] == ["juelich|48|L", "juelich|48|R"] and len(r["occ"]) == 10  # V1-V5, both sides
     v = r["vox"]
     assert v["one"] == [8, 12, True, 9.5, 30.5] and v["two"] == [12, 20, True] and v["mir"] is True
-    assert v["ball"][:3] == [162, 320, True] and abs(v["ball"][3] - 2) < 1e-5
     mean0, sd0, mean1, sd1 = r["r"]
     assert sd1 < sd0 / 3 and abs(mean1 - mean0) < 0.6  # smoother, same size
     assert r["pk"]["1"]["neg"] == -3 and r["pk"]["1"]["above"] == 1 and r["pk"]["1"]["negAt"] == [0, 0, 0]

@@ -3,6 +3,10 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.19.7 (2026-11-02)
+- Removed the peak dots from Focus (the legend's peaks still look the point up); blobs
+  are solid again.
+
 ## 0.19.6 (2026-11-02)
 - **Results inside the focus structures**: Focus now draws the front map's
   suprathreshold voxels inside the shown structures as smoothed 3D blobs at their real
