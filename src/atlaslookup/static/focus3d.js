@@ -291,21 +291,33 @@ const samplerOf = (vol) => volumeSampler({
   slope: vol.hdr.scl_slope || 1, inter: vol.hdr.scl_inter || 0,
 });
 
-export function createFocusView({ Niivue, NVImage, canvas, legend, controls, store, esc, onPick, setHint }) {
+// The quiz's copy of the view: every structure grey and shown, no maps; the quiz colours
+// the target (and what was picked) with highlight().
+const QUIZ_FILL = 0.22;
+// Downloaded meshes and masks, by selection, shared by both views (the quiz moves between
+// foci a lot).
+const fetched = new Map();
+const fetchBuffer = (url) => {
+  if (!fetched.has(url)) fetched.set(url, fetch(url).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null));
+  return fetched.get(url).then((b) => (b ? b.slice(0) : null));  // NiiVue may keep or alter what it is given
+};
+
+export function createFocusView({ Niivue, NVImage, canvas, legend, controls, store, esc, onPick, setHint, quiz = false }) {
   let nv = null, ready = null, active = false, drawNow = null;
   let focus = null;  // which of FOCI is shown
   // Hemispheres, fill, colours and hidden structures are shared by every focus.
   // (0.19.0 kept the MTL's under mtl* keys.)
-  let hemi = store.get("focusHemi", store.get("mtlHemi", "both"));
-  let fill = store.get("focusFill", store.get("mtlFill", 0.18));
-  let gray = store.get("focusGray", false);
-  const colorOf = (part) => (gray ? GRAY : part.color);
-  const hidden = new Set(store.get("focusHidden", store.get("mtlHidden", [])));
+  let hemi = quiz ? "both" : store.get("focusHemi", store.get("mtlHemi", "both"));
+  let fill = quiz ? QUIZ_FILL : store.get("focusFill", store.get("mtlFill", 0.18));
+  let gray = quiz || store.get("focusGray", false);
+  let tint = new Map();  // structure key -> colour drawn instead of its own (highlight)
+  const colorOf = (part) => tint.get(part.key) ?? (gray ? GRAY : part.color);
+  const hidden = new Set(quiz ? [] : store.get("focusHidden", store.get("mtlHidden", [])));
   let meshes = [], mask = null, parts = [], token = 0;
   let sources = [], sourceKey = null;  // continuous slice overlays, back to front
   // Results drawn as "blobs" (the front map, inside the shown structures) or on the
   // structures' "surface" (every map).
-  let results = store.get("focusResults", "blobs");
+  let results = quiz ? "surface" : store.get("focusResults", "blobs");
   let blobs = [], blobsKey = null;  // blob meshes
 
   async function init() {
@@ -324,14 +336,18 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     const list = focusParts(focus, hemi);
     const [built, m] = await Promise.all([
       Promise.all(list.map(async (part) => {
-        const r = await fetch(`/api/regions/mesh.gii?sel=${encodeURIComponent(part.key)}`);
-        if (!r.ok) return null;
-        const mesh = await NVMesh.readMesh(await r.arrayBuffer(), `${part.key}.gii`, nv.gl, fill, new Uint8Array([...colorOf(part), 255]), true);
+        const buf = await fetchBuffer(`/api/regions/mesh.gii?sel=${encodeURIComponent(part.key)}`);
+        if (!buf) return null;
+        const mesh = await NVMesh.readMesh(buf, `${part.key}.gii`, nv.gl, fill, new Uint8Array([...colorOf(part), 255]), true);
         smoothMesh(mesh.pts, mesh.tris);
         return { part, mesh, normals: outwardNormals(mesh.pts, mesh.tris), values: null };
       })),
       // One mask for the per-structure peaks: structure k has value k.
-      NVImage.loadFromUrl({ url: `/api/regions/mask.nii.gz?sel=${encodeURIComponent(list.map((p) => p.key).join(","))}`, name: "focus.nii.gz" }),
+      fetchBuffer(`/api/regions/mask.nii.gz?sel=${encodeURIComponent(list.map((p) => p.key).join(","))}`)
+        .then(async (buf) => {
+          const url = URL.createObjectURL(new Blob([buf]));
+          try { return await NVImage.loadFromUrl({ url, name: "focus.nii.gz" }); } finally { URL.revokeObjectURL(url); }
+        }),
     ]);
     if (mine !== token) return;
     for (const x of meshes) nv.removeMesh(x.mesh);
@@ -537,7 +553,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     const w = nv.gl.canvas.width, h = nv.gl.canvas.height;
     const [m] = nv.calculateMvpMatrix(null, [0, 0, w, h], nv.scene.renderAzimuth, nv.scene.renderElevation);
     const r2 = (PICK_PX * (nv.uiData.dpr || 1)) ** 2;
-    let best = null, bestZ = Infinity;
+    let best = null, bestPart = null, bestZ = Infinity;
     for (const x of [...blobs.map((mesh) => ({ mesh })), ...meshes]) {
       if (x.part && hidden.has(x.part.key)) continue;
       const p = x.mesh.pts;
@@ -548,10 +564,10 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
         const sy = (1 - (m[1] * X + m[5] * Y + m[9] * Z + m[13]) / cw) / 2 * h;
         if ((sx - px) ** 2 + (sy - py) ** 2 > r2) continue;
         const z = (m[2] * X + m[6] * Y + m[10] * Z + m[14]) / cw;
-        if (z < bestZ) { bestZ = z; best = [X, Y, Z]; }
+        if (z < bestZ) { bestZ = z; best = [X, Y, Z]; bestPart = x.part ?? null; }
       }
     }
-    return best;
+    return best && { mm: best, part: bestPart };
   }
   let down = null;
   canvas.addEventListener("pointerdown", (e) => { down = [e.clientX, e.clientY]; });
@@ -561,7 +577,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     if (!click || !nv) return;
     const r = canvas.getBoundingClientRect(), dpr = nv.uiData.dpr || 1;
     const p = pick((e.clientX - r.left) * dpr, (e.clientY - r.top) * dpr);
-    if (p) onPick?.(p.map(Math.round));
+    if (p) onPick?.(p.mm.map(Math.round), p.part);
   });
 
   // Show (or hide) the view, on focus `id` (a key of FOCI).
@@ -579,7 +595,55 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
       nv.setRenderAzimuthElevation(...FOCI[id].view);
       await loadStructures();
     } else paint();
-    setHint(`Focus: ${FOCI[id].label}. Drag to rotate, scroll to zoom; click a structure or a peak to look it up.`);
+    if (!quiz) setHint(`Focus: ${FOCI[id].label}. Drag to rotate, scroll to zoom; click a structure or a peak to look it up.`);
+  }
+
+  // The mask voxel (1 mm grid) holding an MNI point, and the structure there.
+  const voxelOf = (mm) => {
+    const a = mask.affine, [nx, ny, nz] = mask.dims;
+    const ijk = [0, 1, 2].map((k) => Math.round((mm[k] - a[k][3]) / a[k][k]));
+    return ijk.every((v, k) => v >= 0 && v < [nx, ny, nz][k]) ? ijk : null;
+  };
+  function structureAt(mm) {
+    const v = mask && voxelOf(mm);
+    const lab = v ? mask.img[v[0] + mask.dims[0] * (v[1] + mask.dims[1] * v[2])] : 0;
+    return lab ? parts[lab - 1] : null;
+  }
+  // mm from a point to the nearest voxel of structure `key` (Infinity beyond `within`).
+  function distanceTo(mm, key, within = 5) {
+    const k = parts.findIndex((p) => p.key === key) + 1, v = mask && voxelOf(mm);
+    if (!k || !v) return Infinity;
+    const [nx, ny, nz] = mask.dims, r = Math.ceil(within);
+    let best = Infinity;
+    for (let dz = -r; dz <= r; dz++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const i = v[0] + dx, j = v[1] + dy, l = v[2] + dz, d = Math.hypot(dx, dy, dz);
+      if (d > within || d >= best || i < 0 || j < 0 || l < 0 || i >= nx || j >= ny || l >= nz) continue;
+      if (mask.img[i + nx * (j + ny * l)] === k) best = d;
+    }
+    return best;
+  }
+  // A point inside structure `key`: its voxel nearest the structure's centre.
+  function insidePoint(key) {
+    const k = parts.findIndex((p) => p.key === key) + 1;
+    if (!k || !mask) return null;
+    const { img, dims: [nx, ny, nz], affine: a } = mask, vox = [], c = [0, 0, 0];
+    for (let l = 0; l < nz; l++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      if (img[i + nx * (j + ny * l)] !== k) continue;
+      vox.push([i, j, l]); c[0] += i; c[1] += j; c[2] += l;
+    }
+    if (!vox.length) return null;
+    c.forEach((x, n) => (c[n] = x / vox.length));
+    let best = vox[0], bd = Infinity;
+    for (const v of vox) { const d = (v[0] - c[0]) ** 2 + (v[1] - c[1]) ** 2 + (v[2] - c[2]) ** 2; if (d < bd) { bd = d; best = v; } }
+    return best.map((v, n) => a[n][n] * v + a[n][3]);
+  }
+  // Colour some structures ({ key: [r, g, b] }); the rest go back to their own colour.
+  // Fully saturated colours draw solid (see the shader).
+  function highlight(colors = {}) {
+    tint = new Map(Object.entries(colors));
+    if (!nv) return;
+    for (const x of meshes) nv.setMeshProperty(x.mesh.id, "rgba255", [...colorOf(x.part), 255]);
+    nv.drawScene();
   }
 
   return {
@@ -589,6 +653,8 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     setView: (az, el) => nv?.setRenderAzimuthElevation(az, el),
     get active() { return active; },
     get canvas() { return canvas; },
+    get parts() { return parts; },
+    structureAt, distanceTo, insidePoint, highlight,
     redraw: () => drawNow?.(),
   };
 }

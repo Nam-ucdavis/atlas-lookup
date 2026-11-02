@@ -3,7 +3,7 @@
 Which brain region is this coordinate in? Type an MNI coordinate (or a voxel
 index from your SPM images), or click on the brain, and see the answer from
 several atlases at once. You can also load your own SPM T maps and get a
-labelled cluster table. A quiz mode helps you learn the regions.
+labelled cluster table. A quiz mode helps you learn the regions, on the slices and in 3D.
 
 - **Lookup:** Harvard-Oxford (cortical and subcortical), Juelich
   cytoarchitecture, Brodmann areas, gyri **and sulci** (Destrieux),
@@ -26,7 +26,7 @@ labelled cluster table. A quiz mode helps you learn the regions.
   Threshold each one by T or p, pick colormaps, and choose which map is in
   front; everything updates as you drag. Files are read in the browser and
   never uploaded.
-- **Quiz:** find regions on the brain or name the highlighted one. Regions you
+- **Quiz:** find structures on the slices or in 3D, or name the highlighted one. Structures you
   miss come back more often, and progress is broken down by brain division.
 - **Your own atlases:** add any parcellation from a paper with one command.
 
@@ -263,7 +263,8 @@ straight away.
   colour bars, at the same size as slice captures.
 
 To look up a point, click on the slices; clicks in 3D only rotate. The app
-remembers which tab and style you used last. The quiz always uses the slices.
+remembers which tab and style you used last. The quiz has its own 3D view next to
+the slices.
 
 ## Your SPM T maps
 
@@ -331,15 +332,24 @@ so your maps aren't reachable from other machines.
 
 ## Quiz and progress
 
-Click **🧠 Quiz me!** (top right) to practise Harvard-Oxford, Juelich and Brodmann regions;
-**↩ Back to lookup** returns.
+Click **🧠 Quiz me!** (top right) to practise the structures of the 3D foci (PFC,
+Parietal, Cingulate, Temporal with the MTL subfields, Occipital: 108 structures);
+**↩ Back to lookup** returns. The three slices and a 3D view of the question's focus sit
+side by side; in 3D every structure is grey (drag to rotate, scroll to zoom).
 
-- **Find it:** click to move the crosshair, then press Submit (↵).
-- **Name it:** type the highlighted region. Suggestions appear as you type,
-  typos are tolerated, and IFG/STG-style abbreviations work.
+- **Find it:** click the structure on a slice or in 3D (your pick turns blue in 3D),
+  then press Submit (↵). Within 5 mm, or the right structure on the wrong side,
+  counts as close.
+- **Name it:** the structure is yellow in 3D and on the slices; type its name.
+  Suggestions (that focus's structures) appear as you type, typos are tolerated, and
+  abbreviations like IFG, STG, CA or PHC work.
+- After you answer, the structure is green (right) or red (wrong) in both views, and
+  the card shows its group.
 
-In quiz mode, **Progress** (next to Back to lookup) shows what you've mastered per brain division, and **Practise**
-focuses the quiz on one division. Quiz history is kept in your browser.
+Choose which foci to be quizzed on in the left sidebar. **Progress** (next to Back to
+lookup) shows what you've mastered per focus, and **Practise** sticks to one focus. A
+structure in two foci (the ACC in PFC and Cingulate) is asked under the narrower one.
+Quiz history is kept in your browser.
 
 ## Adding an atlas from a paper
 

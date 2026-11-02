@@ -1,71 +1,90 @@
-// Quiz mode: learn Harvard-Oxford, Juelich and Brodmann regions.
+// Quiz mode: learn the structures of each 3D focus (PFC, parietal, cingulate, temporal
+// with the MTL subfields, occipital), on the slices and in 3D at once.
 //
-// Two kinds of question, mixed at random:
-//   find  - "Click on the Left Precentral Gyrus": click around to move through the
-//           brain, then Submit; graded by looking up the chosen point
-//   name  - a region is highlighted, type its name (autocomplete helps)
-// Regions you miss come back more often (per-region history in localStorage).
-// The Progress dialog summarises that history by brain division, and
-// "Practise" there focuses the quiz on one division.
+// The slices and the quiz's own Focus view sit side by side; the 3D view shows the
+// question's focus, every structure grey. Two kinds of question, mixed at random:
+//   find  - "Find the Left Angular gyrus": click a slice or a structure in 3D, then
+//           Submit; graded against the focus's structure mask
+//   name  - a structure is coloured in 3D and on the slices, type its name
+// Structures you miss come back more often (per-structure history in localStorage).
+// The Progress dialog summarises that history by focus, and "Practise" there sticks to
+// one focus.
 
-const QUIZ_ATLASES = [
-  { id: "harvard-oxford-cort", short: "Harvard-Oxford cortical" },
-  { id: "harvard-oxford-sub", short: "Harvard-Oxford subcortical" },
-  { id: "juelich", short: "Juelich (cytoarchitecture)" },
-  { id: "talairach-ba", short: "Brodmann areas (Talairach)" },
-];
+import { FOCI, focusParts } from "./focus3d.js";
+
 const TYPES = [
-  { id: "find", label: "Find it on the brain (click)" },
-  { id: "name", label: "Name the highlighted region (type)" },
+  { id: "find", label: "Find it (click a slice or the 3D view)" },
+  { id: "name", label: "Name the coloured structure (type)" },
 ];
-const COLORS = { target: [250, 200, 40], ok: [60, 200, 110], bad: [235, 80, 60] };
-const SIDE_WORD = { L: "Left ", R: "Right ", B: "" };
+// Saturated (≥ 0.78), so the Focus view draws them solid.
+const COLORS = { target: [250, 200, 40], ok: [20, 220, 70], bad: [245, 50, 40], pick: [40, 140, 255] };
 const STATUS = [  // display order in the progress bars
   { id: "mastered", label: "Mastered", hint: "right at least twice, ≥ 75%" },
   { id: "learning", label: "Learning", hint: "50–75%, or right once" },
   { id: "struggling", label: "Needs work", hint: "below 50%" },
   { id: "unseen", label: "Not asked yet", hint: "" },
 ];
+const NEAR_MM = 5;  // a click this close to the structure counts as close
 
 // Common abbreviations people type, expanded before matching.
 const ABBREV = {
   ifg: "inferior frontal gyrus", mfg: "middle frontal gyrus", sfg: "superior frontal gyrus",
   stg: "superior temporal gyrus", mtg: "middle temporal gyrus", itg: "inferior temporal gyrus",
   loc: "lateral occipital cortex", smg: "supramarginal gyrus", ag: "angular gyrus",
-  ofc: "orbital frontal cortex", pcc: "cingulate gyrus posterior division",
-  acc: "cingulate gyrus anterior division", spl: "superior parietal lobule",
-  sma: "juxtapositional lobule cortex formerly supplementary motor cortex",
-  ba: "brodmann area", hipp: "hippocampus", amyg: "amygdala", thal: "thalamus",
+  ofc: "frontal orbital cortex", pcc: "posterior cingulate gyrus", acc: "anterior cingulate gyrus",
+  spl: "superior parietal lobule", rsc: "retrosplenial cortex", ca: "cornu ammonis",
+  dg: "dentate gyrus", ec: "entorhinal cortex", erc: "entorhinal cortex", phg: "parahippocampal gyrus",
+  hata: "hippocampal amygdaloid transition area", hipp: "hippocampus", amyg: "amygdala",
 };
+
+/** Every structure of every focus, once, as quiz items: { key, focus, focusLabel, group,
+ * name, label }. A structure in two foci (the ACC, in PFC and Cingulate) is asked in the
+ * narrower one. */
+const BROAD = ["pfc"];  // foci whose shared structures belong to another
+export function quizItems() {
+  const seen = new Set(), out = [];
+  const order = Object.keys(FOCI).sort((a, b) => BROAD.includes(a) - BROAD.includes(b));
+  for (const id of order) {
+    const f = FOCI[id];
+    for (const p of focusParts(id, "both")) {
+      if (seen.has(p.key)) continue;
+      seen.add(p.key);
+      out.push({ key: p.key, focus: id, focusLabel: f.label, group: f.groups[p.group].name, name: p.name,
+        hemi: p.hemi, label: `${p.hemi === "L" ? "Left" : "Right"} ${p.name}` });
+    }
+  }
+  return out;
+}
 
 export function createQuiz(ctx) {
   const $ = (id) => document.getElementById(id);
-  const { esc, store } = ctx;
+  const { esc, store, view } = ctx;  // view: the quiz's Focus view (focus3d, quiz: true)
   const S = {
-    active: false, data: null, q: null, answered: false, token: 0, recent: [],
+    active: false, q: null, answered: false, token: 0, recent: [], pending: null,
     session: { asked: 0, correct: 0, streak: 0, best: 0 },
   };
+  const ALL = quizItems();
   let stats = store.get("quizStats", {});
-  const selAtlases = () => new Set(store.get("quizAtlases", QUIZ_ATLASES.map((a) => a.id)));
+  const selFoci = () => new Set(store.get("quizFoci", Object.keys(FOCI)));
   const selTypes = () => new Set(store.get("quizTypes", TYPES.map((t) => t.id)));
-  const focus = () => store.get("quizFocus", "");
+  const practise = () => store.get("quizPractise", "");  // a focus id, or "" for all chosen
 
   // --- setup panel ----------------------------------------------------------------
   function renderSetup() {
-    const a = selAtlases(), t = selTypes();
-    $("qAtlases").innerHTML = QUIZ_ATLASES.map((x) => `<label class="atlas-toggle"><input type="checkbox" data-qa="${x.id}" ${a.has(x.id) ? "checked" : ""}><span>${esc(x.short)}${S.data ? `<br><span class="hint" style="margin:0">${S.data[x.id]?.regions.length ?? 0} regions</span>` : ""}</span></label>`).join("");
+    const f = selFoci(), t = selTypes();
+    $("qFoci").innerHTML = Object.entries(FOCI).map(([id, x]) => `<label class="atlas-toggle"><input type="checkbox" data-qf="${id}" ${f.has(id) ? "checked" : ""}><span>${esc(x.label)}<br><span class="hint" style="margin:0">${ALL.filter((i) => i.focus === id).length} structures</span></span></label>`).join("");
     $("qTypes").innerHTML = TYPES.map((x) => `<label class="atlas-toggle"><input type="checkbox" data-qt="${x.id}" ${t.has(x.id) ? "checked" : ""}><span>${esc(x.label)}</span></label>`).join("");
-    const f = focus();
-    $("qFocus").hidden = !f;
-    $("qFocus").innerHTML = f ? `Focus: <b>${esc(f)}</b> <button type="button" class="linkish" id="qFocusClear">show all</button>` : "";
+    const pr = practise();
+    $("qFocus").hidden = !pr;
+    $("qFocus").innerHTML = pr ? `Practising: <b>${esc(FOCI[pr]?.label ?? pr)}</b> <button type="button" class="linkish" id="qFocusClear">all chosen</button>` : "";
   }
   $("qFocus").addEventListener("click", (e) => {
     if (e.target.id !== "qFocusClear") return;
-    store.set("quizFocus", ""); renderSetup(); next();
+    store.set("quizPractise", ""); renderSetup(); next();
   });
-  $("qAtlases").addEventListener("change", (e) => {
-    const s = selAtlases(); e.target.checked ? s.add(e.target.dataset.qa) : s.delete(e.target.dataset.qa);
-    store.set("quizAtlases", [...s]);
+  $("qFoci").addEventListener("change", (e) => {
+    const s = selFoci(); e.target.checked ? s.add(e.target.dataset.qf) : s.delete(e.target.dataset.qf);
+    store.set("quizFoci", [...s]);
   });
   $("qTypes").addEventListener("change", (e) => {
     const s = selTypes(); e.target.checked ? s.add(e.target.dataset.qt) : s.delete(e.target.dataset.qt);
@@ -76,7 +95,7 @@ export function createQuiz(ctx) {
     renderStats(); next();
   });
   $("qReset").addEventListener("click", () => {
-    if (!confirm("Forget which regions you've got right and wrong?")) return;
+    if (!confirm("Forget which structures you've got right and wrong?")) return;
     stats = {}; store.set("quizStats", stats); renderStats();
   });
 
@@ -84,35 +103,23 @@ export function createQuiz(ctx) {
     const s = S.session;
     $("qSession").textContent = s.asked ? `${s.correct} / ${s.asked} correct · streak ${s.streak} · best ${s.best}` : "No questions yet";
     $("qScore").textContent = s.asked ? `${s.correct}/${s.asked}` + (s.streak > 1 ? ` · 🔥 ${s.streak}` : "") : "";
-    const weak = Object.values(stats).filter((r) => r.correct < r.seen)
+    const known = new Set(ALL.map((i) => i.key));
+    const weak = Object.entries(stats).filter(([k, r]) => known.has(k) && r.correct < r.seen).map(([, r]) => r)
       .sort((a, b) => a.correct / a.seen - b.correct / b.seen || b.seen - a.seen).slice(0, 6);
     $("qWeak").innerHTML = weak.length
-      ? weak.map((r) => `<div class="kv">${esc(r.label)} <span class="hint" style="margin:0">${r.correct}/${r.seen} · ${esc(r.atlasShort)}</span></div>`).join("")
-      : `<span class="hint">Nothing yet. Missed regions show up here and come back more often.</span>`;
+      ? weak.map((r) => `<div class="kv">${esc(r.label)} <span class="hint" style="margin:0">${r.correct}/${r.seen} · ${esc(r.focusLabel ?? "")}</span></div>`).join("")
+      : `<span class="hint">Nothing yet. Missed structures show up here and come back more often.</span>`;
   }
 
   // --- choosing questions -----------------------------------------------------------
   function pool() {
-    const out = [];
-    for (const id of selAtlases()) {
-      const d = S.data?.[id];
-      if (!d) continue;
-      for (const item of items(id)) if (!focus() || item.division === focus()) out.push(item);
-    }
-    return out;
-  }
-  // Every (region, side) of one atlas, as quiz items.
-  function items(id) {
-    const d = S.data[id], short = QUIZ_ATLASES.find((a) => a.id === id).short;
-    return d.regions.flatMap((r) => r.sides.map((side) => ({
-      atlas: id, atlasName: d.atlas_name, atlasShort: short, division: r.division,
-      value: r.value, side, name: r.name, label: SIDE_WORD[side] + r.name, key: `${id}|${r.value}|${side}`,
-    })));
+    const pr = practise(), f = selFoci();
+    return ALL.filter((i) => (pr ? i.focus === pr : f.has(i.focus)));
   }
   function weight(item) {
     const h = stats[item.key];
     if (!h) return 1.5;                        // unseen
-    return 0.4 + 3 * (1 - h.correct / h.seen);  // missed regions come back
+    return 0.4 + 3 * (1 - h.correct / h.seen);  // missed structures come back
   }
   function pick(items) {
     const fresh = items.length > 8 ? items.filter((i) => !S.recent.includes(i.key)) : items;
@@ -126,40 +133,40 @@ export function createQuiz(ctx) {
     const token = ++S.token;
     const items = pool(), types = [...selTypes()];
     if (!items.length || !types.length) {
-      showPrompt(focus() && types.length ? `No ${focus()} regions in the chosen atlases` : "Pick at least one atlas and one question type", "", "");
+      showPrompt("Pick at least one focus and one question type", "", "");
       return;
     }
-    for (let tries = 0; tries < 6; tries++) {
-      const item = pick(items);
-      const r = await fetch(`/api/quiz/point?atlas=${item.atlas}&value=${item.value}&side=${item.side}`);
-      if (token !== S.token) return;
-      if (!r.ok) { S.recent.push(item.key); continue; }
-      const p = await r.json();
-      S.q = { ...item, type: types[Math.floor(Math.random() * types.length)], point: p.mm };
-      S.answered = false;
-      S.recent = [...S.recent, item.key].slice(-6);
-      return ask(S.q);
-    }
-    showPrompt("Couldn't find a question; try other atlases", "", "");
+    const item = pick(items);
+    S.q = { ...item, type: types[Math.floor(Math.random() * types.length)], point: null };
+    S.answered = false;
+    S.pending = null;
+    S.recent = [...S.recent, item.key].slice(-6);
+    $("qFeedback").innerHTML = "";
+    $("qNext").hidden = true;
+    $("qAtlas").textContent = item.focusLabel;  // the group is shown after the answer
+    showPrompt("Loading…", "", "");
+    await clearMask();
+    view.highlight({});
+    await view.show(true, item.focus);
+    if (token !== S.token) return;
+    S.q.point = view.insidePoint(item.key);
+    if (!S.q.point) { S.recent.push(item.key); return next(); }  // not in this template's grid
+    ask(S.q);
   }
 
   async function ask(q) {
-    $("qFeedback").innerHTML = "";
-    $("qNext").hidden = true;
-    $("qAtlas").textContent = q.atlasShort;
     if (q.type === "name") {
-      showPrompt("Name the highlighted region", `${q.atlasName} · the crosshair is inside it (side not needed)`, "name");
-      const names = [...new Set(S.data[q.atlas].regions.map((r) => r.name))].sort();
+      showPrompt("Name the coloured structure", `${FOCI[q.focus].label} · yellow in 3D and on the slices; the crosshair is inside it (side not needed)`, "name");
+      const names = [...new Set(view.parts.map((p) => p.name))].sort();
       $("qNames").innerHTML = names.map((n) => `<option value="${esc(n)}">`).join("");
       $("qAnswer").value = "";
+      view.highlight({ [q.key]: COLORS.target });
       await showMask(q, COLORS.target);
       ctx.moveCrosshair(q.point);
       $("qAnswer").focus();
     } else {
-      showPrompt(`Find the ${q.label}`, `${q.atlasName} · click slices to move the crosshair, then press Submit (↵)`, "find");
-      S.pending = null;
+      showPrompt(`Find the ${q.label}`, `${FOCI[q.focus].label} · click it on a slice or in 3D (drag to rotate), then press Submit (↵)`, "find");
       $("qSubmit").disabled = true;
-      await clearMask();
     }
   }
 
@@ -170,37 +177,56 @@ export function createQuiz(ctx) {
     $("qSubmit").hidden = type !== "find";
     $("qGiveUp").hidden = !type;
     $("qGiveUp").textContent = type === "find" ? "Show me" : "Don't know";
-    ctx.setHint(type === "find" ? "Quiz: click to move the crosshair, then Submit" : "Quiz: explore freely; clicking won't answer");
+    ctx.setHint(type === "find" ? "Quiz: click a slice or a 3D structure, then Submit" : "Quiz: explore freely; clicking won't answer");
   }
 
   // --- answering --------------------------------------------------------------------
-  function onViewerClick(mm) {
+  // A click on the slices (mm) or on a structure in 3D (mm and that structure): in a find
+  // question it becomes the answer, shown in blue in 3D (without naming it).
+  function choose(mm, part) {
     const q = S.q;
     if (!S.active || !q || S.answered || q.type !== "find") return;
-    S.pending = mm;
+    S.pending = { mm, part: part ?? view.structureAt(mm) };
     $("qSubmit").disabled = false;
+    view.highlight(S.pending.part ? { [S.pending.part.key]: COLORS.pick } : {});
+  }
+  function onViewerClick(mm) { choose(mm, null); }
+  function on3dClick(mm, part) {
+    if (!S.active) return;
+    ctx.moveCrosshair(mm);
+    choose(mm, part);
   }
 
   async function submitPoint() {
-    const q = S.q, mm = S.pending;
-    if (!q || S.answered || q.type !== "find" || !mm) return;
+    const q = S.q, pend = S.pending;
+    if (!q || S.answered || q.type !== "find" || !pend) return;
     S.answered = true;
     $("qSubmit").hidden = true;
-    const r = await fetch(`/api/lookup?x=${mm[0]}&y=${mm[1]}&z=${mm[2]}&radius=5&atlases=${q.atlas}`).then((r) => r.json());
-    const res = r.results[0];
-    const sideOk = q.side === "B" || (q.side === "L" ? mm[0] < 0 : mm[0] > 0);
-    const hit = res.label?.value === q.value;
-    const near = (res.neighborhood || []).some((n) => n.value === q.value) || res.nearest?.value === q.value;
-    const clicked = res.best_guess || "no labelled region";
+    const got = pend.part;
     let verdict, msg;
-    if (hit && sideOk) { verdict = "ok"; msg = `Correct: ${esc(q.label)}.`; }
-    else if (hit) { verdict = "close"; msg = `Right region, wrong hemisphere. That was the ${esc(res.label.name)}.`; }
-    else if (near && sideOk) { verdict = "close"; msg = `Close: within 5 mm. You clicked <b>${esc(clicked)}</b>.`; }
-    else { verdict = "bad"; msg = `Not quite. You clicked <b>${esc(clicked)}</b>.`; }
-    msg += ` The ${esc(q.label)} is highlighted, with the crosshair inside it.`;
+    if (got?.key === q.key) { verdict = "ok"; msg = `Correct: ${esc(q.label)}.`; }
+    else if (got && got.name === q.name) { verdict = "close"; msg = `Right structure, wrong hemisphere: that was the <b>${esc(label(got))}</b>.`; }
+    else if (view.distanceTo(pend.mm, q.key, NEAR_MM) <= NEAR_MM) {
+      verdict = "close"; msg = `Close: within ${NEAR_MM} mm. You clicked <b>${esc(got ? label(got) : await nameAt(pend.mm))}</b>.`;
+    } else { verdict = "bad"; msg = `Not quite. You clicked <b>${esc(got ? label(got) : await nameAt(pend.mm))}</b>.`; }
+    msg += ` The ${esc(q.label)} is ${verdict === "ok" ? "green" : "red"}${got && got.key !== q.key ? ", your pick blue" : ""}.`;
     record(q, verdict === "ok");
     feedback(verdict, msg);
-    await showMask(q, verdict === "ok" ? COLORS.ok : COLORS.bad);
+    reveal(q, verdict === "ok" ? COLORS.ok : COLORS.bad, got && got.key !== q.key ? got : null);
+  }
+  const label = (p) => `${p.hemi === "L" ? "Left" : "Right"} ${p.name}`;
+  // What a click outside the focus's structures hit, from Harvard-Oxford.
+  async function nameAt(mm) {
+    const r = await fetch(`/api/lookup?x=${mm[0]}&y=${mm[1]}&z=${mm[2]}&radius=0&atlases=harvard-oxford-cort,harvard-oxford-sub`)
+      .then((r) => r.json()).catch(() => null);
+    const hit = r?.results?.find((x) => x.label);
+    return hit ? `${hit.label.name} (not part of this focus)` : "outside any labelled region";
+  }
+
+  // After an answer: the target in green or red in both views (and a wrong 3D pick blue).
+  async function reveal(q, color, wrong = null) {
+    view.highlight({ ...(wrong ? { [wrong.key]: COLORS.pick } : {}), [q.key]: color });
+    await showMask(q, color);
     ctx.moveCrosshair(q.point);
   }
 
@@ -215,17 +241,16 @@ export function createQuiz(ctx) {
     if (v === "ok") feedback("ok", `Correct: ${answer}.`);
     else if (v === "close") feedback("close", `Close. The full name is ${answer}.`);
     else feedback("bad", `Not quite. This is the ${answer}.`);
-    showMask(q, v === "ok" ? COLORS.ok : COLORS.bad).then(() => ctx.moveCrosshair(q.point));
+    reveal(q, v === "ok" ? COLORS.ok : COLORS.bad);
   });
 
-  $("qGiveUp").addEventListener("click", async () => {
+  $("qGiveUp").addEventListener("click", () => {
     const q = S.q;
-    if (!q || S.answered) return;
+    if (!q || S.answered || !q.point) return;
     S.answered = true;
     record(q, false);
     feedback("bad", `This is the <b>${esc(q.label)}</b>.`);
-    await showMask(q, COLORS.bad);
-    ctx.moveCrosshair(q.point);
+    reveal(q, COLORS.bad);
   });
 
   $("qNext").addEventListener("click", () => next());
@@ -237,6 +262,7 @@ export function createQuiz(ctx) {
   });
 
   function feedback(verdict, html) {
+    $("qAtlas").textContent = `${S.q.focusLabel} · ${S.q.group}`;
     $("qFeedback").innerHTML = `<div class="qfb ${verdict}">${html}</div>`;
     $("qGiveUp").hidden = true;
     $("qSubmit").hidden = true;
@@ -247,14 +273,14 @@ export function createQuiz(ctx) {
 
   function record(q, ok) {
     const h = stats[q.key] || { seen: 0, correct: 0 };
-    stats[q.key] = { seen: h.seen + 1, correct: h.correct + (ok ? 1 : 0), label: q.label, atlasShort: q.atlasShort };
+    stats[q.key] = { seen: h.seen + 1, correct: h.correct + (ok ? 1 : 0), label: q.label, focusLabel: q.focusLabel };
     store.set("quizStats", stats);
     const s = S.session;
     s.asked++; if (ok) { s.correct++; s.streak++; s.best = Math.max(s.best, s.streak); } else s.streak = 0;
     renderStats();
   }
 
-  // --- viewer highlight ---------------------------------------------------------------
+  // --- slice highlight ----------------------------------------------------------------
   async function clearMask() {
     const nv = ctx.getNv();
     if (!nv) return;
@@ -266,44 +292,35 @@ export function createQuiz(ctx) {
     if (!nv) return;
     const token = S.token;
     await clearMask();
-    const vol = await nv.addVolumeFromUrl({ url: `/api/quiz/mask/${q.atlas}/${q.value}/${q.side}.nii.gz`, opacity: 0.7 });
+    const vol = await nv.addVolumeFromUrl({ url: `/api/regions/mask.nii.gz?sel=${encodeURIComponent(q.key)}`, name: "quiz.nii.gz", opacity: 0.7 });
     if (token !== S.token) { nv.removeVolume(vol); return; }
     vol.setColormapLabel({ R: [0, r], G: [0, g], B: [0, b], A: [0, 255], I: [0, 1] });
     nv.updateGLVolume();
   }
 
   // --- mode switching -----------------------------------------------------------------
-  async function loadData() {
-    if (S.data) return;
-    const [d, divisions] = await Promise.all([
-      fetch("/api/quiz/regions").then((r) => r.json()),
-      fetch("/api/quiz/divisions").then((r) => r.json()),
-    ]);
-    S.data = Object.fromEntries(d.map((a) => [a.atlas, a]));
-    S.divisions = divisions;
-  }
-
   async function enter() {
     S.active = true;
     document.body.classList.add("quiz");
     $("quizToggle").innerHTML = '<span class="mt-ico" aria-hidden="true">↩</span> Back to lookup';
-    if (!S.data) showPrompt("Loading regions…", "", "");
-    await loadData();
     renderSetup(); renderStats();
-    if (!S.q) next();
-    else if (S.q.type === "name" || S.answered) showMask(S.q, S.answered ? COLORS.bad : COLORS.target);
+    if (!S.q) return next();
+    await view.show(true, S.q.focus);
+    if (S.answered) reveal(S.q, COLORS.bad);
+    else if (S.q.type === "name") { view.highlight({ [S.q.key]: COLORS.target }); showMask(S.q, COLORS.target); }
   }
   async function exit() {
     S.active = false;
     S.token++;
     document.body.classList.remove("quiz");
     $("quizToggle").innerHTML = '<span class="mt-ico" aria-hidden="true">🧠</span> Quiz me!';
+    view.show(false);
     await clearMask();
     ctx.restoreLookup();
   }
   $("quizToggle").addEventListener("click", () => (S.active ? exit() : enter()));
 
-  // --- progress by brain division -----------------------------------------------------
+  // --- progress by focus --------------------------------------------------------------
   function status(key) {
     const h = stats[key];
     if (!h) return "unseen";
@@ -319,9 +336,6 @@ export function createQuiz(ctx) {
   }
 
   function renderProgress() {
-    const which = store.get("progressAtlas", "");
-    const ids = which ? [which] : QUIZ_ATLASES.map((a) => a.id);
-    const all = ids.flatMap(items);
     const summarise = (list) => {
       const counts = Object.fromEntries(STATUS.map((s) => [s.id, 0]));
       let seen = 0, correct = 0;
@@ -331,53 +345,48 @@ export function createQuiz(ctx) {
       }
       return { counts, seen, correct, practised: list.length - counts.unseen };
     };
-    const o = summarise(all);
+    const o = summarise(ALL);
     const acc = (x) => (x.seen ? `${Math.round((100 * x.correct) / x.seen)}% correct` : "no answers yet");
-    let html = `<div class="prog-overall"><div class="big">${o.counts.mastered} <span>of ${all.length} mastered</span></div>
+    let html = `<div class="prog-overall"><div class="big">${o.counts.mastered} <span>of ${ALL.length} mastered</span></div>
       <div class="hint" style="margin:0">${o.practised} practised · ${acc(o)} over ${o.seen} answer${o.seen === 1 ? "" : "s"}</div>
-      ${stack(o.counts, all.length)}</div>
+      ${stack(o.counts, ALL.length)}</div>
       <div class="legend">${STATUS.map((s) => `<span><i class="pseg ${s.id}"></i>${esc(s.label)}${s.hint ? ` <span class="hint" style="margin:0">(${esc(s.hint)})</span>` : ""}</span>`).join("")}</div>`;
     const rank = { struggling: 0, learning: 1, unseen: 2, mastered: 3 };
-    for (const div of S.divisions) {
-      const list = all.filter((it) => it.division === div);
+    for (const [id, f] of Object.entries(FOCI)) {
+      const list = ALL.filter((it) => it.focus === id);
       if (!list.length) continue;
       const x = summarise(list);
       const rows = list.map((it) => ({ it, st: status(it.key), h: stats[it.key] }))
         .sort((a, b) => rank[a.st] - rank[b.st] || a.it.label.localeCompare(b.it.label));
       html += `<details class="prog-row"><summary>
-          <span class="name">${esc(div)}</span>
+          <span class="name">${esc(f.label)}</span>
           ${stack(x.counts, list.length)}
           <span class="nums">${x.counts.mastered}/${list.length} mastered · ${acc(x)}</span>
-          <button type="button" class="btn small" data-practise="${esc(div)}">Practise</button>
+          <button type="button" class="btn small" data-practise="${id}">Practise</button>
         </summary><div class="prog-list">${rows.map(({ it, st, h }) =>
-          `<div class="prog-item"><i class="pseg ${st}"></i><span>${esc(it.label)}</span><span class="hint" style="margin:0">${esc(it.atlasShort)}</span><span class="score">${h ? `${h.correct}/${h.seen}` : "–"}</span></div>`).join("")}</div></details>`;
+          `<div class="prog-item"><i class="pseg ${st}"></i><span>${esc(it.label)}</span><span class="hint" style="margin:0">${esc(it.group)}</span><span class="score">${h ? `${h.correct}/${h.seen}` : "–"}</span></div>`).join("")}</div></details>`;
     }
     $("progBody").innerHTML = html;
   }
 
-  async function showProgress() {
-    await loadData();
-    $("progAtlas").innerHTML = `<option value="">All quiz atlases</option>` +
-      QUIZ_ATLASES.map((a) => `<option value="${a.id}">${esc(a.short)}</option>`).join("");
-    $("progAtlas").value = store.get("progressAtlas", "");
+  function showProgress() {
     stats = store.get("quizStats", {});
     renderProgress();
     $("progress").showModal();
   }
   $("progressBtn").addEventListener("click", showProgress);
-  $("progAtlas").addEventListener("change", (e) => { store.set("progressAtlas", e.target.value); renderProgress(); });
   $("progClose").addEventListener("click", () => $("progress").close());
   $("progress").addEventListener("click", (e) => { if (e.target === $("progress")) $("progress").close(); });
   $("progBody").addEventListener("click", async (e) => {
-    const div = e.target.dataset?.practise;
-    if (!div) return;
+    const id = e.target.dataset?.practise;
+    if (!id) return;
     e.preventDefault();  // don't toggle the <details>
-    store.set("quizFocus", div);
+    store.set("quizPractise", id);
     $("progress").close();
     if (S.active) { renderSetup(); next(); } else { S.q = null; await enter(); }
   });
 
-  return { get active() { return S.active; }, onViewerClick, enter, showProgress };
+  return { get active() { return S.active; }, onViewerClick, on3dClick, enter, showProgress };
 }
 
 // --- answer matching (exported for testing in the console) ---------------------------
@@ -397,11 +406,13 @@ function similarity(a, b) {
   return 1 - d[a.length][b.length] / Math.max(a.length, b.length);
 }
 export function matchName(answer, name) {
-  const ba = name.match(/brodmann area (\d+)/i);
-  if (ba) {
-    const n = answer.match(/\d+/);
-    return n && n[0] === ba[1] ? "ok" : "bad";
-  }
+  // "Cornu ammonis (CA)": the name with or without its bracket, or the bracket alone.
+  const inner = name.match(/\(([^)]*)\)/)?.[1];
+  const names = [name, ...(inner ? [name.replace(/\s*\([^)]*\)/g, ""), inner] : [])];
+  const rank = { ok: 2, close: 1, bad: 0 };
+  return names.map((n) => matchOne(answer, n)).reduce((a, b) => (rank[b] > rank[a] ? b : a));
+}
+function matchOne(answer, name) {
   const a = norm(answer), t = norm(name);
   if (!a) return "bad";
   if (a === t) return "ok";

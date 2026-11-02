@@ -3,6 +3,20 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.20.0 (2026-11-02)
+- **The quiz, redone around the 3D foci**: it asks the structures of PFC, Parietal,
+  Cingulate, Temporal (with the MTL subfields) and Occipital (108 in all), with the three
+  slices and a 3D view of the question's focus side by side.
+  - Find questions: click the structure on a slice or in 3D (your pick turns blue in
+    3D), then Submit. Close = within 5 mm, or the right structure on the wrong side.
+  - Name questions: the structure is yellow in both views; suggestions are that
+    focus's structures; "CA", "PHC" and other bracketed short names count.
+  - After answering, green or red in both views, and the card shows the group.
+  - The sidebar picks foci (not atlases); Progress and Practise go by focus. A
+    structure in two foci is asked under the narrower one (the ACC under Cingulate).
+- Focus meshes and masks are fetched once per session, so switching foci (in the
+  quiz or the 3D tab) is quicker the second time.
+
 ## 0.19.10 (2026-11-02)
 - Focus blobs are shaded like the results painted on surfaces (same shader), so the
   two modes show results at the same brightness.

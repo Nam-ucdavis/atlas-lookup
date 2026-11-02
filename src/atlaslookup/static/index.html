@@ -127,6 +127,15 @@
   .glwrap3d { position: relative; width: 100%; aspect-ratio: 3 / 1.15; background: #000; border-radius: 6px; overflow: hidden; }
   .glwrap3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
   @media (max-width: 820px) { .glwrap3d { aspect-ratio: 1 / 1; } }
+  /* Quiz: the slices and the quiz's 3D focus side by side, at the same height. */
+  .views { display: contents; }
+  body.quiz .views { display: grid; grid-template-columns: 3fr 1fr; gap: 8px; }
+  .quiz3d { position: relative; aspect-ratio: 1 / 1.15; background: #000; border-radius: 6px; overflow: hidden; }
+  .quiz3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  .quiz3d .q3-cap { position: absolute; right: 8px; bottom: 6px; font-size: 11px; color: #bbb; pointer-events: none; }
+  @media (max-width: 820px) { body.quiz .views { grid-template-columns: 1fr; } .quiz3d { aspect-ratio: 1 / 1; } }
+  body.quiz.sp-narrow .views { grid-template-columns: 1fr; }
+  body.quiz.sp-narrow .quiz3d { aspect-ratio: 4 / 3; }
   .glwrap[hidden], .glwrap3d[hidden], .v3-bar[hidden], .v3-infl[hidden] { display: none !important; }
   .v3-infl, .v3-mode { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 10px; }
   .v3-mode[hidden], .glwrap3d canvas[hidden] { display: none !important; }
@@ -458,13 +467,13 @@
     <span class="grow"></span><button type="button" class="btn quiz-only" id="progressBtn" title="Your learning progress by brain division">Progress</button>
     <button type="button" class="mode-toggle" id="quizToggle"><span class="mt-ico" aria-hidden="true">🧠</span> Quiz me!</button></div>
   <p class="lookup-only">Enter an MNI coordinate or voxel index, or click the brain, to see which region it falls in across atlases.</p>
-  <p class="quiz-only">Learn Harvard-Oxford, Juelich and Brodmann regions. Missed regions come back more often.</p>
+  <p class="quiz-only">Learn the structures of each 3D focus, on the slices and in 3D. Missed structures come back more often.</p>
 </header>
 <main>
   <aside id="leftBar" aria-label="Sidebar">
     <div class="panel quiz-only" id="quizSetup">
       <span class="section-title">Quiz me on</span>
-      <div id="qAtlases"></div>
+      <div id="qFoci"></div>
       <div id="qFocus" class="kv" hidden></div>
       <span class="section-title">Question types</span>
       <div id="qTypes"></div>
@@ -621,7 +630,11 @@
       </div>
       <div class="glwrap3d" id="gl3wrap" hidden><canvas id="gl3"></canvas><canvas id="gl3f" hidden></canvas>
         <div class="fc-legend" id="fcLegend" hidden></div></div>
-      <div class="glwrap"><canvas id="gl"></canvas></div>
+      <div class="views">
+        <div class="glwrap"><canvas id="gl"></canvas></div>
+        <div class="quiz3d quiz-only" id="quiz3dWrap"><canvas id="quiz3d" hidden></canvas>
+          <span class="q3-cap">3D · drag to rotate, scroll to zoom</span></div>
+      </div>
       <div class="stat-range lookup-only" id="statRange">
         <div class="stat-list" id="statList" hidden></div>
         <div class="viewer-bar stat-ctl" id="statCtl" hidden>
@@ -646,13 +659,12 @@
 </main>
 <dialog id="progress" aria-labelledby="progTitle">
   <div class="prog-head">
-    <h2 id="progTitle">Learning progress by brain division</h2>
+    <h2 id="progTitle">Learning progress by focus</h2>
     <span class="grow"></span>
-    <select id="progAtlas" aria-label="Atlas"></select>
     <button type="button" class="btn" id="progClose" aria-label="Close">Close</button>
   </div>
   <div id="progBody"></div>
-  <p class="hint">Open a division to see each region. "Practise" starts the quiz on just that division. History is stored in this browser.</p>
+  <p class="hint">Open a focus to see each structure. "Practise" starts the quiz on just that focus. History is stored in this browser.</p>
 </dialog>
 <script type="module">
 import { Niivue, NVImage, SHOW_RENDER, MULTIPLANAR_TYPE } from "/static/vendor/niivue-0.69.0.js";
@@ -788,8 +800,15 @@ async function init() {
   if (!fromHash()) setMode("mm");
   renderHistory();
   await initViewer().catch((e) => ($("viewerHint").textContent = "Viewer unavailable: " + e.message));
+  // The quiz's own Focus view: structures only, grey, beside the slices.
+  const el = (tag) => document.createElement(tag);
+  const quizView = createFocusView({
+    Niivue, NVImage, canvas: $("quiz3d"), legend: el("div"), store, esc, setHint: () => {}, quiz: true,
+    controls: { bar: el("span"), hemi: el("span"), colors: el("span"), results: el("span"), fill: el("input") },
+    onPick: (mm, part) => quizApi?.on3dClick(mm, part),
+  });
   quizApi = createQuiz({
-    esc, store, moveCrosshair,
+    esc, store, moveCrosshair, view: quizView,
     getNv: () => nv,
     setHint: (t) => ($("viewerHint").textContent = t),
     restoreLookup: async () => { $("viewerHint").textContent = LOOKUP_HINT; await rebuildOverlays(); },

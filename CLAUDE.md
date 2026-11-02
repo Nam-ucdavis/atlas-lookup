@@ -69,7 +69,9 @@ src/atlaslookup/
                       drives the T-value range controls, the cluster table, and the T and cluster
                       highlight at the crosshair (/api/lookup gets its threshold/sign/min_voxels).
                       Each map's colour bars live in its row (viewertools barHost)
-  static/quiz.js      quiz + progress UI; exports matchName() for tests
+  static/quiz.js      quiz + progress UI over the focus structures (FOCI), with a second Focus
+                      view (createFocusView quiz: true) beside the slices; exports matchName()
+                      and quizItems() for tests. The /api/quiz endpoints are no longer used by it
   screenshots.py  saves "scr" captures as DATA_DIR/image/<date_time>.png
   static/viewertools.js  crosshair toggle, slice coordinate labels, "scr" capture; exports sliceLabel() for tests
   static/overlays.js  local NIfTI overlays read in the browser (never uploaded); exports tSf/tFromP/dfFromHeader for tests

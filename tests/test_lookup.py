@@ -219,10 +219,11 @@ def test_quiz_answer_matching():
         ("amygdala", "Left Amygdala", "ok"),
         ("left amygdla", "Left Amygdala", "ok"),
         ("thalamus", "Left Amygdala", "bad"),
-        ("BA 44", "Brodmann area 44", "ok"),
-        ("44", "Brodmann area 44", "ok"),
-        ("45", "Brodmann area 44", "bad"),
-        ("Broca's area BA44", "Broca's area BA44", "ok"),
+        ("cornu ammonis", "Cornu ammonis (CA)", "ok"),  # with or without the bracket,
+        ("CA", "Cornu ammonis (CA)", "ok"),             # or the bracket alone
+        ("dentate gyrus", "Cornu ammonis (CA)", "bad"),
+        ("PHC", "Posterior parahippocampal gyrus (PHC)", "ok"),
+        ("angular gyrus", "Angular gyrus", "ok"),
         ("", "Postcentral Gyrus", "bad"),
     ]
     script = (f"import {{ matchName }} from {str(quiz_js)!r};"
@@ -269,6 +270,30 @@ def test_overlay_t_distribution_matches_scipy():
     assert got["df"] == [24, 18, None, None]
 
 @bootstrapped
+def test_quiz_items_cover_the_foci():
+    """The quiz asks every focus structure once (the ACC, in PFC and Cingulate, under Cingulate),
+    labelled by side, with its focus and group."""
+    import json
+
+    import atlaslookup
+
+    quiz_js = Path(atlaslookup.__file__).parent / "static" / "quiz.js"
+    out = _node(f"""
+      import {{ quizItems }} from {str(quiz_js)!r};
+      import {{ FOCI, focusParts }} from {str(quiz_js.parent / "focus3d.js")!r};
+      const items = quizItems(), keys = items.map((i) => i.key);
+      const all = new Set(Object.keys(FOCI).flatMap((f) => focusParts(f, "both").map((p) => p.key)));
+      console.log(JSON.stringify({{ n: items.length, unique: new Set(keys).size, all: all.size,
+        acc: items.filter((i) => i.key === "harvard-oxford-cort|29|L").map((i) => i.focus),
+        ca: items.find((i) => i.key === "juelich|9|R") }}));
+    """)
+    r = json.loads(out)
+    assert r["n"] == r["unique"] == r["all"]
+    assert r["acc"] == ["cingulate"]
+    assert r["ca"]["label"] == "Right Cornu ammonis (CA)" and r["ca"]["focus"] == "temporal"
+    assert r["ca"]["group"] == "Hippocampal formation"
+
+
 def test_every_quiz_region_has_a_division():
     from fastapi.testclient import TestClient
     from atlaslookup.quiz import division
