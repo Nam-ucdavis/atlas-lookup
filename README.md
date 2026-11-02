@@ -148,7 +148,8 @@ straight away.
     downloads fsaverage6 from OSF through nilearn (~8 MB).
   - fsaverage lines up with MNI152 only to within a few mm, and values come from the
     volume: this is for looking, not a surface-based analysis.
-- **Focus ▾:** one part of the brain on its own (PFC, Parietal, Cingulate, Temporal),
+- **Focus ▾:** one part of the brain on its own (PFC, Parietal, Cingulate, Temporal,
+  Occipital),
   zoomed in and rotating around it. Each structure is a faint tint with a solid outline in its own colour,
   and your results are painted on (the strongest value up to 3 mm inside it).
   - Each focus has a coarse level (**Structures**, mostly Harvard-Oxford) and a fine
@@ -174,7 +175,7 @@ straight away.
   The superior and middle frontal gyri (and frontal sulci) stop at y = +10 mm, leaving
   out premotor cortex; the superior frontal gyrus is split at |x| = 20 mm into its
   medial and lateral parts.
-- **Focus ▾ → Parietal, Cingulate, Temporal:**
+- **Focus ▾ → Parietal, Cingulate, Temporal, Occipital:**
 
   | Focus | Group | Structures (Harvard-Oxford) | Gyri & sulci (Destrieux) |
   |---|---|---|---|
@@ -194,6 +195,10 @@ straight away.
   | | Hippocampus / hippocampal formation | hippocampus | Juelich cornu ammonis, dentate gyrus, subiculum, hippocampal-amygdaloid transition area |
   | | Parahippocampal region | Juelich entorhinal cortex, anterior parahippocampal gyrus (≈ perirhinal + entorhinal), posterior parahippocampal gyrus (≈ PHC) | Juelich entorhinal cortex, parahippocampal gyrus, collateral sulcus (perirhinal cortex) |
   | | Amygdala | amygdala | Juelich centromedial, laterobasal, superficial groups |
+  | Occipital | Medial occipital / Early visual cortex | intracalcarine, supracalcarine cortex, cuneus, lingual gyrus | Juelich V1 (BA17), V2 (BA18) |
+  | | Lateral occipital / Ventral visual | lateral occipital cortex (superior, inferior) | Juelich V3v, V4 |
+  | | Ventral occipital / Motion | occipital fusiform gyrus | Juelich V5 / MT+ |
+  | | Occipital pole | occipital pole | |
 
   Temporal's fine level is **Gyri & subfields**: the Juelich hippocampal and amygdala
   maps are 2 mm maximum-probability maps, so they are coarse, and some sit inside

@@ -582,7 +582,7 @@ def test_viewer3d_is_wired():
         assert re.search(rf'id="{el}"', html), el
     assert 'from "/static/sidepanel.js"' in html and 'from "/static/tracts.js"' in html
     assert 'from "/static/focus3d.js"' in html and 'data-focus="mtl"' not in html and 'data-focus="pfc"' in html
-    assert all(f'data-focus="{f}"' in html for f in ("parietal", "cingulate", "temporal"))
+    assert all(f'data-focus="{f}"' in html for f in ("parietal", "cingulate", "temporal", "occipital"))
     # Page-layout rules must not hit the side panel (also an <aside>).
     assert "aside { display: contents" not in html.replace("main > aside { display: contents", "")
     js = (static / "viewer3d.js").read_text()
@@ -686,6 +686,7 @@ def test_focus_helpers():
       const temporal = ["coarse", "fine"].flatMap((l) => focusParts("temporal", l, "both").map((p) => p.key));
       const cing = focusParts("cingulate", "fine", "L").map((p) => p.key);
       const par = focusParts("parietal", "coarse", "L").map((p) => p.group);
+      const occ = focusParts("occipital", "fine", "both").map((p) => p.key);
       // A bumpy sphere (radius 10 +- 1): smoothing evens out the bumps but keeps its size.
       const N = 24, P = [], T = [], radii = (arr) => {{ const r = [];
         for (let i = 0; i < arr.length; i += 3) r.push(Math.hypot(arr[i], arr[i + 1], arr[i + 2])); return r; }};
@@ -705,7 +706,7 @@ def test_focus_helpers():
       // 2x1x1 mask: voxel 1 = structure 1, voxel 2 = structure 2; sample = x coordinate - 0.5.
       const mask = {{ img: new Uint8Array([1, 2]), dims: [2, 1, 1], affine: [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]] }};
       const pk = structurePeaks(mask, (x) => (x === 0 ? -3 : 4), 3, -2);
-      console.log(JSON.stringify({{ both, left, mpfc, groups, gyri, temporal, cing, par, r, pk }}));
+      console.log(JSON.stringify({{ both, left, mpfc, groups, gyri, temporal, cing, par, occ, r, pk }}));
     """)
     r = json.loads(out)
     assert r["both"][:2] == ["harvard-oxford-sub|9|B", "harvard-oxford-sub|19|B"]
@@ -722,6 +723,7 @@ def test_focus_helpers():
     assert "harvard-oxford-cort|8|L" in r["temporal"]
     assert r["cing"][:2] == ["destrieux2009|6|B", "destrieux2009|32|B"] and "destrieux2009|10|B" in r["cing"]
     assert r["par"] == sorted(r["par"]) and r["par"][-1] == 3  # four parietal groups
+    assert r["occ"][:2] == ["juelich|48|L", "juelich|48|R"] and len(r["occ"]) == 10  # V1-V5, both sides
     mean0, sd0, mean1, sd1 = r["r"]
     assert sd1 < sd0 / 3 and abs(mean1 - mean0) < 0.6  # smoother, same size
     assert r["pk"]["1"]["neg"] == -3 and r["pk"]["1"]["above"] == 1 and r["pk"]["1"]["negAt"] == [0, 0, 0]

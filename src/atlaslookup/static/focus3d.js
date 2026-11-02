@@ -1,5 +1,5 @@
 // "Focus" in the 3D tab: one part of the brain on its own (the prefrontal, parietal,
-// cingulate or temporal cortex, the last with the medial temporal lobe), as see-through
+// cingulate, temporal cortex with the medial temporal lobe, occipital), as see-through
 // structures with solid outlines, the slice viewer's results painted onto them.
 //
 // Its own NiiVue instance on its own canvas, holding meshes only, so the camera frames
@@ -213,6 +213,33 @@ export const FOCI = {
           ds(21, "Fusiform gyrus", C.lime),
           ds(61, "Lateral occipito-temporal sulcus", C.violet)),
         ...MTL_FINE,
+      ] },
+    },
+  },
+  // The temporo-occipital fusiform cortex is in the temporal focus.
+  occipital: {
+    label: "Occipital", view: [20, 15],
+    levels: {
+      coarse: { label: "Structures", groups: [
+        g("Medial occipital",
+          ho(24, "Intracalcarine cortex", C.violet),
+          ho(47, "Supracalcarine cortex", C.pink),
+          ho(32, "Cuneus", C.cyan),
+          ho(36, "Lingual gyrus", C.gold)),
+        g("Lateral occipital",
+          ho(22, "Lateral occipital cortex, superior", C.blue),
+          ho(23, "Lateral occipital cortex, inferior", C.green)),
+        g("Ventral occipital", ho(40, "Occipital fusiform gyrus", C.orange)),
+        g("Occipital pole", ho(48, "Occipital pole", C.silver)),
+      ] },
+      fine: { label: "Visual areas", title: "Juelich visual areas (2 mm maximum-probability maps)", groups: [
+        g("Early visual cortex",
+          { atlas: "juelich", value: 48, name: "V1 (BA17)", color: C.violet },
+          { atlas: "juelich", value: 49, name: "V2 (BA18)", color: C.cyan }),
+        g("Ventral visual",
+          { atlas: "juelich", value: 50, name: "V3v", color: C.gold },
+          { atlas: "juelich", value: 51, name: "V4", color: C.orange }),
+        g("Motion", { atlas: "juelich", value: 52, name: "V5 / MT+", color: C.green }),
       ] },
     },
   },

@@ -3,6 +3,13 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.19.5 (2026-11-02)
+- **Focus: Occipital** (Focus ▾): structures (Harvard-Oxford) in medial occipital
+  (intra- and supracalcarine cortex, cuneus, lingual gyrus), lateral occipital (LOC
+  superior, inferior), ventral occipital (occipital fusiform gyrus) and occipital pole
+  groups; or **Visual areas** (Juelich): early visual cortex (V1, V2), ventral visual
+  (V3v, V4) and motion (V5 / MT+).
+
 ## 0.19.4 (2026-11-02)
 - **Focus: MTL is now part of Focus: Temporal**: the temporal focus gains three groups,
   hippocampus (hippocampal formation), parahippocampal region and amygdala, after the
