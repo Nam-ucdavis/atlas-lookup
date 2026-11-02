@@ -69,7 +69,7 @@ atlaslookup
 Use `--port` to run on another port, e.g. `lookup serve --port 8770 --open`.
 
 The app opens in your browser at http://127.0.0.1:8765. The first run
-downloads the atlases (about 40 MB, one time). If the app is already running,
+downloads the atlases (about 100 MB, one time). If the app is already running,
 the command just opens the browser. Stop it with Ctrl+C.
 
 Your data lives in `~/.atlaslookup`; set `ATLASLOOKUP_HOME` to use another

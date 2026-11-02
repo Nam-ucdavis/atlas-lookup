@@ -23,7 +23,7 @@ Steps:
      - macOS/Linux: `.venv/bin/...`
      - Windows: `.venv\Scripts\...`
 
-4. Download the atlases with `atlaslookup setup` (about 40 MB, one time, saved in ~/.atlaslookup). If a download fails, show me the error and retry once.
+4. Download the atlases with `atlaslookup setup` (about 100 MB, one time, saved in ~/.atlaslookup). If a download fails, show me the error and retry once.
 
 5. Start it and show me it works:
    - Run `atlaslookup serve --port 8765` in the background. If port 8765 is busy, use the next free port.

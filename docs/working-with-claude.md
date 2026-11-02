@@ -26,7 +26,7 @@ What makes this work:
    ```bash
    git clone https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup
    python -m venv .venv && .venv/bin/pip install -e ".[test]"
-   .venv/bin/atlaslookup setup        # downloads the atlases (~40 MB, one time)
+   .venv/bin/atlaslookup setup        # downloads the atlases (~100 MB, one time)
    ```
 3. **Start Claude in the folder:**
    ```bash
