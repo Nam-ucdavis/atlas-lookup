@@ -581,7 +581,7 @@ def test_viewer3d_is_wired():
                "v3FocusBar", "fcLevel", "fcHemi", "fcColors", "fcFill", "gl3f", "fcLegend", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
         assert re.search(rf'id="{el}"', html), el
     assert 'from "/static/sidepanel.js"' in html and 'from "/static/tracts.js"' in html
-    assert 'from "/static/focus3d.js"' in html and 'data-focus="mtl"' in html and 'data-focus="pfc"' in html
+    assert 'from "/static/focus3d.js"' in html and 'data-focus="mtl"' not in html and 'data-focus="pfc"' in html
     assert all(f'data-focus="{f}"' in html for f in ("parietal", "cingulate", "temporal"))
     # Page-layout rules must not hit the side panel (also an <aside>).
     assert "aside { display: contents" not in html.replace("main > aside { display: contents", "")
@@ -676,8 +676,10 @@ def test_focus_helpers():
     static = Path(atlaslookup.__file__).parent / "static"
     out = _node(f"""
       import {{ focusParts, smoothMesh, structurePeaks }} from {str(static / "focus3d.js")!r};
-      const both = focusParts("mtl", "coarse", "both").map((p) => p.key);
-      const left = focusParts("mtl", "fine", "L").map((p) => p.name);
+      // The MTL is the last three groups of the temporal focus.
+      const mtl = (level, hemi) => focusParts("temporal", level, hemi).filter((p) => p.group >= 5);
+      const both = mtl("coarse", "both").map((p) => p.key);
+      const left = mtl("fine", "L").map((p) => p.name);
       const pfc = focusParts("pfc", "coarse", "R");
       const mpfc = pfc.map((p) => p.key), groups = pfc.map((p) => p.group);
       const gyri = focusParts("pfc", "fine", "R").map((p) => p.key);
@@ -708,15 +710,16 @@ def test_focus_helpers():
     r = json.loads(out)
     assert r["both"][:2] == ["harvard-oxford-sub|9|B", "harvard-oxford-sub|19|B"]
     assert "juelich|11|L" in r["both"] and "juelich|11|R" in r["both"] and len(r["both"]) == 10
-    assert r["left"][:3] == ["Cornu ammonis (CA)", "Dentate gyrus", "Subiculum"] and len(r["left"]) == 8
+    assert r["left"][:3] == ["Cornu ammonis (CA)", "Dentate gyrus", "Subiculum"] and len(r["left"]) == 10
     assert r["mpfc"][0] == "harvard-oxford-cort|25|R" and "harvard-oxford-cort|1|R" in r["mpfc"]
     assert "harvard-oxford-cort|3|R|ax<=20;y>=10" in r["mpfc"] and "harvard-oxford-cort|3|R|ax>20;y>=10" in r["mpfc"]
     assert r["groups"] == sorted(r["groups"]) and r["groups"][-1] == 5  # six groups, in order
     assert r["gyri"][0] == "destrieux2009|106|B" and "destrieux2009|90|B|y>=10" in r["gyri"]
-    # Temporal leaves out the MTL: no parahippocampal gyrus (HO 34/35, Destrieux 23), no
-    # collateral sulcus (Destrieux 62), nothing from the subcortical atlas.
-    assert not {"harvard-oxford-cort|34|L", "harvard-oxford-cort|35|L", "destrieux2009|23|B", "destrieux2009|62|B"} & set(r["temporal"])
-    assert "harvard-oxford-cort|8|L" in r["temporal"] and not any("harvard-oxford-sub" in k for k in r["temporal"])
+    # Temporal includes the MTL: parahippocampal gyrus (HO 34/35, Destrieux 23), collateral
+    # sulcus (Destrieux 62), hippocampus and amygdala.
+    assert {"harvard-oxford-cort|34|L", "harvard-oxford-cort|35|L", "destrieux2009|23|B", "destrieux2009|62|B",
+            "harvard-oxford-sub|9|B", "juelich|9|L"} <= set(r["temporal"])
+    assert "harvard-oxford-cort|8|L" in r["temporal"]
     assert r["cing"][:2] == ["destrieux2009|6|B", "destrieux2009|32|B"] and "destrieux2009|10|B" in r["cing"]
     assert r["par"] == sorted(r["par"]) and r["par"][-1] == 3  # four parietal groups
     mean0, sd0, mean1, sd1 = r["r"]

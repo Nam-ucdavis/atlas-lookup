@@ -140,7 +140,7 @@
   .v3-menu button:hover, .v3-menu button:focus-visible { background: var(--accent-soft); outline: none; }
   .v3-menu button span { display: block; color: var(--muted); font-size: 12px; }
   .v3-menu button.on b::after { content: " ✓"; color: var(--accent); }
-  /* Focus: MTL legend, over the right of the 3D canvas */
+  /* Focus legend, over the right of the 3D canvas */
   .fc-legend { position: absolute; top: 8px; right: 8px; bottom: 8px; width: 270px; overflow-y: auto;
     background: rgba(20, 20, 19, .82); border: 1px solid #333; border-radius: 8px; padding: 6px 8px; color: #e6e5e0; font-size: 12px; }
   .fc-legend[hidden] { display: none; }
@@ -562,11 +562,10 @@
             title="Look at one part of the brain on its own">Focus <span class="caret" aria-hidden="true">▾</span></button>
         </div>
         <div class="v3-menu" id="v3FocusMenu" role="menu" aria-label="Focus on" hidden>
-          <button type="button" role="menuitem" data-focus="mtl"><b>MTL</b> <span>medial temporal lobe: hippocampus, amygdala, entorhinal and parahippocampal cortex</span></button>
           <button type="button" role="menuitem" data-focus="pfc"><b>PFC</b> <span>prefrontal cortex: ventromedial, dorsomedial &amp; ACC, orbitofrontal, dorsolateral, ventrolateral, frontopolar</span></button>
           <button type="button" role="menuitem" data-focus="parietal"><b>Parietal</b> <span>superior and inferior parietal lobules, precuneus, postcentral gyrus and parietal operculum</span></button>
           <button type="button" role="menuitem" data-focus="cingulate"><b>Cingulate</b> <span>anterior, mid- and posterior cingulate, retrosplenial cortex</span></button>
-          <button type="button" role="menuitem" data-focus="temporal"><b>Temporal</b> <span>lateral and ventral temporal cortex (the MTL is its own focus): pole, superior, middle, inferior temporal, fusiform</span></button>
+          <button type="button" role="menuitem" data-focus="temporal"><b>Temporal</b> <span>temporal cortex with the MTL: pole, superior, middle, inferior temporal, fusiform, hippocampus, amygdala, parahippocampal region</span></button>
         </div>
         </span>
         <span class="v3-mode" id="v3Whole">
@@ -588,7 +587,7 @@
           <output id="v3BrainOut" for="v3Brain">0%</output></label>
         </span>
         <span class="v3-mode" id="v3FocusBar" hidden>
-          <span class="seg" id="fcLevel" role="group" aria-label="MTL detail">
+          <span class="seg" id="fcLevel" role="group" aria-label="Focus detail">
             <button type="button" data-v="coarse" class="on">Structures</button>
             <button type="button" data-v="fine">Detail</button>
           </span>
@@ -834,7 +833,7 @@ async function initViewer() {
     barHost: (e) => e.key.startsWith("stat:") ? [...$("statList").querySelectorAll(".sl-bars")].find((el) => el.dataset.map === e.key.slice(5)) : null,
   });
   initDrop();
-  // Focus: MTL, a second 3D scene in the same panel (switched by the 3D view).
+  // Focus, a second 3D scene in the same panel (switched by the 3D view).
   const focus = createFocusView({
     Niivue, NVImage, canvas: $("gl3f"), legend: $("fcLegend"), store, esc, setHint: flashHint,
     controls: { bar: $("v3FocusBar"), level: $("fcLevel"), hemi: $("fcHemi"), colors: $("fcColors"), fill: $("fcFill") },

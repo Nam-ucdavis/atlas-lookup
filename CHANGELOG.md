@@ -3,6 +3,14 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.19.4 (2026-11-02)
+- **Focus: MTL is now part of Focus: Temporal**: the temporal focus gains three groups,
+  hippocampus (hippocampal formation), parahippocampal region and amygdala, after the
+  lateral and ventral temporal ones. Its fine level, **Gyri & subfields**, has the
+  Juelich subfields plus the Destrieux parahippocampal gyrus and collateral sulcus
+  (perirhinal cortex). Untick or fold the lateral groups to see the MTL alone.
+- A saved Focus: MTL opens as Focus: Temporal, at the level it had.
+
 ## 0.19.3 (2026-11-02)
 - **Focus: Parietal, Cingulate, Temporal** (Focus ▾), like Focus: PFC, each with a
   Harvard-Oxford and a Destrieux level, in groups:

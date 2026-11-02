@@ -148,16 +148,11 @@ straight away.
     downloads fsaverage6 from OSF through nilearn (~8 MB).
   - fsaverage lines up with MNI152 only to within a few mm, and values come from the
     volume: this is for looking, not a surface-based analysis.
-- **Focus ▾ → MTL:** the medial temporal lobe on its own, zoomed in and rotating
-  around it. Each structure is a faint tint with a solid outline in its own colour,
+- **Focus ▾:** one part of the brain on its own (PFC, Parietal, Cingulate, Temporal),
+  zoomed in and rotating around it. Each structure is a faint tint with a solid outline in its own colour,
   and your results are painted on (the strongest value up to 3 mm inside it).
-  - **Structures:** hippocampus, amygdala (Harvard-Oxford), entorhinal cortex
-    (Juelich), anterior parahippocampal gyrus (≈ perirhinal + entorhinal cortex) and
-    posterior parahippocampal gyrus (≈ parahippocampal cortex).
-  - **Subfields:** Juelich cornu ammonis, dentate gyrus, subiculum, entorhinal cortex,
-    hippocampal-amygdaloid transition area and three amygdala groups. These are 2 mm
-    maximum-probability maps, so they are coarse, and some sit inside others (lower
-    **Fill** or untick CA to see the dentate gyrus).
+  - Each focus has a coarse level (**Structures**, mostly Harvard-Oxford) and a fine
+    one (**Gyri & sulci**, Destrieux), in groups (tables below).
   - **Both / Left / Right**, **Hue / Gray** (Gray draws every structure in one grey,
     so only the results are in colour; remembered for every focus), **Fill** (how
     see-through each structure is), and the usual L R A P S I views.
@@ -165,7 +160,7 @@ straight away.
     its whole volume (of the front-most map on the slices) and how many mm³ pass that
     map's threshold. Click a peak, or a structure, to look the point up.
   - Pick another style (Surface, Glass, Mesh, Inflated) to leave focus.
-- **Focus ▾ → PFC:** the prefrontal cortex, the same way, in six groups:
+- **Focus ▾ → PFC:** the prefrontal cortex, in six groups:
 
   | Group | Structures (Harvard-Oxford) | Gyri & sulci (Destrieux) |
   |---|---|---|
@@ -179,7 +174,7 @@ straight away.
   The superior and middle frontal gyri (and frontal sulci) stop at y = +10 mm, leaving
   out premotor cortex; the superior frontal gyrus is split at |x| = 20 mm into its
   medial and lateral parts.
-- **Focus ▾ → Parietal, Cingulate, Temporal:** the same, for
+- **Focus ▾ → Parietal, Cingulate, Temporal:**
 
   | Focus | Group | Structures (Harvard-Oxford) | Gyri & sulci (Destrieux) |
   |---|---|---|---|
@@ -196,13 +191,17 @@ straight away.
   | | Middle temporal | MTG (anterior, posterior, temporo-occipital) | MTG, inferior temporal sulcus |
   | | Inferior temporal | ITG (anterior, posterior, temporo-occipital) | ITG |
   | | Ventral temporal | temporal fusiform (anterior, posterior), temporo-occipital fusiform | fusiform gyrus, lateral occipito-temporal sulcus |
+  | | Hippocampus / hippocampal formation | hippocampus | Juelich cornu ammonis, dentate gyrus, subiculum, hippocampal-amygdaloid transition area |
+  | | Parahippocampal region | Juelich entorhinal cortex, anterior parahippocampal gyrus (≈ perirhinal + entorhinal), posterior parahippocampal gyrus (≈ PHC) | Juelich entorhinal cortex, parahippocampal gyrus, collateral sulcus (perirhinal cortex) |
+  | | Amygdala | amygdala | Juelich centromedial, laterobasal, superficial groups |
 
-  Temporal leaves out the MTL (hippocampus, amygdala, parahippocampal gyrus,
-  collateral sulcus): that is Focus: MTL. Hiding a structure hides it in every focus
+  Temporal's fine level is **Gyri & subfields**: the Juelich hippocampal and amygdala
+  maps are 2 mm maximum-probability maps, so they are coarse, and some sit inside
+  others (lower **Fill** or untick CA to see the dentate gyrus). For the MTL alone,
+  untick the lateral groups, or fold them. Hiding a structure hides it in every focus
   that has it (the ACC in PFC and Cingulate, say).
-- **Groups (every focus):** the legend lists structures under their group (the MTL's
-  are hippocampus / hippocampal formation, amygdala, parahippocampal region / entorhinal
-  cortex). Tick a group to show or hide all of it, or single structures within it (the
+- **Groups (every focus):** the legend lists structures under their group (the tables
+  above). Tick a group to show or hide all of it, or single structures within it (the
   group's box is half-ticked when only some show); ▾ folds a group. A group's row shows
   its strongest values and total mm³ past the threshold.
 - **Regions…** opens the side panel's Regions tab to pick regions from any atlas. Search by name

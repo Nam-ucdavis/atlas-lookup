@@ -163,9 +163,10 @@ const samplerOf = (vol) => volumeSampler({
 // --- the view ------------------------------------------------------------------------
 
 export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, controls, crosshairToggle, setHint, onPick, focus }) {
-  // "Focus: MTL" swaps this whole-brain scene for focus3d.js's, in the same panel.
+  // Focus (PFC, Temporal, ...) swaps this whole-brain scene for focus3d.js's, in the same panel.
   let focusId = store.get("view3dFocus", "");  // "" = whole brain, else a focus3d FOCI key
   if (focusId === "mpfc") focusId = "pfc";  // 0.19.1's medial PFC grew into the PFC
+  if (focusId === "mtl") focusId = "temporal";  // 0.19.4 merged the MTL into the temporal focus
   if (focusId && !focus?.label(focusId)) focusId = "";
   let focused = !!focusId;
   let nv3 = null, ready = null, mesh = null, normals = null, active = false;
@@ -400,7 +401,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   };
 
   // Focus sits with the styles: its button opens a menu of what to focus on, and once
-  // one is picked reads "Focus: MTL". Picking another style leaves focus.
+  // one is picked reads "Focus: Temporal". Picking another style leaves focus.
   function showFocusMode() {
     for (const b of controls.style.querySelectorAll("button")) {
       b.classList.toggle("on", focused ? b.dataset.style === "focus" : b.dataset.style === style);

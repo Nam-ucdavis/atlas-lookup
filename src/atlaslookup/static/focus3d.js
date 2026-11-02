@@ -1,6 +1,6 @@
-// "Focus" in the 3D tab: one part of the brain on its own (the medial temporal lobe,
-// the prefrontal, parietal, cingulate or temporal cortex), as see-through structures with solid outlines, the
-// slice viewer's results painted onto them.
+// "Focus" in the 3D tab: one part of the brain on its own (the prefrontal, parietal,
+// cingulate or temporal cortex, the last with the medial temporal lobe), as see-through
+// structures with solid outlines, the slice viewer's results painted onto them.
 //
 // Its own NiiVue instance on its own canvas, holding meshes only, so the camera frames
 // and rotates around the structures rather than the whole template. Structures come
@@ -32,32 +32,32 @@ const PFC = "y>=10", SFG_MEDIAL = "ax<=20;y>=10", SFG_LATERAL = "ax>20;y>=10";
 const g = (name, ...parts) => ({ name, parts });
 const ho = (value, name, color, clip) => ({ atlas: "harvard-oxford-cort", value, name, color, clip });
 const ds = (value, name, color, clip) => ({ atlas: "destrieux2009", value, right: value + 75, name, color, clip });
+// The medial temporal lobe, part of the temporal focus: structures, or Juelich subfields
+// (2 mm maximum-probability maps, so coarse, and some sit inside others).
+const MTL_COARSE = [
+  g("Hippocampus", { atlas: "harvard-oxford-sub", value: 9, right: 19, name: "Hippocampus", color: C.violet }),
+  g("Amygdala", { atlas: "harvard-oxford-sub", value: 10, right: 20, name: "Amygdala", color: C.orange }),
+  g("Parahippocampal region",
+    { atlas: "juelich", value: 11, name: "Entorhinal cortex", color: C.green },
+    ho(34, "Anterior parahippocampal gyrus", C.gold),
+    ho(35, "Posterior parahippocampal gyrus (PHC)", C.cyan)),
+];
+const MTL_FINE = [
+  g("Hippocampal formation",
+    { atlas: "juelich", value: 9, name: "Cornu ammonis (CA)", color: C.violet },
+    { atlas: "juelich", value: 10, name: "Dentate gyrus", color: C.gold },
+    { atlas: "juelich", value: 13, name: "Subiculum", color: C.cyan },
+    { atlas: "juelich", value: 12, name: "Hippocampal-amygdaloid transition area", color: C.pink }),
+  g("Parahippocampal region",
+    { atlas: "juelich", value: 11, name: "Entorhinal cortex", color: C.green },
+    ds(23, "Parahippocampal gyrus", C.gold),
+    ds(62, "Collateral sulcus (perirhinal cortex)", C.blue)),
+  g("Amygdala",
+    { atlas: "juelich", value: 1, name: "Amygdala, centromedial", color: C.orange },
+    { atlas: "juelich", value: 2, name: "Amygdala, laterobasal", color: C.brick },
+    { atlas: "juelich", value: 3, name: "Amygdala, superficial", color: C.tan }),
+];
 export const FOCI = {
-  mtl: {
-    label: "MTL", view: [110, 20],
-    levels: {
-      coarse: { label: "Structures", groups: [
-        g("Hippocampus", { atlas: "harvard-oxford-sub", value: 9, right: 19, name: "Hippocampus", color: C.violet }),
-        g("Amygdala", { atlas: "harvard-oxford-sub", value: 10, right: 20, name: "Amygdala", color: C.orange }),
-        g("Parahippocampal region",
-          { atlas: "juelich", value: 11, name: "Entorhinal cortex", color: C.green },
-          ho(34, "Anterior parahippocampal gyrus", C.gold),
-          ho(35, "Posterior parahippocampal gyrus (PHC)", C.cyan)),
-      ] },
-      fine: { label: "Subfields", title: "Juelich hippocampal subfields and amygdala groups (coarse, 2 mm)", groups: [
-        g("Hippocampal formation",
-          { atlas: "juelich", value: 9, name: "Cornu ammonis (CA)", color: C.violet },
-          { atlas: "juelich", value: 10, name: "Dentate gyrus", color: C.gold },
-          { atlas: "juelich", value: 13, name: "Subiculum", color: C.cyan },
-          { atlas: "juelich", value: 12, name: "Hippocampal-amygdaloid transition area", color: C.pink }),
-        g("Entorhinal cortex", { atlas: "juelich", value: 11, name: "Entorhinal cortex", color: C.green }),
-        g("Amygdala",
-          { atlas: "juelich", value: 1, name: "Amygdala, centromedial", color: C.orange },
-          { atlas: "juelich", value: 2, name: "Amygdala, laterobasal", color: C.brick },
-          { atlas: "juelich", value: 3, name: "Amygdala, superficial", color: C.tan }),
-      ] },
-    },
-  },
   pfc: {
     label: "PFC", view: [150, 15],
     levels: {
@@ -170,15 +170,14 @@ export const FOCI = {
       ] },
     },
   },
-  // Lateral and ventral temporal cortex; the MTL (hippocampus, amygdala, parahippocampal
-  // gyrus, collateral sulcus) is its own focus.
+  // Lateral, ventral and medial temporal cortex.
   temporal: {
-    label: "Temporal", view: [100, 5],
+    label: "Temporal", view: [110, 10],
     levels: {
       coarse: { label: "Structures", groups: [
-        g("Temporal pole", ho(8, "Temporal pole", C.violet)),
+        g("Temporal pole", ho(8, "Temporal pole", C.silver)),
         g("Superior temporal",
-          ho(9, "Superior temporal gyrus, anterior", C.orange),
+          ho(9, "Superior temporal gyrus, anterior", C.lime),
           ho(10, "Superior temporal gyrus, posterior", C.gold),
           ho(44, "Planum polare", C.tan),
           ho(45, "Heschl's gyrus", C.brick),
@@ -195,11 +194,12 @@ export const FOCI = {
           ho(37, "Temporal fusiform cortex, anterior", C.pink),
           ho(38, "Temporal fusiform cortex, posterior", C.violet),
           ho(39, "Temporo-occipital fusiform cortex", C.gold)),
+        ...MTL_COARSE,
       ] },
-      fine: { label: "Gyri & sulci", title: "Destrieux gyri and sulci", groups: [
-        g("Temporal pole", ds(44, "Temporal pole", C.violet)),
+      fine: { label: "Gyri & subfields", title: "Destrieux gyri and sulci; Juelich hippocampal subfields and amygdala groups (MTL)", groups: [
+        g("Temporal pole", ds(44, "Temporal pole", C.silver)),
         g("Superior temporal",
-          ds(34, "Superior temporal gyrus, lateral", C.orange),
+          ds(34, "Superior temporal gyrus, lateral", C.lime),
           ds(35, "Planum polare", C.tan),
           ds(33, "Heschl's gyrus", C.brick),
           ds(75, "Transverse temporal sulcus", C.silver),
@@ -212,6 +212,7 @@ export const FOCI = {
         g("Ventral temporal (fusiform)",
           ds(21, "Fusiform gyrus", C.lime),
           ds(61, "Lateral occipito-temporal sulcus", C.violet)),
+        ...MTL_FINE,
       ] },
     },
   },
@@ -327,8 +328,9 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
   let nv = null, ready = null, active = false, drawNow = null;
   let focus = null;  // which of FOCI is shown
   // Level per focus; hemispheres, fill, colours and hidden structures shared by all.
-  // (0.19.0 kept the MTL's under mtl* keys.)
-  const levelOf = (f) => store.get(`focusLevel:${f}`, f === "mtl" && store.get("mtlLevel", "") === "subfields" ? "fine" : "coarse");
+  // (0.19.0 kept the MTL's under mtl* keys; 0.19.4 merged the MTL into the temporal focus.)
+  const levelOf = (f) => store.get(`focusLevel:${f}`, f === "temporal" &&
+    (store.get("focusLevel:mtl", "") === "fine" || store.get("mtlLevel", "") === "subfields") ? "fine" : "coarse");
   let level = "coarse", hemi = store.get("focusHemi", store.get("mtlHemi", "both"));
   let fill = store.get("focusFill", store.get("mtlFill", 0.18));
   let gray = store.get("focusGray", false);
