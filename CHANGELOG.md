@@ -3,6 +3,13 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.19.9 (2026-11-02)
+- **One set of structures per focus**: the level buttons (Structures / Gyri & sulci,
+  Visual areas) and the MTL structures / subfields switch are gone. Every focus shows
+  its Harvard-Oxford structures; Focus: Temporal's MTL is the Juelich subfields (CA,
+  dentate gyrus, subiculum, HATA, entorhinal cortex, amygdala groups) with the Destrieux
+  parahippocampal gyrus and collateral sulcus.
+
 ## 0.19.8 (2026-11-02)
 - **MTL detail of its own in Focus: Temporal**: an **MTL structures / MTL subfields**
   switch (shown only in Temporal) picks the MTL's level separately from the lateral

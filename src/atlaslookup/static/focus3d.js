@@ -25,24 +25,17 @@ const C = {
 // Cuts (see regions.parse_clip): PFC ends at y = +10 mm (premotor cortex behind it), and
 // the superior frontal gyrus is split at |x| = 20 mm into its medial and lateral parts.
 const PFC = "y>=10", SFG_MEDIAL = "ax<=20;y>=10", SFG_LATERAL = "ax>20;y>=10";
-// Each focus: two levels of detail (coarse, fine), each a list of groups of structures,
+// Each focus: a camera view and a list of groups of structures,
 // { name, parts: [{ atlas, value, right?, name, color, clip? }] }. With `right`, the atlas
 // has one region per hemisphere already (value = left, right = right); otherwise the
 // region is split at the midline. clip cuts the region (see regions.parse_clip).
 const g = (name, ...parts) => ({ name, parts });
 const ho = (value, name, color, clip) => ({ atlas: "harvard-oxford-cort", value, name, color, clip });
 const ds = (value, name, color, clip) => ({ atlas: "destrieux2009", value, right: value + 75, name, color, clip });
-// The medial temporal lobe, part of the temporal focus: structures, or Juelich subfields
-// (2 mm maximum-probability maps, so coarse, and some sit inside others).
-const MTL_COARSE = [
-  g("Hippocampus", { atlas: "harvard-oxford-sub", value: 9, right: 19, name: "Hippocampus", color: C.violet }),
-  g("Amygdala", { atlas: "harvard-oxford-sub", value: 10, right: 20, name: "Amygdala", color: C.orange }),
-  g("Parahippocampal region",
-    { atlas: "juelich", value: 11, name: "Entorhinal cortex", color: C.green },
-    ho(34, "Anterior parahippocampal gyrus", C.gold),
-    ho(35, "Posterior parahippocampal gyrus (PHC)", C.cyan)),
-];
-const MTL_FINE = [
+// The medial temporal lobe, part of the temporal focus: Juelich subfields (2 mm
+// maximum-probability maps, so coarse, and some sit inside others) with the Destrieux
+// parahippocampal gyrus and collateral sulcus.
+const MTL = [
   g("Hippocampal formation",
     { atlas: "juelich", value: 9, name: "Cornu ammonis (CA)", color: C.violet },
     { atlas: "juelich", value: 10, name: "Dentate gyrus", color: C.gold },
@@ -60,207 +53,103 @@ const MTL_FINE = [
 export const FOCI = {
   pfc: {
     label: "PFC", view: [150, 15],
-    levels: {
-      coarse: { label: "Structures", groups: [
-        g("Ventromedial PFC",
-          ho(25, "Frontal medial cortex", C.violet),
-          ho(27, "Subcallosal cortex (subgenual ACC)", C.pink)),
-        g("Dorsomedial PFC & ACC",
-          ho(29, "Anterior cingulate gyrus", C.cyan),
-          ho(28, "Paracingulate gyrus", C.green),
-          ho(3, "Superior frontal gyrus, medial part", C.orange, SFG_MEDIAL)),
-        g("Orbitofrontal (lateral / central)",
-          ho(33, "Frontal orbital cortex", C.brick)),
-        g("Dorsolateral PFC",
-          ho(4, "Middle frontal gyrus", C.blue, PFC),
-          ho(3, "Superior frontal gyrus, lateral part", C.tan, SFG_LATERAL)),
-        g("Ventrolateral PFC",
-          ho(5, "Inferior frontal gyrus, pars triangularis", C.gold),
-          ho(6, "Inferior frontal gyrus, pars opercularis", C.lime),
-          ho(41, "Frontal operculum", C.pink)),
-        g("Frontopolar",
-          ho(1, "Frontal pole", C.silver)),
-      ] },
-      fine: { label: "Gyri & sulci", title: "Destrieux gyri and sulci", groups: [
-        g("Ventromedial PFC",
-          ds(31, "Gyrus rectus", C.violet),
-          ds(64, "Medial orbital (olfactory) sulcus", C.blue),
-          ds(71, "Suborbital sulcus", C.tan),
-          ds(32, "Subcallosal gyrus", C.pink)),
-        g("Dorsomedial PFC & ACC",
-          ds(6, "Anterior cingulate gyrus and sulcus", C.cyan),
-          ds(16, "Superior frontal gyrus, medial part", C.orange, SFG_MEDIAL)),
-        g("Orbitofrontal (lateral / central)",
-          ds(24, "Orbital gyri", C.brick),
-          ds(63, "Lateral orbital sulcus", C.gold),
-          ds(65, "H-shaped orbital sulci", C.green)),
-        g("Dorsolateral PFC",
-          ds(15, "Middle frontal gyrus", C.blue, PFC),
-          ds(16, "Superior frontal gyrus, lateral part", C.tan, SFG_LATERAL),
-          ds(55, "Superior frontal sulcus", C.lime, PFC),
-          ds(54, "Middle frontal sulcus", C.pink, PFC),
-          ds(53, "Inferior frontal sulcus", C.green, PFC)),
-        g("Ventrolateral PFC",
-          ds(14, "Inferior frontal gyrus, triangular part", C.gold),
-          ds(12, "Inferior frontal gyrus, opercular part", C.lime),
-          ds(13, "Inferior frontal gyrus, orbital part", C.brick)),
-        g("Frontopolar",
-          ds(5, "Transverse frontopolar gyri and sulci", C.silver),
-          ds(1, "Fronto-marginal gyrus and sulcus", C.violet)),
-      ] },
-    },
+    groups: [
+      g("Ventromedial PFC",
+        ho(25, "Frontal medial cortex", C.violet),
+        ho(27, "Subcallosal cortex (subgenual ACC)", C.pink)),
+      g("Dorsomedial PFC & ACC",
+        ho(29, "Anterior cingulate gyrus", C.cyan),
+        ho(28, "Paracingulate gyrus", C.green),
+        ho(3, "Superior frontal gyrus, medial part", C.orange, SFG_MEDIAL)),
+      g("Orbitofrontal (lateral / central)",
+        ho(33, "Frontal orbital cortex", C.brick)),
+      g("Dorsolateral PFC",
+        ho(4, "Middle frontal gyrus", C.blue, PFC),
+        ho(3, "Superior frontal gyrus, lateral part", C.tan, SFG_LATERAL)),
+      g("Ventrolateral PFC",
+        ho(5, "Inferior frontal gyrus, pars triangularis", C.gold),
+        ho(6, "Inferior frontal gyrus, pars opercularis", C.lime),
+        ho(41, "Frontal operculum", C.pink)),
+      g("Frontopolar",
+        ho(1, "Frontal pole", C.silver)),
+    ],
   },
   parietal: {
     label: "Parietal", view: [45, 30],
-    levels: {
-      coarse: { label: "Structures", groups: [
-        g("Superior parietal", ho(18, "Superior parietal lobule", C.blue)),
-        g("Inferior parietal",
-          ho(19, "Supramarginal gyrus, anterior", C.orange),
-          ho(20, "Supramarginal gyrus, posterior", C.gold),
-          ho(21, "Angular gyrus", C.green)),
-        g("Medial parietal", ho(31, "Precuneus", C.violet)),
-        g("Somatosensory",
-          ho(17, "Postcentral gyrus", C.cyan),
-          ho(43, "Parietal operculum", C.pink)),
-      ] },
-      fine: { label: "Gyri & sulci", title: "Destrieux gyri and sulci", groups: [
-        g("Superior parietal",
-          ds(27, "Superior parietal lobule", C.blue),
-          ds(57, "Intraparietal sulcus", C.lime)),
-        g("Inferior parietal",
-          ds(26, "Supramarginal gyrus", C.orange),
-          ds(56, "Sulcus intermedius primus (Jensen)", C.tan),
-          ds(25, "Angular gyrus", C.green)),
-        g("Medial parietal",
-          ds(30, "Precuneus", C.violet),
-          ds(72, "Subparietal sulcus", C.silver),
-          ds(47, "Cingulate sulcus, marginal branch", C.brick)),
-        g("Somatosensory",
-          ds(28, "Postcentral gyrus", C.cyan),
-          ds(68, "Postcentral sulcus", C.pink)),
-      ] },
-    },
+    groups: [
+      g("Superior parietal", ho(18, "Superior parietal lobule", C.blue)),
+      g("Inferior parietal",
+        ho(19, "Supramarginal gyrus, anterior", C.orange),
+        ho(20, "Supramarginal gyrus, posterior", C.gold),
+        ho(21, "Angular gyrus", C.green)),
+      g("Medial parietal", ho(31, "Precuneus", C.violet)),
+      g("Somatosensory",
+        ho(17, "Postcentral gyrus", C.cyan),
+        ho(43, "Parietal operculum", C.pink)),
+    ],
   },
   cingulate: {
     label: "Cingulate", view: [70, 20],
-    levels: {
-      coarse: { label: "Structures", groups: [
-        g("Anterior cingulate",
-          ho(29, "Anterior cingulate gyrus", C.cyan),
-          ho(28, "Paracingulate gyrus", C.green),
-          ho(27, "Subcallosal cortex (subgenual ACC)", C.pink)),
-        g("Posterior cingulate",
-          ho(30, "Posterior cingulate gyrus", C.orange),
-          ds(10, "Retrosplenial cortex (cingulate isthmus)", C.violet)),
-      ] },
-      fine: { label: "Gyri & sulci", title: "Destrieux cingulate divisions", groups: [
-        g("Anterior cingulate",
-          ds(6, "Anterior cingulate (ACC)", C.cyan),
-          ds(32, "Subcallosal gyrus", C.pink)),
-        g("Midcingulate",
-          ds(7, "Anterior midcingulate (aMCC)", C.lime),
-          ds(8, "Posterior midcingulate (pMCC)", C.gold)),
-        g("Posterior cingulate",
-          ds(9, "Dorsal posterior cingulate (dPCC)", C.orange),
-          ds(10, "Ventral posterior cingulate / isthmus (RSC)", C.violet)),
-        g("Sulci",
-          ds(67, "Pericallosal sulcus", C.silver),
-          ds(47, "Cingulate sulcus, marginal branch", C.brick)),
-      ] },
-    },
+    groups: [
+      g("Anterior cingulate",
+        ho(29, "Anterior cingulate gyrus", C.cyan),
+        ho(28, "Paracingulate gyrus", C.green),
+        ho(27, "Subcallosal cortex (subgenual ACC)", C.pink)),
+      g("Posterior cingulate",
+        ho(30, "Posterior cingulate gyrus", C.orange),
+        ds(10, "Retrosplenial cortex (cingulate isthmus)", C.violet)),
+    ],
   },
   // Lateral, ventral and medial temporal cortex.
   temporal: {
     label: "Temporal", view: [110, 10],
-    levels: {
-      coarse: { label: "Structures", groups: [
-        g("Temporal pole", ho(8, "Temporal pole", C.silver)),
-        g("Superior temporal",
-          ho(9, "Superior temporal gyrus, anterior", C.lime),
-          ho(10, "Superior temporal gyrus, posterior", C.gold),
-          ho(44, "Planum polare", C.tan),
-          ho(45, "Heschl's gyrus", C.brick),
-          ho(46, "Planum temporale", C.pink)),
-        g("Middle temporal",
-          ho(11, "Middle temporal gyrus, anterior", C.cyan),
-          ho(12, "Middle temporal gyrus, posterior", C.blue),
-          ho(13, "Middle temporal gyrus, temporo-occipital", C.silver)),
-        g("Inferior temporal",
-          ho(14, "Inferior temporal gyrus, anterior", C.green),
-          ho(15, "Inferior temporal gyrus, posterior", C.lime),
-          ho(16, "Inferior temporal gyrus, temporo-occipital", C.tan)),
-        g("Ventral temporal (fusiform)",
-          ho(37, "Temporal fusiform cortex, anterior", C.pink),
-          ho(38, "Temporal fusiform cortex, posterior", C.violet),
-          ho(39, "Temporo-occipital fusiform cortex", C.gold)),
-      ] },
-      fine: { label: "Gyri & sulci", title: "Destrieux gyri and sulci", groups: [
-        g("Temporal pole", ds(44, "Temporal pole", C.silver)),
-        g("Superior temporal",
-          ds(34, "Superior temporal gyrus, lateral", C.lime),
-          ds(35, "Planum polare", C.tan),
-          ds(33, "Heschl's gyrus", C.brick),
-          ds(75, "Transverse temporal sulcus", C.silver),
-          ds(36, "Planum temporale", C.pink),
-          ds(74, "Superior temporal sulcus", C.gold)),
-        g("Middle temporal",
-          ds(38, "Middle temporal gyrus", C.blue),
-          ds(73, "Inferior temporal sulcus", C.cyan)),
-        g("Inferior temporal", ds(37, "Inferior temporal gyrus", C.green)),
-        g("Ventral temporal (fusiform)",
-          ds(21, "Fusiform gyrus", C.lime),
-          ds(61, "Lateral occipito-temporal sulcus", C.violet)),
-      ] },
-    },
-    // The MTL, after the lateral and ventral groups, with its own level of detail.
-    section: { label: "MTL", levels: {
-      coarse: { label: "MTL structures", groups: MTL_COARSE },
-      fine: { label: "MTL subfields", title: "Juelich hippocampal subfields and amygdala groups (2 mm)", groups: MTL_FINE },
-    } },
+    groups: [
+      g("Temporal pole", ho(8, "Temporal pole", C.silver)),
+      g("Superior temporal",
+        ho(9, "Superior temporal gyrus, anterior", C.lime),
+        ho(10, "Superior temporal gyrus, posterior", C.gold),
+        ho(44, "Planum polare", C.tan),
+        ho(45, "Heschl's gyrus", C.brick),
+        ho(46, "Planum temporale", C.pink)),
+      g("Middle temporal",
+        ho(11, "Middle temporal gyrus, anterior", C.cyan),
+        ho(12, "Middle temporal gyrus, posterior", C.blue),
+        ho(13, "Middle temporal gyrus, temporo-occipital", C.silver)),
+      g("Inferior temporal",
+        ho(14, "Inferior temporal gyrus, anterior", C.green),
+        ho(15, "Inferior temporal gyrus, posterior", C.lime),
+        ho(16, "Inferior temporal gyrus, temporo-occipital", C.tan)),
+      g("Ventral temporal (fusiform)",
+        ho(37, "Temporal fusiform cortex, anterior", C.pink),
+        ho(38, "Temporal fusiform cortex, posterior", C.violet),
+        ho(39, "Temporo-occipital fusiform cortex", C.gold)),
+      ...MTL,
+    ],
   },
   // The temporo-occipital fusiform cortex is in the temporal focus.
   occipital: {
     label: "Occipital", view: [20, 15],
-    levels: {
-      coarse: { label: "Structures", groups: [
-        g("Medial occipital",
-          ho(24, "Intracalcarine cortex", C.violet),
-          ho(47, "Supracalcarine cortex", C.pink),
-          ho(32, "Cuneus", C.cyan),
-          ho(36, "Lingual gyrus", C.gold)),
-        g("Lateral occipital",
-          ho(22, "Lateral occipital cortex, superior", C.blue),
-          ho(23, "Lateral occipital cortex, inferior", C.green)),
-        g("Ventral occipital", ho(40, "Occipital fusiform gyrus", C.orange)),
-        g("Occipital pole", ho(48, "Occipital pole", C.silver)),
-      ] },
-      fine: { label: "Visual areas", title: "Juelich visual areas (2 mm maximum-probability maps)", groups: [
-        g("Early visual cortex",
-          { atlas: "juelich", value: 48, name: "V1 (BA17)", color: C.violet },
-          { atlas: "juelich", value: 49, name: "V2 (BA18)", color: C.cyan }),
-        g("Ventral visual",
-          { atlas: "juelich", value: 50, name: "V3v", color: C.gold },
-          { atlas: "juelich", value: 51, name: "V4", color: C.orange }),
-        g("Motion", { atlas: "juelich", value: 52, name: "V5 / MT+", color: C.green }),
-      ] },
-    },
+    groups: [
+      g("Medial occipital",
+        ho(24, "Intracalcarine cortex", C.violet),
+        ho(47, "Supracalcarine cortex", C.pink),
+        ho(32, "Cuneus", C.cyan),
+        ho(36, "Lingual gyrus", C.gold)),
+      g("Lateral occipital",
+        ho(22, "Lateral occipital cortex, superior", C.blue),
+        ho(23, "Lateral occipital cortex, inferior", C.green)),
+      g("Ventral occipital", ho(40, "Occipital fusiform gyrus", C.orange)),
+      g("Occipital pole", ho(48, "Occipital pole", C.silver)),
+    ],
   },
 };
 
-/** A focus's groups at a level ("coarse" | "fine"), then those of its section (the
- * temporal focus's MTL) at the section's own level. */
-export function focusGroups(focus, level, sectionLevel = "coarse") {
-  const f = FOCI[focus];
-  return [...f.levels[level].groups, ...(f.section?.levels[sectionLevel].groups ?? [])];
-}
-
-/** The structures of a focus to draw for a level and hemisphere ("both" | "L" | "R"),
- * group by group (see focusGroups), with the atlas|value|side[|clip] key the region
- * endpoints take and the index of their group. */
-export function focusParts(focus, level, hemi, sectionLevel = "coarse") {
+/** The structures of a focus to draw for a hemisphere ("both" | "L" | "R"), group by
+ * group, with the atlas|value|side[|clip] key the region endpoints take and the index of
+ * their group. */
+export function focusParts(focus, hemi) {
   const out = [];
-  focusGroups(focus, level, sectionLevel).forEach((grp, gi) => {
+  FOCI[focus].groups.forEach((grp, gi) => {
     for (const { atlas, value, right, name, color, clip } of grp.parts) {
       for (const h of ["L", "R"]) {
         if (hemi !== "both" && hemi !== h) continue;
@@ -404,14 +293,9 @@ const samplerOf = (vol) => volumeSampler({
 export function createFocusView({ Niivue, NVImage, canvas, legend, controls, store, esc, onPick, setHint }) {
   let nv = null, ready = null, active = false, drawNow = null;
   let focus = null;  // which of FOCI is shown
-  // Level per focus; hemispheres, fill, colours and hidden structures shared by all.
-  // (0.19.0 kept the MTL's under mtl* keys; 0.19.4 merged the MTL into the temporal focus.)
-  const levelOf = (f) => store.get(`focusLevel:${f}`, "coarse");
-  // The temporal focus's MTL detail starts as the old Focus: MTL's (or 0.19.4-0.19.7's
-  // temporal level, which carried the MTL subfields).
-  const sectionOf = (f) => store.get(`focusSection:${f}`, f === "temporal" && (store.get("focusLevel:mtl", "") === "fine" ||
-    store.get("mtlLevel", "") === "subfields" || store.get("focusLevel:temporal", "") === "fine") ? "fine" : "coarse");
-  let level = "coarse", sectionLevel = "coarse", hemi = store.get("focusHemi", store.get("mtlHemi", "both"));
+  // Hemispheres, fill, colours and hidden structures are shared by every focus.
+  // (0.19.0 kept the MTL's under mtl* keys.)
+  let hemi = store.get("focusHemi", store.get("mtlHemi", "both"));
   let fill = store.get("focusFill", store.get("mtlFill", 0.18));
   let gray = store.get("focusGray", false);
   const colorOf = (part) => (gray ? GRAY : part.color);
@@ -436,7 +320,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
   async function loadStructures() {
     const mine = ++token;
     legend.innerHTML = `<div class="fc-head">Building structures…</div>`;
-    const list = focusParts(focus, level, hemi, sectionLevel);
+    const list = focusParts(focus, hemi);
     const [built, m] = await Promise.all([
       Promise.all(list.map(async (part) => {
         const r = await fetch(`/api/regions/mesh.gii?sel=${encodeURIComponent(part.key)}`);
@@ -541,7 +425,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
   // Legend: one header per group (tick it to show or hide the whole group, ▸ to fold it,
   // with the group's strongest values) and a row per structure.
   const collapsed = new Set(store.get("focusCollapsed", []));
-  const groupsOf = () => focusGroups(focus, level, sectionLevel);
+  const groupsOf = () => FOCI[focus].groups;
   let peaks = {};
   // recompute = false reuses the last peaks (folding a group, switching colours).
   function renderLegend(recompute = true) {
@@ -617,17 +501,13 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     }
   });
 
-  // Controls: level of detail, hemispheres, colours, fill.
+  // Controls: hemispheres, colours, results, fill.
   function seg(el, value, pick) {
     const mark = (v) => { for (const b of el.querySelectorAll("button")) b.classList.toggle("on", b.dataset.v === v); };
     mark(value);
     el.addEventListener("click", (e) => { const v = e.target.dataset.v; if (v) { mark(v); pick(v); } });
     return mark;
   }
-  const markLevel = seg(controls.level, level, (v) => { level = v; store.set(`focusLevel:${focus}`, v); if (nv) loadStructures(); });
-  const markSection = seg(controls.section, sectionLevel, (v) => {
-    sectionLevel = v; store.set(`focusSection:${focus}`, v); if (nv) loadStructures();
-  });
   seg(controls.hemi, hemi, (v) => { hemi = v; store.set("focusHemi", v); if (nv) loadStructures(); });
   seg(controls.colors, gray ? "gray" : "hue", (v) => {
     gray = v === "gray"; store.set("focusGray", gray);
@@ -694,22 +574,6 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     nv.resizeListener?.();
     if (id !== focus) {
       focus = id;
-      level = FOCI[id].levels[levelOf(id)] ? levelOf(id) : "coarse";
-      for (const b of controls.level.querySelectorAll("button")) {
-        const L = FOCI[id].levels[b.dataset.v];
-        b.textContent = L.label;
-        b.title = L.title ?? "";
-      }
-      markLevel(level);
-      const sec = FOCI[id].section;
-      controls.section.hidden = !sec;
-      sectionLevel = sec ? sectionOf(id) : "coarse";
-      for (const b of controls.section.querySelectorAll("button")) {
-        const L = sec?.levels[b.dataset.v];
-        b.textContent = L?.label ?? "";
-        b.title = L?.title ?? "";
-      }
-      markSection(sectionLevel);
       nv.setRenderAzimuthElevation(...FOCI[id].view);
       await loadStructures();
     } else paint();

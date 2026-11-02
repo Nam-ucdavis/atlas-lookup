@@ -158,6 +158,27 @@ straight away.
   - **Surface**: every map painted on the structures' surfaces instead (the strongest
     value up to 3 mm inside), as before 0.19.6. Deeper results don't show this way,
     which is why Blobs is the default.
+  - Each focus shows one set of structures (Harvard-Oxford; the MTL as Juelich
+    subfields), in groups (tables below).
+  - **Both / Left / Right** shows one hemisphere on its own: view a left hemisphere
+    from **R** to see its medial side.
+  - **Click** the inflated brain to look up that point (its position on the folded
+    cortex); the slice crosshair is shown at the nearest point of the surface.
+  - Tracts and region shapes are hidden here; chosen cortical regions are painted on.
+  - Needs `atlaslookup setup` once (installs from before 0.18 just run it again): it
+    downloads fsaverage6 from OSF through nilearn (~8 MB).
+  - fsaverage lines up with MNI152 only to within a few mm, and values come from the
+    volume: this is for looking, not a surface-based analysis.
+- **Focus ▾:** one part of the brain on its own (PFC, Parietal, Cingulate, Temporal,
+  Occipital),
+  zoomed in and rotating around it. Each structure is a faint tint with a solid outline in its own colour.
+  - **Blobs** (default): the front map's voxels past its threshold, inside the shown
+    structures, drawn as smoothed solid shapes at their real depth (warm for positive,
+    blue for negative, the map's colours painted on). Hiding a structure hides its
+    blobs too.
+  - **Surface**: every map painted on the structures' surfaces instead (the strongest
+    value up to 3 mm inside), as before 0.19.6. Deeper results don't show this way,
+    which is why Blobs is the default.
   - Each focus has a coarse level (**Structures**, mostly Harvard-Oxford) and a fine
     one (**Gyri & sulci**, Destrieux), in groups (tables below).
   - **Both / Left / Right**, **Hue / Gray** (Gray draws every structure in one grey,
@@ -169,50 +190,45 @@ straight away.
   - Pick another style (Surface, Glass, Mesh, Inflated) to leave focus.
 - **Focus ▾ → PFC:** the prefrontal cortex, in six groups:
 
-  | Group | Structures (Harvard-Oxford) | Gyri & sulci (Destrieux) |
-  |---|---|---|
-  | Ventromedial PFC | frontal medial cortex, subcallosal cortex | gyrus rectus, medial orbital and suborbital sulci, subcallosal gyrus |
-  | Dorsomedial PFC & ACC | anterior cingulate, paracingulate, SFG medial part | ACC gyrus and sulcus, SFG medial part |
-  | Orbitofrontal (lateral / central) | frontal orbital cortex | orbital gyri, lateral orbital sulcus, H-shaped orbital sulci |
-  | Dorsolateral PFC | middle frontal gyrus, SFG lateral part | middle frontal gyrus, SFG lateral part, superior / middle / inferior frontal sulci |
-  | Ventrolateral PFC | IFG pars triangularis and opercularis, frontal operculum | IFG triangular, opercular and orbital parts |
-  | Frontopolar | frontal pole | transverse frontopolar gyri, fronto-marginal gyrus and sulcus |
+  | Group | Structures (Harvard-Oxford) |
+  |---|---|
+  | Ventromedial PFC | frontal medial cortex, subcallosal cortex |
+  | Dorsomedial PFC & ACC | anterior cingulate, paracingulate, SFG medial part |
+  | Orbitofrontal (lateral / central) | frontal orbital cortex |
+  | Dorsolateral PFC | middle frontal gyrus, SFG lateral part |
+  | Ventrolateral PFC | IFG pars triangularis and opercularis, frontal operculum |
+  | Frontopolar | frontal pole |
 
-  The superior and middle frontal gyri (and frontal sulci) stop at y = +10 mm, leaving
-  out premotor cortex; the superior frontal gyrus is split at |x| = 20 mm into its
-  medial and lateral parts.
+  The superior and middle frontal gyri stop at y = +10 mm, leaving out premotor
+  cortex; the superior frontal gyrus is split at |x| = 20 mm into its medial and
+  lateral parts.
 - **Focus ▾ → Parietal, Cingulate, Temporal, Occipital:**
 
-  | Focus | Group | Structures (Harvard-Oxford) | Gyri & sulci (Destrieux) |
-  |---|---|---|---|
-  | Parietal | Superior parietal | superior parietal lobule | superior parietal lobule, intraparietal sulcus |
-  | | Inferior parietal | supramarginal gyrus (anterior, posterior), angular gyrus | supramarginal gyrus, sulcus intermedius primus, angular gyrus |
-  | | Medial parietal | precuneus | precuneus, subparietal sulcus, marginal branch of the cingulate sulcus |
-  | | Somatosensory | postcentral gyrus, parietal operculum | postcentral gyrus and sulcus |
-  | Cingulate | Anterior cingulate | anterior cingulate, paracingulate, subcallosal cortex | ACC, subcallosal gyrus |
-  | | Midcingulate | (inside HO's anterior / posterior divisions) | aMCC, pMCC |
-  | | Posterior cingulate | posterior cingulate, retrosplenial cortex (Destrieux isthmus) | dorsal PCC, ventral PCC / isthmus (RSC) |
-  | | Sulci | | pericallosal sulcus, marginal branch of the cingulate sulcus |
-  | Temporal | Temporal pole | temporal pole | temporal pole |
-  | | Superior temporal | STG (anterior, posterior), planum polare, Heschl's gyrus, planum temporale | STG lateral aspect, planum polare, Heschl's gyrus, transverse temporal sulcus, planum temporale, superior temporal sulcus |
-  | | Middle temporal | MTG (anterior, posterior, temporo-occipital) | MTG, inferior temporal sulcus |
-  | | Inferior temporal | ITG (anterior, posterior, temporo-occipital) | ITG |
-  | | Ventral temporal | temporal fusiform (anterior, posterior), temporo-occipital fusiform | fusiform gyrus, lateral occipito-temporal sulcus |
-  | | Hippocampus / hippocampal formation | hippocampus | Juelich cornu ammonis, dentate gyrus, subiculum, hippocampal-amygdaloid transition area |
-  | | Parahippocampal region | Juelich entorhinal cortex, anterior parahippocampal gyrus (≈ perirhinal + entorhinal), posterior parahippocampal gyrus (≈ PHC) | Juelich entorhinal cortex, parahippocampal gyrus, collateral sulcus (perirhinal cortex) |
-  | | Amygdala | amygdala | Juelich centromedial, laterobasal, superficial groups |
-  | Occipital | Medial occipital / Early visual cortex | intracalcarine, supracalcarine cortex, cuneus, lingual gyrus | Juelich V1 (BA17), V2 (BA18) |
-  | | Lateral occipital / Ventral visual | lateral occipital cortex (superior, inferior) | Juelich V3v, V4 |
-  | | Ventral occipital / Motion | occipital fusiform gyrus | Juelich V5 / MT+ |
-  | | Occipital pole | occipital pole | |
+  | Focus | Group | Structures |
+  |---|---|---|
+  | Parietal | Superior parietal | superior parietal lobule |
+  | | Inferior parietal | supramarginal gyrus (anterior, posterior), angular gyrus |
+  | | Medial parietal | precuneus |
+  | | Somatosensory | postcentral gyrus, parietal operculum |
+  | Cingulate | Anterior cingulate | anterior cingulate, paracingulate, subcallosal cortex |
+  | | Posterior cingulate | posterior cingulate, retrosplenial cortex (Destrieux isthmus) |
+  | Temporal | Temporal pole | temporal pole |
+  | | Superior temporal | STG (anterior, posterior), planum polare, Heschl's gyrus, planum temporale |
+  | | Middle temporal | MTG (anterior, posterior, temporo-occipital) |
+  | | Inferior temporal | ITG (anterior, posterior, temporo-occipital) |
+  | | Ventral temporal | temporal fusiform (anterior, posterior), temporo-occipital fusiform |
+  | | Hippocampal formation | Juelich cornu ammonis, dentate gyrus, subiculum, hippocampal-amygdaloid transition area |
+  | | Parahippocampal region | Juelich entorhinal cortex, Destrieux parahippocampal gyrus and collateral sulcus (perirhinal cortex) |
+  | | Amygdala | Juelich centromedial, laterobasal, superficial groups |
+  | Occipital | Medial occipital | intracalcarine, supracalcarine cortex, cuneus, lingual gyrus |
+  | | Lateral occipital | lateral occipital cortex (superior, inferior) |
+  | | Ventral occipital | occipital fusiform gyrus |
+  | | Occipital pole | occipital pole |
 
-  The MTL has its own switch, **MTL structures / MTL subfields**, next to the level
-  buttons (Temporal only), so you can pair either level of the lateral cortex with
-  either level of the MTL. The Juelich hippocampal and amygdala maps are 2 mm
-  maximum-probability maps, so they are coarse, and some sit inside others (lower
-  **Fill** or untick CA to see the dentate gyrus). For the MTL alone,
-  untick the lateral groups, or fold them. Hiding a structure hides it in every focus
-  that has it (the ACC in PFC and Cingulate, say).
+  The Juelich hippocampal and amygdala maps are 2 mm maximum-probability maps, so they
+  are coarse, and some sit inside others (lower **Fill** or untick CA to see the dentate
+  gyrus). For the MTL alone, untick the lateral groups, or fold them. Hiding a structure
+  hides it in every focus that has it (the ACC in PFC and Cingulate, say).
 - **Groups (every focus):** the legend lists structures under their group (the tables
   above). Tick a group to show or hide all of it, or single structures within it (the
   group's box is half-ticked when only some show); ▾ folds a group. A group's row shows
