@@ -578,7 +578,7 @@ def test_viewer3d_is_wired():
     assert 'from "/static/viewer3d.js"' in html
     for el in ["viewTabs", "gl3wrap", "gl3", "v3Bar", "v3Style", "v3Brain", "v3BrainOut", "v3Views",
                "v3Regions", "v3Infl", "v3Inflate", "v3InflateOut", "v3Hemi", "v3FocusBtn", "v3FocusMenu", "v3Whole",
-               "v3FocusBar", "fcLevel", "fcHemi", "fcColors", "fcFill", "gl3f", "fcLegend", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
+               "v3FocusBar", "fcLevel", "fcSection", "fcHemi", "fcColors", "fcFill", "gl3f", "fcLegend", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
         assert re.search(rf'id="{el}"', html), el
     assert 'from "/static/sidepanel.js"' in html and 'from "/static/tracts.js"' in html
     assert 'from "/static/focus3d.js"' in html and 'data-focus="mtl"' not in html and 'data-focus="pfc"' in html
@@ -677,13 +677,15 @@ def test_focus_helpers():
     out = _node(f"""
       import {{ focusParts, smoothMesh, structurePeaks, voxelSurface }} from {str(static / "focus3d.js")!r};
       // The MTL is the last three groups of the temporal focus.
-      const mtl = (level, hemi) => focusParts("temporal", level, hemi).filter((p) => p.group >= 5);
+      const mtl = (level, hemi) => focusParts("temporal", "coarse", hemi, level).filter((p) => p.group >= 5);
       const both = mtl("coarse", "both").map((p) => p.key);
       const left = mtl("fine", "L").map((p) => p.name);
       const pfc = focusParts("pfc", "coarse", "R");
       const mpfc = pfc.map((p) => p.key), groups = pfc.map((p) => p.group);
       const gyri = focusParts("pfc", "fine", "R").map((p) => p.key);
-      const temporal = ["coarse", "fine"].flatMap((l) => focusParts("temporal", l, "both").map((p) => p.key));
+      const temporal = ["coarse", "fine"].flatMap((l) => ["coarse", "fine"].flatMap((m) => focusParts("temporal", l, "both", m).map((p) => p.key)));
+      // The MTL's detail is its own: lateral gyri with MTL structures, Harvard-Oxford with subfields.
+      const mixed = [focusParts("temporal", "fine", "L", "coarse"), focusParts("temporal", "coarse", "L", "fine")].map((ps) => ps.map((p) => p.key));
       const cing = focusParts("cingulate", "fine", "L").map((p) => p.key);
       const par = focusParts("parietal", "coarse", "L").map((p) => p.group);
       const occ = focusParts("occipital", "fine", "both").map((p) => p.key);
@@ -721,7 +723,7 @@ def test_focus_helpers():
       const mir = voxelSurface(new Uint8Array([1, 1]), [2, 1, 1], M);
       const vox = {{ one: [one.pts.length / 3, one.tris.length / 3, outward(one, [10, 20, 30]), Math.min(...one.pts), Math.max(...one.pts)],
         two: [two.pts.length / 3, two.tris.length / 3, outward(two, [10.5, 20, 30])], mir: outward(mir, [9.5, 20, 30]) }};
-      console.log(JSON.stringify({{ both, left, mpfc, groups, gyri, temporal, cing, par, occ, r, pk, vox }}));
+      console.log(JSON.stringify({{ both, left, mpfc, groups, gyri, temporal, cing, par, occ, mixed, r, pk, vox }}));
     """)
     r = json.loads(out)
     assert r["both"][:2] == ["harvard-oxford-sub|9|B", "harvard-oxford-sub|19|B"]
@@ -736,6 +738,9 @@ def test_focus_helpers():
     assert {"harvard-oxford-cort|34|L", "harvard-oxford-cort|35|L", "destrieux2009|23|B", "destrieux2009|62|B",
             "harvard-oxford-sub|9|B", "juelich|9|L"} <= set(r["temporal"])
     assert "harvard-oxford-cort|8|L" in r["temporal"]
+    gyri_structs, ho_subfields = r["mixed"]
+    assert "destrieux2009|44|B" in gyri_structs and "harvard-oxford-sub|9|B" in gyri_structs and "juelich|9|L" not in gyri_structs
+    assert "harvard-oxford-cort|8|L" in ho_subfields and "juelich|9|L" in ho_subfields and "harvard-oxford-sub|9|B" not in ho_subfields
     assert r["cing"][:2] == ["destrieux2009|6|B", "destrieux2009|32|B"] and "destrieux2009|10|B" in r["cing"]
     assert r["par"] == sorted(r["par"]) and r["par"][-1] == 3  # four parietal groups
     assert r["occ"][:2] == ["juelich|48|L", "juelich|48|R"] and len(r["occ"]) == 10  # V1-V5, both sides

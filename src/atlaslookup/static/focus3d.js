@@ -194,9 +194,8 @@ export const FOCI = {
           ho(37, "Temporal fusiform cortex, anterior", C.pink),
           ho(38, "Temporal fusiform cortex, posterior", C.violet),
           ho(39, "Temporo-occipital fusiform cortex", C.gold)),
-        ...MTL_COARSE,
       ] },
-      fine: { label: "Gyri & subfields", title: "Destrieux gyri and sulci; Juelich hippocampal subfields and amygdala groups (MTL)", groups: [
+      fine: { label: "Gyri & sulci", title: "Destrieux gyri and sulci", groups: [
         g("Temporal pole", ds(44, "Temporal pole", C.silver)),
         g("Superior temporal",
           ds(34, "Superior temporal gyrus, lateral", C.lime),
@@ -212,9 +211,13 @@ export const FOCI = {
         g("Ventral temporal (fusiform)",
           ds(21, "Fusiform gyrus", C.lime),
           ds(61, "Lateral occipito-temporal sulcus", C.violet)),
-        ...MTL_FINE,
       ] },
     },
+    // The MTL, after the lateral and ventral groups, with its own level of detail.
+    section: { label: "MTL", levels: {
+      coarse: { label: "MTL structures", groups: MTL_COARSE },
+      fine: { label: "MTL subfields", title: "Juelich hippocampal subfields and amygdala groups (2 mm)", groups: MTL_FINE },
+    } },
   },
   // The temporo-occipital fusiform cortex is in the temporal focus.
   occipital: {
@@ -245,12 +248,19 @@ export const FOCI = {
   },
 };
 
-/** The structures of a focus to draw for a level ("coarse" | "fine") and hemisphere
- * ("both" | "L" | "R"), group by group, with the atlas|value|side[|clip] key the region
+/** A focus's groups at a level ("coarse" | "fine"), then those of its section (the
+ * temporal focus's MTL) at the section's own level. */
+export function focusGroups(focus, level, sectionLevel = "coarse") {
+  const f = FOCI[focus];
+  return [...f.levels[level].groups, ...(f.section?.levels[sectionLevel].groups ?? [])];
+}
+
+/** The structures of a focus to draw for a level and hemisphere ("both" | "L" | "R"),
+ * group by group (see focusGroups), with the atlas|value|side[|clip] key the region
  * endpoints take and the index of their group. */
-export function focusParts(focus, level, hemi) {
+export function focusParts(focus, level, hemi, sectionLevel = "coarse") {
   const out = [];
-  FOCI[focus].levels[level].groups.forEach((grp, gi) => {
+  focusGroups(focus, level, sectionLevel).forEach((grp, gi) => {
     for (const { atlas, value, right, name, color, clip } of grp.parts) {
       for (const h of ["L", "R"]) {
         if (hemi !== "both" && hemi !== h) continue;
@@ -396,9 +406,12 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
   let focus = null;  // which of FOCI is shown
   // Level per focus; hemispheres, fill, colours and hidden structures shared by all.
   // (0.19.0 kept the MTL's under mtl* keys; 0.19.4 merged the MTL into the temporal focus.)
-  const levelOf = (f) => store.get(`focusLevel:${f}`, f === "temporal" &&
-    (store.get("focusLevel:mtl", "") === "fine" || store.get("mtlLevel", "") === "subfields") ? "fine" : "coarse");
-  let level = "coarse", hemi = store.get("focusHemi", store.get("mtlHemi", "both"));
+  const levelOf = (f) => store.get(`focusLevel:${f}`, "coarse");
+  // The temporal focus's MTL detail starts as the old Focus: MTL's (or 0.19.4-0.19.7's
+  // temporal level, which carried the MTL subfields).
+  const sectionOf = (f) => store.get(`focusSection:${f}`, f === "temporal" && (store.get("focusLevel:mtl", "") === "fine" ||
+    store.get("mtlLevel", "") === "subfields" || store.get("focusLevel:temporal", "") === "fine") ? "fine" : "coarse");
+  let level = "coarse", sectionLevel = "coarse", hemi = store.get("focusHemi", store.get("mtlHemi", "both"));
   let fill = store.get("focusFill", store.get("mtlFill", 0.18));
   let gray = store.get("focusGray", false);
   const colorOf = (part) => (gray ? GRAY : part.color);
@@ -423,7 +436,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
   async function loadStructures() {
     const mine = ++token;
     legend.innerHTML = `<div class="fc-head">Building structures…</div>`;
-    const list = focusParts(focus, level, hemi);
+    const list = focusParts(focus, level, hemi, sectionLevel);
     const [built, m] = await Promise.all([
       Promise.all(list.map(async (part) => {
         const r = await fetch(`/api/regions/mesh.gii?sel=${encodeURIComponent(part.key)}`);
@@ -528,7 +541,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
   // Legend: one header per group (tick it to show or hide the whole group, ▸ to fold it,
   // with the group's strongest values) and a row per structure.
   const collapsed = new Set(store.get("focusCollapsed", []));
-  const groupsOf = () => FOCI[focus].levels[level].groups;
+  const groupsOf = () => focusGroups(focus, level, sectionLevel);
   let peaks = {};
   // recompute = false reuses the last peaks (folding a group, switching colours).
   function renderLegend(recompute = true) {
@@ -612,6 +625,9 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     return mark;
   }
   const markLevel = seg(controls.level, level, (v) => { level = v; store.set(`focusLevel:${focus}`, v); if (nv) loadStructures(); });
+  const markSection = seg(controls.section, sectionLevel, (v) => {
+    sectionLevel = v; store.set(`focusSection:${focus}`, v); if (nv) loadStructures();
+  });
   seg(controls.hemi, hemi, (v) => { hemi = v; store.set("focusHemi", v); if (nv) loadStructures(); });
   seg(controls.colors, gray ? "gray" : "hue", (v) => {
     gray = v === "gray"; store.set("focusGray", gray);
@@ -685,6 +701,15 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
         b.title = L.title ?? "";
       }
       markLevel(level);
+      const sec = FOCI[id].section;
+      controls.section.hidden = !sec;
+      sectionLevel = sec ? sectionOf(id) : "coarse";
+      for (const b of controls.section.querySelectorAll("button")) {
+        const L = sec?.levels[b.dataset.v];
+        b.textContent = L?.label ?? "";
+        b.title = L?.title ?? "";
+      }
+      markSection(sectionLevel);
       nv.setRenderAzimuthElevation(...FOCI[id].view);
       await loadStructures();
     } else paint();

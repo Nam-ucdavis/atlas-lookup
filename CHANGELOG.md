@@ -3,6 +3,14 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.19.8 (2026-11-02)
+- **MTL detail of its own in Focus: Temporal**: an **MTL structures / MTL subfields**
+  switch (shown only in Temporal) picks the MTL's level separately from the lateral
+  cortex's. The second level button is **Gyri & sulci** again (lateral and ventral
+  cortex only). Subfields: Juelich CA, dentate gyrus, subiculum, HATA, entorhinal
+  cortex, the Destrieux parahippocampal gyrus and collateral sulcus, and three amygdala
+  groups.
+
 ## 0.19.7 (2026-11-02)
 - Removed the peak dots from Focus (the legend's peaks still look the point up); blobs
   are solid again.

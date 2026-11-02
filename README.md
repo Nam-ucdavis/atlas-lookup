@@ -206,9 +206,11 @@ straight away.
   | | Ventral occipital / Motion | occipital fusiform gyrus | Juelich V5 / MT+ |
   | | Occipital pole | occipital pole | |
 
-  Temporal's fine level is **Gyri & subfields**: the Juelich hippocampal and amygdala
-  maps are 2 mm maximum-probability maps, so they are coarse, and some sit inside
-  others (lower **Fill** or untick CA to see the dentate gyrus). For the MTL alone,
+  The MTL has its own switch, **MTL structures / MTL subfields**, next to the level
+  buttons (Temporal only), so you can pair either level of the lateral cortex with
+  either level of the MTL. The Juelich hippocampal and amygdala maps are 2 mm
+  maximum-probability maps, so they are coarse, and some sit inside others (lower
+  **Fill** or untick CA to see the dentate gyrus). For the MTL alone,
   untick the lateral groups, or fold them. Hiding a structure hides it in every focus
   that has it (the ACC in PFC and Cingulate, say).
 - **Groups (every focus):** the legend lists structures under their group (the tables

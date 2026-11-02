@@ -592,6 +592,10 @@
             <button type="button" data-v="coarse" class="on">Structures</button>
             <button type="button" data-v="fine">Detail</button>
           </span>
+          <span class="seg" id="fcSection" role="group" aria-label="Section detail" hidden>
+            <button type="button" data-v="coarse" class="on">Section</button>
+            <button type="button" data-v="fine">Section detail</button>
+          </span>
           <span class="seg" id="fcHemi" role="group" aria-label="Hemispheres">
             <button type="button" data-v="both" class="on">Both</button>
             <button type="button" data-v="L">Left</button>
@@ -841,7 +845,7 @@ async function initViewer() {
   // Focus, a second 3D scene in the same panel (switched by the 3D view).
   const focus = createFocusView({
     Niivue, NVImage, canvas: $("gl3f"), legend: $("fcLegend"), store, esc, setHint: flashHint,
-    controls: { bar: $("v3FocusBar"), level: $("fcLevel"), hemi: $("fcHemi"), colors: $("fcColors"), results: $("fcResults"), fill: $("fcFill") },
+    controls: { bar: $("v3FocusBar"), level: $("fcLevel"), section: $("fcSection"), hemi: $("fcHemi"), colors: $("fcColors"), results: $("fcResults"), fill: $("fcFill") },
     onPick: (mm) => lookupAtMM(mm),
   });
   view3d = createViewer3D({ focus, 
