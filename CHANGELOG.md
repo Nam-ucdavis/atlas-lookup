@@ -3,6 +3,10 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.19.10 (2026-11-02)
+- Focus blobs are shaded like the results painted on surfaces (same shader), so the
+  two modes show results at the same brightness.
+
 ## 0.19.9 (2026-11-02)
 - **One set of structures per focus**: the level buttons (Structures / Gyri & sulci,
   Visual areas) and the MTL structures / subfields switch are gone. Every focus shows

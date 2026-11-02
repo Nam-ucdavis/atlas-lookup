@@ -255,6 +255,7 @@ export function voxelSurface(on, dims, affine) {
 
 // Each structure a faint tint (opacity = the Fill slider) with a solid outline in its own
 // hue where the surface turns away from the viewer; painted results stay fully opaque.
+// Blobs use it too (opacity 1), so their results shade like those painted on surfaces.
 const OUTLINE = "MTL outline";
 const OUTLINE_FRAG = `#version 300 es
 precision highp int;
@@ -416,6 +417,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
       mesh.layers = [layerOf(front, projectToVertices(sample, pts, outwardNormals(pts, tris), DEPTHS))];
       mesh.updateMesh(nv.gl);
       nv.addMesh(mesh);
+      nv.setMeshShader(mesh.id, OUTLINE);  // the structures' shader, so results look the same in both modes
       blobs.push(mesh);
     }
     const mine = new Set(blobs);
