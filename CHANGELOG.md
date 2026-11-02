@@ -3,6 +3,17 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.19.3 (2026-11-02)
+- **Focus: Parietal, Cingulate, Temporal** (Focus ▾), like Focus: PFC, each with a
+  Harvard-Oxford and a Destrieux level, in groups:
+  - Parietal: superior parietal, inferior parietal (supramarginal, angular), medial
+    parietal (precuneus), somatosensory (postcentral gyrus, parietal operculum).
+  - Cingulate: anterior (ACC, paracingulate, subcallosal), midcingulate (aMCC, pMCC;
+    Destrieux only), posterior (PCC, retrosplenial / isthmus), and the pericallosal and
+    marginal sulci.
+  - Temporal, without the MTL: pole, superior (STG, planum polare, Heschl's gyrus,
+    planum temporale, STS), middle, inferior and ventral (fusiform) temporal cortex.
+
 ## 0.19.2 (2026-11-01)
 - **Focus: PFC** replaces Focus: mPFC: the whole prefrontal cortex in six groups
   (ventromedial, dorsomedial & ACC, orbitofrontal, dorsolateral, ventrolateral,
