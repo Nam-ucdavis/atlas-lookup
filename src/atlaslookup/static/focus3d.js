@@ -317,6 +317,61 @@ export function structurePeaks(mask, sample, posThr, negThr) {
   return out;
 }
 
+// The faces of voxel k (corner offsets 0/1 along x, y, z), each wound counter-clockwise
+// seen from outside, with the neighbour across it.
+const FACES = [
+  [[1, 0, 0], [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]]], [[-1, 0, 0], [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]]],
+  [[0, 1, 0], [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]]], [[0, -1, 0], [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]]],
+  [[0, 0, 1], [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]]], [[0, 0, -1], [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]]],
+];
+
+/** The surface of the "on" voxels of a grid (a Uint8Array, x fastest; affine diagonal, as
+ * the region mask is): every voxel face against an off voxel, two triangles each, sharing
+ * corners. In mm. */
+export function voxelSurface(on, dims, affine) {
+  const [nx, ny, nz] = dims, a = affine;
+  const flip = Math.sign(a[0][0] * a[1][1] * a[2][2]) < 0;  // a mirrored grid turns the winding
+  const isOn = (i, j, k) => i >= 0 && j >= 0 && k >= 0 && i < nx && j < ny && k < nz && on[i + nx * (j + ny * k)];
+  const corner = new Map(), pts = [], tris = [];
+  const vert = (i, j, k) => {
+    const key = i + (nx + 1) * (j + (ny + 1) * k);
+    let v = corner.get(key);
+    if (v === undefined) {
+      v = pts.length / 3;
+      corner.set(key, v);
+      pts.push(a[0][0] * (i - 0.5) + a[0][3], a[1][1] * (j - 0.5) + a[1][3], a[2][2] * (k - 0.5) + a[2][3]);
+    }
+    return v;
+  };
+  for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    if (!on[i + nx * (j + ny * k)]) continue;
+    for (const [[di, dj, dk], cs] of FACES) {
+      if (isOn(i + di, j + dj, k + dk)) continue;
+      const [p, q, r, s] = cs.map(([ci, cj, ck]) => vert(i + ci, j + cj, k + ck));
+      if (flip) tris.push(p, s, r, p, r, q); else tris.push(p, q, r, p, r, s);
+    }
+  }
+  return { pts: new Float32Array(pts), tris: new Uint32Array(tris) };
+}
+
+/** A small sphere (an icosahedron split twice) at `c`, radius `r` mm. */
+export function sphere(c, r) {
+  const t = (1 + Math.sqrt(5)) / 2;
+  let P = [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]];
+  let T = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+    [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]];
+  for (let s = 0; s < 2; s++) {
+    const mid = new Map(), m = (u, v) => {
+      const key = u < v ? `${u},${v}` : `${v},${u}`;
+      if (!mid.has(key)) { mid.set(key, P.length); P.push(P[u].map((x, i) => (x + P[v][i]) / 2)); }
+      return mid.get(key);
+    };
+    T = T.flatMap(([a, b, d]) => { const ab = m(a, b), bd = m(b, d), da = m(d, a); return [[a, ab, da], [b, bd, ab], [d, da, bd], [ab, bd, da]]; });
+  }
+  const pts = new Float32Array(P.flatMap((p) => { const l = Math.hypot(...p); return p.map((x, i) => c[i] + (r * x) / l); }));
+  return { pts, tris: new Uint32Array(T.flat()) };
+}
+
 // Each structure a faint tint (opacity = the Fill slider) with a solid outline in its own
 // hue where the surface turns away from the viewer; painted results stay fully opaque.
 const OUTLINE = "MTL outline";
@@ -345,6 +400,12 @@ const DEPTHS = [0, 1, 2, 3];  // mm inside each structure sampled for its surfac
 const PICK_PX = 6;  // how close (CSS px) a click must be to a structure point
 // "Gray": every structure in one neutral grey, so only the painted results carry colour.
 const GRAY = [185, 185, 190];
+// Results as blobs: the suprathreshold voxels' surface, smoothed, in a base colour (the
+// map's own colours are painted on, from the strongest value up to 3 mm inside); each
+// shown structure's peak as a dot. Blobs are a little see-through so the peak dots inside
+// them show.
+const BLOB = { pos: [235, 90, 40], neg: [60, 120, 235] }, DOT = { pos: [255, 255, 255], neg: [255, 255, 255] };
+const DOT_MM = 2, BLOB_OPACITY = 0.85, BLOB_SMOOTH = 60;
 
 const samplerOf = (vol) => volumeSampler({
   img: vol.img, dims: vol.hdr.dims.slice(1, 4), affine: vol.hdr.affine,
@@ -365,6 +426,10 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
   const hidden = new Set(store.get("focusHidden", store.get("mtlHidden", [])));
   let meshes = [], mask = null, parts = [], token = 0;
   let sources = [], sourceKey = null;  // continuous slice overlays, back to front
+  // Results drawn as "blobs" (the front map, inside the shown structures) or on the
+  // structures' "surface" (every map); peak dots in both.
+  let results = store.get("focusResults", "blobs");
+  let extras = [], extrasKey = null;  // blob and dot meshes: { mesh, at? }
 
   async function init() {
     nv = new Niivue({ backColor: [0, 0, 0, 1], isOrientCube: true, show3Dcrosshair: false, dragAndDropEnabled: false });
@@ -414,6 +479,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     for (const x of meshes) {
       nv.setMeshProperty(x.mesh.id, "visible", !hidden.has(x.part.key));
       nv.setMeshProperty(x.mesh.id, "opacity", fill);
+      if (results !== "surface") { x.mesh.layers = []; x.mesh.updateMesh(nv.gl); continue; }
       x.values ??= sources.map((v) => projectToVertices(samplerOf(v), x.mesh.pts, x.normals, DEPTHS));
       x.mesh.layers = sources.map((s, i) => ({
         ...NVMeshLayerDefaults, name: s.name, frame4D: 0, nFrame4D: 1, values: x.values[i],
@@ -424,7 +490,73 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
       x.mesh.updateMesh(nv.gl);
     }
     renderLegend();
+    updateExtras();
     nv.drawScene();
+  }
+
+  // The front map's thresholds, as the slices show it (null = that sign hidden there).
+  // NiiVue leaves cal_minNeg NaN when the negative window mirrors the positive one; a sign
+  // is hidden on the slices by pushing its window beyond the data (index.html).
+  const thresholds = (v) => ({
+    posThr: v.cal_min,
+    negThr: !v.colormapNegative ? null : Number.isFinite(v.cal_minNeg) ? v.cal_minNeg : -v.cal_min,
+  });
+  const layerOf = (s, values) => ({
+    ...NVMeshLayerDefaults, name: s.name, frame4D: 0, nFrame4D: 1, values,
+    colormap: s.colormap, cal_min: s.cal_min, cal_max: s.cal_max, opacity: 1,
+    colormapNegative: s.colormapNegative || "", useNegativeCmap: !!s.colormapNegative,
+    cal_minNeg: s.cal_minNeg, cal_maxNeg: s.cal_maxNeg, isTransparentBelowCalMin: true,
+  });
+
+  // Blobs and peak dots, rebuilt when the map, its thresholds, the structures or which of
+  // them are shown change. Drawn first (dots, then blobs, then the structures), so what is
+  // see-through blends over what is inside it.
+  function updateExtras() {
+    const front = sources[sources.length - 1];
+    const shown = parts.map((p) => !hidden.has(p.key));
+    const key = front && mask ? [results, front.id ?? front.name, front.cal_min, front.cal_minNeg, front.colormapNegative,
+      token, shown.join()].join("|") : "";
+    if (key === extrasKey) return;
+    extrasKey = key;
+    for (const x of extras) nv.removeMesh(x.mesh);
+    extras = [];
+    if (!key) return;
+    const { posThr, negThr } = thresholds(front), sample = samplerOf(front);
+    const add = (pts, tris, rgb, layer, at) => {
+      const mesh = new NVMesh(pts, tris, at ? "peak" : "blob", new Uint8Array([...rgb, 255]), at ? 1 : BLOB_OPACITY, true, nv.gl);
+      if (layer) mesh.layers = [layer(mesh)];
+      mesh.updateMesh(nv.gl);
+      nv.addMesh(mesh);
+      extras.push({ mesh, at });
+    };
+    if (results === "blobs") {
+      const { img, dims, affine: a } = mask, [nx, ny, nz] = dims;
+      for (const sign of ["pos", "neg"]) {
+        const thr = sign === "pos" ? posThr : negThr;
+        if (thr == null) continue;
+        const on = new Uint8Array(img.length);
+        let any = false;
+        for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+          const n = i + nx * (j + ny * k), lab = img[n];
+          if (!lab || !shown[lab - 1]) continue;
+          const t = sample(a[0][0] * i + a[0][3], a[1][1] * j + a[1][3], a[2][2] * k + a[2][3]);
+          if (sign === "pos" ? t >= thr : t <= thr) { on[n] = 1; any = true; }
+        }
+        if (!any) continue;
+        const { pts, tris } = voxelSurface(on, dims, a);
+        smoothMesh(pts, tris, BLOB_SMOOTH);
+        add(pts, tris, BLOB[sign], (m) => layerOf(front, projectToVertices(sample, m.pts, outwardNormals(m.pts, m.tris), DEPTHS)));
+      }
+    }
+    parts.forEach((p, i) => {
+      const o = peaks[i + 1];
+      if (!o || !shown[i]) return;
+      if (o.posAt && posThr != null && o.pos >= posThr) { const b = sphere(o.posAt, DOT_MM); add(b.pts, b.tris, DOT.pos, null, o.posAt); }
+      if (o.negAt && negThr != null && o.neg <= negThr) { const b = sphere(o.negAt, DOT_MM); add(b.pts, b.tris, DOT.neg, null, o.negAt); }
+    });
+    const dots = extras.filter((x) => x.at).map((x) => x.mesh), blobs = extras.filter((x) => !x.at).map((x) => x.mesh);
+    const mine = new Set([...dots, ...blobs]);
+    nv.meshes = [...dots, ...blobs, ...nv.meshes.filter((m) => !mine.has(m))];
   }
 
   // Legend: one header per group (tick it to show or hide the whole group, ▸ to fold it,
@@ -435,12 +567,9 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
   // recompute = false reuses the last peaks (folding a group, switching colours).
   function renderLegend(recompute = true) {
     const front = sources[sources.length - 1];  // the map drawn in front on the slices
-    // A sign is hidden on the slices by pushing its window beyond the data (index.html).
     if (recompute) peaks = {};
     if (recompute && front && mask) {
-      // NiiVue leaves cal_minNeg NaN when the negative window mirrors the positive one.
-      const posThr = front.cal_min;
-      const negThr = !front.colormapNegative ? null : Number.isFinite(front.cal_minNeg) ? front.cal_minNeg : -front.cal_min;
+      const { posThr, negThr } = thresholds(front);
       peaks = structurePeaks(mask, samplerOf(front), posThr, negThr);
     }
     const at = (v, p, cls) => p ? `<button type="button" class="fc-peak ${cls}" data-mm="${p.join(",")}" title="Look up (${p.join(", ")})">${v.toFixed(2)}</button>` : "–";
@@ -486,6 +615,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     for (const x of meshes) nv.setMeshProperty(x.mesh.id, "visible", !hidden.has(x.part.key));
     for (const box of legend.querySelectorAll("input[data-key]")) box.checked = !hidden.has(box.dataset.key);
     markGroups();
+    updateExtras();
     nv.drawScene();
   }
 
@@ -524,6 +654,10 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     renderLegend(false);
     nv.drawScene();
   });
+  seg(controls.results, results, (v) => {
+    results = v; store.set("focusResults", v);
+    if (nv && meshes.length) paint();
+  });
   controls.fill.value = fill;
   controls.fill.addEventListener("input", () => {
     fill = +controls.fill.value; store.set("focusFill", fill);
@@ -533,15 +667,15 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
   });
 
   // A click (not a drag) on a structure looks up the point clicked: the front-most point
-  // of a shown structure within a few pixels of the pointer. (NiiVue's own depth pick
-  // can land on a structure behind a see-through one.)
+  // of a shown structure (or blob) within a few pixels of the pointer; a peak dot looks up
+  // its peak. (NiiVue's own depth pick can land on a structure behind a see-through one.)
   function pick(px, py) {
     const w = nv.gl.canvas.width, h = nv.gl.canvas.height;
     const [m] = nv.calculateMvpMatrix(null, [0, 0, w, h], nv.scene.renderAzimuth, nv.scene.renderElevation);
     const r2 = (PICK_PX * (nv.uiData.dpr || 1)) ** 2;
     let best = null, bestZ = Infinity;
-    for (const x of meshes) {
-      if (hidden.has(x.part.key)) continue;
+    for (const x of [...extras, ...meshes]) {
+      if (x.part && hidden.has(x.part.key)) continue;
       const p = x.mesh.pts;
       for (let v = 0; v < p.length; v += 3) {
         const X = p[v], Y = p[v + 1], Z = p[v + 2];
@@ -550,7 +684,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
         const sy = (1 - (m[1] * X + m[5] * Y + m[9] * Z + m[13]) / cw) / 2 * h;
         if ((sx - px) ** 2 + (sy - py) ** 2 > r2) continue;
         const z = (m[2] * X + m[6] * Y + m[10] * Z + m[14]) / cw;
-        if (z < bestZ) { bestZ = z; best = [X, Y, Z]; }
+        if (z < bestZ) { bestZ = z; best = x.at ?? [X, Y, Z]; }
       }
     }
     return best;

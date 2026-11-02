@@ -3,6 +3,15 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.19.6 (2026-11-02)
+- **Results inside the focus structures**: Focus now draws the front map's
+  suprathreshold voxels inside the shown structures as smoothed 3D blobs at their real
+  depth, not only what reaches 3 mm under the surface. **Blobs / Surface** in the focus
+  bar switches back to painting every map on the surfaces.
+- **Peak dots**: each shown structure's positive and negative peak past the threshold
+  is a white dot; click one to look the peak up. Blobs are slightly see-through so the
+  dots inside show.
+
 ## 0.19.5 (2026-11-02)
 - **Focus: Occipital** (Focus ▾): structures (Harvard-Oxford) in medial occipital
   (intra- and supracalcarine cortex, cuneus, lingual gyrus), lateral occipital (LOC

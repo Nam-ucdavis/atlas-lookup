@@ -601,6 +601,10 @@
             <button type="button" data-v="hue" class="on" title="Each structure in its own colour">Hue</button>
             <button type="button" data-v="gray" title="Every structure grey, so only the results are in colour">Gray</button>
           </span>
+          <span class="seg" id="fcResults" role="group" aria-label="How results are drawn">
+            <button type="button" data-v="blobs" class="on" title="The front map's suprathreshold voxels inside the shown structures, as solid shapes at their real depth">Blobs</button>
+            <button type="button" data-v="surface" title="Every map painted on the structures' surfaces (the strongest value up to 3 mm inside)">Surface</button>
+          </span>
           <label class="v3-brain" title="How see-through each structure's inside is; its outline stays solid">Fill
             <input type="range" id="fcFill" min="0" max="0.6" step="0.02" value="0.18" aria-label="Structure fill"></label>
         </span>
@@ -837,7 +841,7 @@ async function initViewer() {
   // Focus, a second 3D scene in the same panel (switched by the 3D view).
   const focus = createFocusView({
     Niivue, NVImage, canvas: $("gl3f"), legend: $("fcLegend"), store, esc, setHint: flashHint,
-    controls: { bar: $("v3FocusBar"), level: $("fcLevel"), hemi: $("fcHemi"), colors: $("fcColors"), fill: $("fcFill") },
+    controls: { bar: $("v3FocusBar"), level: $("fcLevel"), hemi: $("fcHemi"), colors: $("fcColors"), results: $("fcResults"), fill: $("fcFill") },
     onPick: (mm) => lookupAtMM(mm),
   });
   view3d = createViewer3D({ focus, 

@@ -150,8 +150,14 @@ straight away.
     volume: this is for looking, not a surface-based analysis.
 - **Focus ▾:** one part of the brain on its own (PFC, Parietal, Cingulate, Temporal,
   Occipital),
-  zoomed in and rotating around it. Each structure is a faint tint with a solid outline in its own colour,
-  and your results are painted on (the strongest value up to 3 mm inside it).
+  zoomed in and rotating around it. Each structure is a faint tint with a solid outline in its own colour.
+  - **Blobs** (default): the front map's voxels past its threshold, inside the shown
+    structures, drawn as smoothed solid shapes at their real depth (warm for positive,
+    blue for negative, the map's colours painted on), with each structure's peak as a
+    white dot. Hiding a structure hides its blobs and dot too.
+  - **Surface**: every map painted on the structures' surfaces instead (the strongest
+    value up to 3 mm inside), as before 0.19.6. Deeper results don't show this way,
+    which is why Blobs is the default; the peak dots stay.
   - Each focus has a coarse level (**Structures**, mostly Harvard-Oxford) and a fine
     one (**Gyri & sulci**, Destrieux), in groups (tables below).
   - **Both / Left / Right**, **Hue / Gray** (Gray draws every structure in one grey,
