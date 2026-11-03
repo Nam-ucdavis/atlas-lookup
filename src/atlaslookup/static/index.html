@@ -962,6 +962,13 @@ async function setOverlay(id) {
 async function rebuildOverlays() {
   if (!nv) return;
   const token = ++overlayToken;
+  // addVolumeFromUrl adds the volume itself, so a rebuild that a newer one overtook while
+  // it was loading must take its volume back out; otherwise the old map stays on screen.
+  const superseded = (vol) => {
+    if (token === overlayToken) return false;
+    if (nv.volumes.includes(vol)) nv.removeVolume(vol);
+    return true;
+  };
   while (nv.volumes.length > 1) nv.removeVolumeByIndex(1);
   atlasVol = null;
   for (const e of state.stats) e.vol = null;
@@ -971,7 +978,7 @@ async function rebuildOverlays() {
       nv.addVolumeFromUrl({ url: `/api/atlases/${id}/label_map.nii.gz`, opacity: +$("opacity").value }),
       fetch(`/api/atlases/${id}/colormap`).then((r) => r.json()),
     ]);
-    if (token !== overlayToken) return;
+    if (superseded(vol)) return;
     vol.setColormapLabel(cm);
     atlasVol = vol;
   }
@@ -988,7 +995,7 @@ async function rebuildOverlays() {
       cal_min: showPos ? thr : top + 1, cal_max: showPos ? top : top + 2,
       ...(showNeg ? { colormapNegative: "winter", cal_minNeg: -thr, cal_maxNeg: -top } : {}),
     });
-    if (token !== overlayToken) return;
+    if (superseded(vol)) return;
     zeroNaN(vol);  // SPM's NaN outside the mask would otherwise be painted in full colour
     if (!showNeg) vol.colormapNegative = "";
     e.vol = vol;

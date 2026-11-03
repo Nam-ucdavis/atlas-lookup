@@ -7,6 +7,10 @@ title in the app (and at `/api/version`, or `atlaslookup --version`).
 - **Fix:** SPM T maps no longer show a solid colour box around the brain. SPM writes NaN
   outside its analysis mask, and the viewer painted NaN in the top colour of the scale;
   NaN voxels are now treated as 0 (stat maps and local overlays).
+- **Fix:** switching stat maps on and off quickly no longer leaves an old map on the
+  slices. A redraw that was overtaken by a newer one while its map was still loading used
+  to keep that map; it now takes it back out. Most visible on slower machines (seen on
+  Linux).
 
 ## 0.19.10 (2026-11-02)
 - Focus blobs are shaded like the results painted on surfaces (same shader), so the
