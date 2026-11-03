@@ -395,6 +395,11 @@
   .sl-name .muted { color: var(--muted); }
   .sl-row.active .sl-name { font-weight: 600; }
   .sl-row .err { color: var(--err, #b42318); font-size: 12px; }
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px 8px; }
+  .icon-btn svg { display: block; }
+  .sl-label { width: 120px; font: inherit; font-size: 12px; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; }
+  .sl-label:placeholder-shown { border-style: dashed; }
   .sl-cm { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
   .sl-cm select { width: auto; padding: 2px 4px; font-size: 12px; }
   .sl-op { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
@@ -543,7 +548,7 @@
           <button type="button" data-view="3d" role="tab">3D</button>
         </div>
         <label class="lookup-only"><input type="checkbox" id="crosshairOn" checked> Crosshair</label>
-        <button type="button" class="btn small" id="scrBtn" title="Save the three slices as a PNG (same size every time) in the image folder">scr</button>
+        <button type="button" class="btn small icon-btn" id="scrBtn" title="Save the view as a PNG (same size every time) in the image folder" aria-label="Save image"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
         <div class="ttable lookup-only" id="tTable" title="Critical T (uncorrected) for p with these degrees of freedom: one-tailed and two-tailed.">
           <label>df <input type="number" id="tDf" min="1" step="1" placeholder="df" aria-label="Degrees of freedom for the t-table"></label>
           <table><tr><th>p</th><td>.05</td><td>.01</td><td>.005</td><td>.001</td></tr>
@@ -1064,7 +1069,7 @@ function debounce(key, fn, ms = 400) {
 function statLegend() {
   return state.stats.filter((e) => e.visible && e.maxAbs).flatMap((e) => {
     const base = {
-      key: "stat:" + e.map, name: mapLabel(e.map), from: e.threshold, to: Math.max(e.max ?? e.maxAbs, e.threshold + 0.01),
+      key: "stat:" + e.map, name: e.label || mapLabel(e.map), from: e.threshold, to: Math.max(e.max ?? e.maxAbs, e.threshold + 0.01),
       df: e.df, mode: "t", auto: e.max == null,
       // Edits from the colour bar. Both reload the map (and the threshold its cluster
       // table), so wait for a pause in typing.
@@ -1213,6 +1218,8 @@ function renderStatList() {
         <input type="checkbox" data-k="visible" ${e.visible ? "checked" : ""} aria-label="Show ${esc(e.map)}" title="Show or hide">
         <button type="button" class="sl-name" data-act="activate" title="${esc(e.map)}${m ? "\n" + esc(m.contrast) : ""}">${esc(mapTail(e.map))}${m ? ` <span class="muted">· ${esc(m.contrast)}</span>` : ""}</button>
         ${e.error ? `<span class="err" title="${esc(e.error)}">could not load</span>` : ""}
+        <input type="text" class="sl-label" data-k="label" value="${esc(e.label || "")}" placeholder="label" maxlength="60"
+          title="Your own name for this map, shown in scr captures. Not saved: it is gone when you close the page." aria-label="Label for ${esc(e.map)}">
         <label class="sl-cm" title="Colormap for positive T">+ <select data-k="cmap" aria-label="Positive colormap of ${esc(e.map)}">${cmapOptions(POS_MAPS, e.cmap)}</select></label>
         <label class="sl-cm" title="Colormap for negative T">− <select data-k="cmapNeg" aria-label="Negative colormap of ${esc(e.map)}">${cmapOptions(NEG_MAPS, e.cmapNeg)}</select></label>
         <label class="sl-op">Opacity <input type="range" data-k="opacity" min="0" max="1" step="0.05" value="${e.opacity}" aria-label="Opacity of ${esc(e.map)}"></label>
@@ -1244,6 +1251,8 @@ $("statList").addEventListener("change", (ev) => {
 // Opacity applies live (and reaches the 3D view, which copies it).
 $("statList").addEventListener("input", (ev) => {
   const e = entryOf(ev);
+  // A label is only kept in memory (not in SAVED_KEYS), so it goes when the page closes.
+  if (e && ev.target.dataset.k === "label") { e.label = ev.target.value.trim(); return; }
   if (!e || ev.target.dataset.k !== "opacity") return;
   e.opacity = +ev.target.value;
   const i = e.vol ? nv.volumes.indexOf(e.vol) : -1;

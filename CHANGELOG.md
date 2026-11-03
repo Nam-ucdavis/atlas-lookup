@@ -15,6 +15,10 @@ title in the app (and at `/api/version`, or `atlaslookup --version`).
   colormap for positive and for negative T, saved with the map. The defaults are now
   **hot** (positive) and **cold** (negative, hot's blue mirror image) for these maps and
   for local overlays; maps you already had open switch to hot / cold too.
+- **Labels for stat maps**: type a label in a map's row in the Stat maps list (handy when
+  several maps are all called `spmT_0001.nii`). It names that map's colour bars in image
+  captures. Labels are temporary: nothing is saved, and they are gone when the page closes.
+- The **scr** button is now a camera icon.
 
 ## 0.19.10 (2026-11-02)
 - Focus blobs are shaded like the results painted on surfaces (same shader), so the

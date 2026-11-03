@@ -12,7 +12,7 @@ labelled cluster table. A quiz mode helps you learn the regions.
   probabilities and a "what's within N mm" readout for borderline points.
 - **Viewer:** axial, coronal and sagittal slices of the MNI template. Click to
   look up a point, and overlay any atlas (Atlas overlay, in the left sidebar). Each slice shows its coordinate, the
-  crosshair can be hidden, and **scr** saves the slices as a PNG.
+  crosshair can be hidden, and the **camera** button saves the slices as a PNG.
 - **3D:** a second tab renders the brain in 3D (solid surface, see-through
   **glass brain**, or **mesh brain** with your results painted on the cortex),
   showing the same overlays and results as the slices. A **Regions** window
@@ -74,7 +74,7 @@ the command just opens the browser. Stop it with Ctrl+C.
 
 Your data lives in `~/.atlaslookup`; set `ATLASLOOKUP_HOME` to use another
 folder. It holds the atlases, voxel grids, the viewer template, your
-settings and the images saved with **scr** (in `image/`). Nothing is stored inside the installed package. Run `atlaslookup info`
+settings and the images saved with the **camera** button (in `image/`). Nothing is stored inside the installed package. Run `atlaslookup info`
 to see what's there.
 
 ## Looking up coordinates
@@ -104,7 +104,7 @@ for axial, y for coronal, x for sagittal; k, j, i in voxel mode). Untick
 the slices, from the threshold to its strongest value, in T or in p (one-sided,
 uncorrected) as you thresholded it, with separate + and − bars. Type into the
 boxes at either end to set the minimum (the threshold) or the maximum of the
-colour range; **auto** resets the maximum to the strongest value in the map. **scr** saves
+colour range; **auto** resets the maximum to the strongest value in the map. The **camera** button saves
 the three slices and the colour bars as one PNG, always 2400 × 960 px, in
 `~/.atlaslookup/image/`, named by the date and time (e.g.
 `2026-10-28_09-19-20.png`), and opens that folder in Finder (Explorer on
@@ -259,7 +259,7 @@ straight away.
 - **Camera:** drag to rotate, scroll to zoom. **L R A P S I** jump to the
   left, right, front, back, top and bottom views.
 - **Crosshair and capture:** the slice crosshair is shown in 3D too (the
-  Crosshair checkbox applies to both). **scr** saves the 3D view with its
+  Crosshair checkbox applies to both). The **camera** button saves the 3D view with its
   colour bars, at the same size as slice captures.
 
 To look up a point, click on the slices; clicks in 3D only rotate. The app
@@ -302,7 +302,9 @@ page switches to one column with the viewer on top.
 
 - **Overlay:** thresholded at **T ≥** your value; both signs or one sign only.
   Each map's row has a colormap for each sign (**hot** for positive and **cold** for
-  negative by default; remembered per map). **Opacity** sets how see-through it is (remembered,
+  negative by default; remembered per map). Type a **label** in a map's row to tell
+  maps with the same file name apart: it names the map's colour bars in camera-button
+  captures. Labels are not saved; they are gone when you close the page. **Opacity** sets how see-through it is (remembered,
   and applied in the 3D view too). The equivalent p is shown, using the df from the SPM
   header.
 - **Readout:** T and p at whatever point you click.
@@ -479,7 +481,7 @@ in Nam's updates, and offering changes back.
 ## Contributors
 
 Atlas Lookup is developed in [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup)
-(local NIfTI overlays, colour bars, the viewer tools, **scr** capture, the `lookup`
+(local NIfTI overlays, colour bars, the viewer tools, image capture, the `lookup`
 alias, `install_prompt.md`) and
 [Nam-ucdavis/atlas-lookup](https://github.com/Nam-ucdavis/atlas-lookup).
 
