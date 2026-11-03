@@ -8,12 +8,13 @@ vanilla-JS front end, NiiVue for the viewer. Human-facing docs: `README.md`,
 
 ## Branches
 
-- `dev` is where all work happens: check `git branch --show-current` before committing,
-  and switch to `dev` (or a feature branch made from it) if needed. Releases are tagged on `dev`.
-- `main` is the stable version. **Never commit to `main` directly.** It only moves by
-  `git merge --ff-only dev`, when the user asks. It no longer mirrors ccn-spark.
-- ccn-spark updates (optional) are merged into `dev`. To offer a change upstream, branch
-  from `ccn-spark/main`. Details: `BRANCHES.md`.
+- This is ccn-spark/atlas-lookup. Work happens on `main` (the only branch); push only
+  when the user asks.
+- Nam-ucdavis/atlas-lookup (remote `nam`) develops the app too; its `dev` has the newest
+  work. To bring it in, `git merge nam/dev` into `main`. On conflicts keep this repo's
+  ccn-spark install/clone URLs and its branch notes (this section, `BRANCHES.md`, the
+  README's Branches section); take everything else from `nam/dev`.
+- To offer a change to Nam, branch from `nam/dev`. Details: `BRANCHES.md`.
 
 ## Commands
 

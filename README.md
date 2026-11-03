@@ -36,13 +36,13 @@ You need Python 3.10 or newer. [pipx](https://pipx.pypa.io) is the easiest
 way to install a command-line app:
 
 ```bash
-pipx install git+https://github.com/Nam-ucdavis/atlas-lookup
+pipx install git+https://github.com/ccn-spark/atlas-lookup
 ```
 
 Or with pip, ideally in a virtual environment:
 
 ```bash
-pip install git+https://github.com/Nam-ucdavis/atlas-lookup
+pip install git+https://github.com/ccn-spark/atlas-lookup
 ```
 
 **Windows:** install [Python](https://www.python.org/downloads/) (tick *Add
@@ -433,7 +433,7 @@ how to develop the app this way.
 ## Development
 
 ```bash
-git clone https://github.com/Nam-ucdavis/atlas-lookup && cd atlas-lookup
+git clone https://github.com/ccn-spark/atlas-lookup && cd atlas-lookup
 python -m venv .venv && .venv/bin/pip install -e ".[test]"
 .venv/bin/atlaslookup setup
 .venv/bin/pytest
@@ -470,17 +470,17 @@ copies: `rm -rf ~/.atlaslookup/versions && git worktree prune`.
 
 ## Branches
 
-`dev` is the default branch, where all new work goes and releases are tagged. `main`
-is the stable version: `dev` is merged into it once it has been tried. (`main` used to
-mirror [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup); it no longer
-does.) See [BRANCHES.md](BRANCHES.md) for everyday commands, moving `dev` to `main`,
-pulling in ccn-spark's updates, and offering changes back.
+This repository has one branch, `main`. The app is also developed in
+[Nam-ucdavis/atlas-lookup](https://github.com/Nam-ucdavis/atlas-lookup), whose `dev`
+branch is merged in here. See [BRANCHES.md](BRANCHES.md) for everyday commands, pulling
+in Nam's updates, and offering changes back.
 
 ## Contributors
 
-Local NIfTI overlays, colour bars, the viewer tools, **scr** capture, the `lookup`
-alias and `install_prompt.md` came from the
-[ccn-spark fork](https://github.com/ccn-spark/atlas-lookup).
+Atlas Lookup is developed in [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup)
+(local NIfTI overlays, colour bars, the viewer tools, **scr** capture, the `lookup`
+alias, `install_prompt.md`) and
+[Nam-ucdavis/atlas-lookup](https://github.com/Nam-ucdavis/atlas-lookup).
 
 ## License
 
