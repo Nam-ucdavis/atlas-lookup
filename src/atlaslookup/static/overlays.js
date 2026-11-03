@@ -12,8 +12,17 @@
 // p values are uncorrected and one-sided (in the direction of each sign), as in the
 // rest of the app.
 
-const POS_MAPS = ["warm", "hot", "red", "green", "blue", "violet", "plasma", "viridis", "inferno", "magma", "actc"];
-const NEG_MAPS = ["winter", "cool", "blue", "electric_blue", "green", "violet", "viridis"];
+// Colormaps offered for each sign, defaults first. NiiVue has "hot" but no "cold", so
+// addColdColormap() registers one: hot with red and blue swapped (black, blue, cyan, white).
+export const POS_MAPS = ["hot", "warm", "red", "redyell", "green", "blue", "violet", "plasma", "viridis", "inferno", "magma", "actc"];
+export const NEG_MAPS = ["cold", "winter", "cool", "blue", "blue2cyan", "electric_blue", "green", "violet", "viridis"];
+export const [DEFAULT_CMAP, DEFAULT_CMAP_NEG] = [POS_MAPS[0], NEG_MAPS[0]];
+const COLD = { R: [0, 0, 0, 255], G: [0, 0, 255, 255], B: [3, 255, 255, 255], A: [0, 48, 96, 128], I: [0, 95, 191, 255] };
+
+/** Register "cold" (NiiVue keeps colormaps globally, so once covers every viewer). */
+export function addColdColormap(nv) {
+  if (!nv.colormaps().includes("cold")) nv.addColormap("cold", COLD);
+}
 const P_SLIDER = { min: -8, max: -1 };  // log10 p range of the slider in p mode
 
 // --- t distribution (pure, exported for tests) --------------------------------------
@@ -133,14 +142,14 @@ export function createOverlays({ NVImage, getNv, esc, head, list }) {
     for (const file of files) {
       if (!/\.nii(\.gz)?$/i.test(file.name)) continue;
       try {
-        const vol = await NVImage.loadFromFile({ file, name: file.name, colormap: "warm", opacity: 0.9 });
+        const vol = await NVImage.loadFromFile({ file, name: file.name, colormap: DEFAULT_CMAP, opacity: 0.9 });
         zeroNaN(vol);
         const df = dfFromHeader(vol.hdr);
         const maxPos = Math.max(+vol.global_max || 0, 0), maxNeg = Math.max(-(+vol.global_min) || 0, 0);
         layers.unshift({
           id: nextId++, name: file.name, vol, df, dfFromFile: df != null, maxPos, maxNeg,
           mode: "t", t: 3, p: 0.001, max: null, sign: maxNeg > 0 && maxPos > 0 ? "both" : maxNeg > 0 ? "neg" : "pos",
-          cmap: "warm", cmapNeg: "winter", opacity: 0.9, visible: true, error: null,
+          cmap: DEFAULT_CMAP, cmapNeg: DEFAULT_CMAP_NEG, opacity: 0.9, visible: true, error: null,
         });
       } catch (e) {
         layers.unshift({ id: nextId++, name: file.name, error: e.message || String(e) });

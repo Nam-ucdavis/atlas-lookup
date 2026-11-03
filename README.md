@@ -300,8 +300,9 @@ to a slim rail on the right edge, and the rail's buttons bring it back. Its
 state, tab and width are remembered. When little room is left beside it, the
 page switches to one column with the viewer on top.
 
-- **Overlay:** thresholded at **T ≥** your value; positive orange, negative
-  blue, or one sign only. **Opacity** sets how see-through it is (remembered,
+- **Overlay:** thresholded at **T ≥** your value; both signs or one sign only.
+  Each map's row has a colormap for each sign (**hot** for positive and **cold** for
+  negative by default; remembered per map). **Opacity** sets how see-through it is (remembered,
   and applied in the 3D view too). The equivalent p is shown, using the df from the SPM
   header.
 - **Readout:** T and p at whatever point you click.

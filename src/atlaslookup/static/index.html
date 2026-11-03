@@ -395,6 +395,8 @@
   .sl-name .muted { color: var(--muted); }
   .sl-row.active .sl-name { font-weight: 600; }
   .sl-row .err { color: var(--err, #b42318); font-size: 12px; }
+  .sl-cm { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+  .sl-cm select { width: auto; padding: 2px 4px; font-size: 12px; }
   .sl-op { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
   .sl-op input { width: 90px; }
   .stat-ctl .sr-for { color: var(--muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -657,7 +659,7 @@
 <script type="module">
 import { Niivue, NVImage, SHOW_RENDER, MULTIPLANAR_TYPE } from "/static/vendor/niivue-0.69.0.js";
 import { createQuiz } from "/static/quiz.js";
-import { createOverlays, tFromP, zeroNaN } from "/static/overlays.js";
+import { createOverlays, tFromP, zeroNaN, addColdColormap, POS_MAPS, NEG_MAPS, DEFAULT_CMAP, DEFAULT_CMAP_NEG } from "/static/overlays.js";
 import { createViewerTools } from "/static/viewertools.js";
 import { createViewer3D } from "/static/viewer3d.js";
 import { createFocusView } from "/static/focus3d.js";
@@ -820,6 +822,7 @@ async function initViewer() {
     textHeight: 0.035,
     dragAndDropEnabled: false,  // dropped files go through the local-overlay list instead
   });
+  addColdColormap(nv);
   await nv.attachToCanvas($("gl"));
   await nv.loadVolumes([{ url: "/api/template.nii.gz", colormap: "gray" }]);
   nv.setSliceType(nv.sliceTypeMultiplanar);
@@ -953,6 +956,25 @@ function initDrop() {
     e.preventDefault(); overlaysApi.addFiles(e.dataTransfer.files);
   });
 }
+// How a results-folder map is drawn: its colormaps, and a window from the threshold to
+// the top of its colour range. A hidden sign gets a window beyond the data.
+function statDisplay(e) {
+  const thr = e.threshold, top = Math.max(e.max ?? e.maxAbs, thr + 0.01);
+  const showPos = e.sign !== "neg", showNeg = e.sign !== "pos";
+  return {
+    colormap: e.cmap, cal_min: showPos ? thr : top + 1, cal_max: showPos ? top : top + 2,
+    colormapNegative: showNeg ? e.cmapNeg : "", cal_minNeg: -thr, cal_maxNeg: -top,
+  };
+}
+// Apply a colormap change to a map that is already loaded, without reloading it.
+function restyleStat(e) {
+  if (!e.vol) return;
+  const d = statDisplay(e);
+  e.vol.colormap = d.colormap;  // the setter recomputes cal_min/max, so set it first
+  Object.assign(e.vol, { cal_min: d.cal_min, cal_max: d.cal_max, cal_minNeg: d.cal_minNeg, cal_maxNeg: d.cal_maxNeg,
+                         colormapNegative: d.colormapNegative });
+  nv.updateGLVolume();
+}
 // Overlays on the template: an atlas (optional) and a thresholded stat map (optional).
 let atlasVol = null, overlayToken = 0;
 async function setOverlay(id) {
@@ -986,18 +1008,13 @@ async function rebuildOverlays() {
   // Open stat maps, back to front, so the top of the list is painted last (in front).
   for (const e of [...state.stats].reverse()) {
     if (!e.visible || !e.maxAbs) continue;
-    const thr = e.threshold, top = Math.max(e.max ?? e.maxAbs, thr + 0.01);
-    const showPos = e.sign !== "neg", showNeg = e.sign !== "pos";
     const vol = await nv.addVolumeFromUrl({
       url: `/api/results/file/${e.map.split("/").map(encodeURIComponent).join("/")}`,
-      colormap: "warm", opacity: e.opacity,
-      // Hide a sign by pushing its window beyond the data.
-      cal_min: showPos ? thr : top + 1, cal_max: showPos ? top : top + 2,
-      ...(showNeg ? { colormapNegative: "winter", cal_minNeg: -thr, cal_maxNeg: -top } : {}),
+      ...statDisplay(e), opacity: e.opacity,
     });
     if (superseded(vol)) return;
     zeroNaN(vol);  // SPM's NaN outside the mask would otherwise be painted in full colour
-    if (!showNeg) vol.colormapNegative = "";
+    if (e.sign === "pos") vol.colormapNegative = "";
     e.vol = vol;
   }
   overlaysApi?.sync();  // local overlays stay in front of the atlas and stat map
@@ -1043,7 +1060,7 @@ function debounce(key, fn, ms = 400) {
   clearTimeout(timers[key]);
   timers[key] = setTimeout(fn, ms);
 }
-// Colour bars for the shown results-folder maps, drawn in rebuildOverlays (warm / winter).
+// Colour bars for the shown results-folder maps, in each map's colormaps.
 function statLegend() {
   return state.stats.filter((e) => e.visible && e.maxAbs).flatMap((e) => {
     const base = {
@@ -1059,8 +1076,8 @@ function statLegend() {
       }),
       setTo: (v) => debounce("stat:" + e.map, () => { e.max = v == null ? null : Math.abs(v); rebuildOverlays(); saveStats(); }),
     };
-    return [...(e.sign !== "neg" ? [{ ...base, sign: "+", cmap: "warm" }] : []),
-            ...(e.sign !== "pos" ? [{ ...base, sign: "−", cmap: "winter" }] : [])];
+    return [...(e.sign !== "neg" ? [{ ...base, sign: "+", cmap: e.cmap }] : []),
+            ...(e.sign !== "pos" ? [{ ...base, sign: "−", cmap: e.cmapNeg }] : [])];
   });
 }
 
@@ -1094,7 +1111,7 @@ const mapLabel = (id) => {
   const m = state.statMaps?.find((m) => m.id === id);
   return mapTail(id) + (m ? ` · ${m.contrast}` : "");
 };
-const SAVED_KEYS = ["map", "visible", "opacity", "threshold", "sign", "k", "max"];
+const SAVED_KEYS = ["map", "visible", "opacity", "threshold", "sign", "k", "max", "cmap", "cmapNeg"];
 function saveStats() {
   store.set("statMaps", state.stats.map((e) => Object.fromEntries(SAVED_KEYS.map((k) => [k, e[k]]))));
   store.set("statMap", state.stat?.map || "");
@@ -1126,7 +1143,11 @@ async function initStats() {
 }
 
 function newEntry(e) {
-  return { visible: true, opacity: 0.9, threshold: 3, sign: "both", k: 5, max: null, ...e, vol: null };
+  const m = { visible: true, opacity: 0.9, threshold: 3, sign: "both", k: 5, max: null, ...e, vol: null };
+  // Maps saved before colormaps could be chosen (or with one that no longer exists) get the defaults.
+  if (!POS_MAPS.includes(m.cmap)) m.cmap = DEFAULT_CMAP;
+  if (!NEG_MAPS.includes(m.cmapNeg)) m.cmapNeg = DEFAULT_CMAP_NEG;
+  return m;
 }
 
 // Fetch a map's clusters at its threshold: its strongest T (for the colour range), df,
@@ -1192,6 +1213,8 @@ function renderStatList() {
         <input type="checkbox" data-k="visible" ${e.visible ? "checked" : ""} aria-label="Show ${esc(e.map)}" title="Show or hide">
         <button type="button" class="sl-name" data-act="activate" title="${esc(e.map)}${m ? "\n" + esc(m.contrast) : ""}">${esc(mapTail(e.map))}${m ? ` <span class="muted">· ${esc(m.contrast)}</span>` : ""}</button>
         ${e.error ? `<span class="err" title="${esc(e.error)}">could not load</span>` : ""}
+        <label class="sl-cm" title="Colormap for positive T">+ <select data-k="cmap" aria-label="Positive colormap of ${esc(e.map)}">${cmapOptions(POS_MAPS, e.cmap)}</select></label>
+        <label class="sl-cm" title="Colormap for negative T">− <select data-k="cmapNeg" aria-label="Negative colormap of ${esc(e.map)}">${cmapOptions(NEG_MAPS, e.cmapNeg)}</select></label>
         <label class="sl-op">Opacity <input type="range" data-k="opacity" min="0" max="1" step="0.05" value="${e.opacity}" aria-label="Opacity of ${esc(e.map)}"></label>
         <button type="button" class="btn small" data-act="remove" title="Close this map" aria-label="Close ${esc(e.map)}">✕</button>
         <div class="sl-bars" data-map="${esc(e.map)}"></div>
@@ -1199,6 +1222,7 @@ function renderStatList() {
     }).join("");
   viewerTools?.refreshLegend();  // put the colour bars back into the new rows
 }
+const cmapOptions = (all, cur) => all.map((c) => `<option ${c === cur ? "selected" : ""}>${esc(c)}</option>`).join("");
 const entryOf = (ev) => state.stats[+ev.target.closest(".sl-row")?.dataset.i];
 $("statList").addEventListener("click", (ev) => {
   const e = entryOf(ev), act = ev.target.closest("[data-act]")?.dataset.act;
@@ -1207,8 +1231,13 @@ $("statList").addEventListener("click", (ev) => {
   else if (act === "remove") closeStat(e);
 });
 $("statList").addEventListener("change", (ev) => {
-  const e = entryOf(ev);
-  if (!e || ev.target.dataset.k !== "visible") return;
+  const e = entryOf(ev), k = ev.target.dataset.k;
+  if (e && (k === "cmap" || k === "cmapNeg")) {
+    e[k] = ev.target.value;
+    restyleStat(e); viewerTools?.refreshLegend(); saveStats();
+    return;
+  }
+  if (!e || k !== "visible") return;
   e.visible = ev.target.checked;
   renderStatList(); saveStats(); rebuildOverlays();
 });

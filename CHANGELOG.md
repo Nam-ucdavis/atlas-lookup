@@ -11,6 +11,10 @@ title in the app (and at `/api/version`, or `atlaslookup --version`).
   slices. A redraw that was overtaken by a newer one while its map was still loading used
   to keep that map; it now takes it back out. Most visible on slower machines (seen on
   Linux).
+- **Colormaps for results-folder maps**: each map's row in the Stat maps list has a
+  colormap for positive and for negative T, saved with the map. The defaults are now
+  **hot** (positive) and **cold** (negative, hot's blue mirror image) for these maps and
+  for local overlays; maps you already had open switch to hot / cold too.
 
 ## 0.19.10 (2026-11-02)
 - Focus blobs are shaded like the results painted on surfaces (same shader), so the

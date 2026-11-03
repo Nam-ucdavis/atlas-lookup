@@ -1087,3 +1087,29 @@ def test_zero_nan_for_display():
     out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
     assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == "[2,[0,1.5,0,-2],0,0]"
+
+
+def test_default_colormaps_are_hot_and_cold():
+    """static/overlays.js: hot / cold are the defaults, and "cold" mirrors NiiVue's hot
+    (red and blue swapped), so the two signs read as one scale."""
+    import json
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    import atlaslookup
+
+    js = Path(atlaslookup.__file__).parent / "static" / "overlays.js"
+    script = (f"import {{ DEFAULT_CMAP, DEFAULT_CMAP_NEG, POS_MAPS, NEG_MAPS, addColdColormap }} from {str(js)!r};"
+              "const added = {}; const nv = { colormaps: () => Object.keys(added), addColormap: (n, c) => (added[n] = c) };"
+              "addColdColormap(nv); addColdColormap(nv);"
+              "console.log(JSON.stringify([DEFAULT_CMAP, DEFAULT_CMAP_NEG, POS_MAPS.includes('hot'), NEG_MAPS.includes('cold'), added]));")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    pos, neg, has_hot, has_cold, added = json.loads(out.stdout)
+    assert (pos, neg, has_hot, has_cold) == ("hot", "cold", True, True)
+    cold = added["cold"]  # NiiVue's hot: R [3,255,255,255], G [0,0,255,255], B [0,0,0,255]
+    assert (cold["R"], cold["G"], cold["B"]) == ([0, 0, 0, 255], [0, 0, 255, 255], [3, 255, 255, 255])
+    assert list(added) == ["cold"]  # registering twice is harmless
