@@ -110,6 +110,44 @@ export function zeroNaN(vol) {
   return n;
 }
 
+// The 18 neighbours SPM uses for clusters: faces and edges, not corners.
+const N18 = [];
+for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+  const n = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
+  if (n === 1 || n === 2) N18.push([dx, dy, dz]);
+}
+
+/** Blank (in place) the voxels of clusters smaller than k voxels, so the slices show only
+ * the clusters the cluster table lists. Clusters are |T| >= threshold per sign with
+ * 18-connectivity, as on the server (results._clusters). Returns how many voxels were
+ * blanked. Exported for tests. */
+export function dropSmallClusters(img, dims, threshold, sign, k, slope = 1, inter = 0) {
+  if (!img || !(k > 1)) return 0;
+  const [nx, ny, nz] = dims, n = nx * ny * nz, zero = slope ? -inter / slope : 0;
+  const src = img.slice(), seen = new Uint8Array(n), queue = new Int32Array(n);
+  let blanked = 0;
+  // The two signs never share a voxel (threshold > 0), so one `seen` serves both.
+  for (const s of sign === "both" ? [1, -1] : [sign === "neg" ? -1 : 1]) {
+    const inside = (i) => s * (src[i] * slope + inter) >= threshold;
+    for (let start = 0; start < n; start++) {
+      if (seen[start] || !inside(start)) continue;
+      let head = 0, tail = 0;
+      queue[tail++] = start; seen[start] = 1;
+      while (head < tail) {
+        const i = queue[head++], x = i % nx, y = ((i / nx) | 0) % ny, z = (i / (nx * ny)) | 0;
+        for (const [dx, dy, dz] of N18) {
+          const X = x + dx, Y = y + dy, Z = z + dz;
+          if (X < 0 || Y < 0 || Z < 0 || X >= nx || Y >= ny || Z >= nz) continue;
+          const j = X + nx * (Y + ny * Z);
+          if (!seen[j] && inside(j)) { seen[j] = 1; queue[tail++] = j; }
+        }
+      }
+      if (tail < k) { for (let q = 0; q < tail; q++) img[queue[q]] = zero; blanked += tail; }
+    }
+  }
+  return blanked;
+}
+
 function fmtP(p) {
   if (p == null || !isFinite(p)) return "–";
   return p < 0.001 ? p.toExponential(1) : p.toFixed(3);

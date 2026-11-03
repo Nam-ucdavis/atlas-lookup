@@ -19,7 +19,7 @@ labelled cluster table. A quiz mode helps you learn the regions.
   picks regions to show as solid shapes, optionally showing results only
   inside them, and lists the **white-matter tracts that connect them**, which
   you can draw in 3D.
-- **Your stat maps:** point it at a folder of `spmT_*.nii` files to get a
+- **Your stat maps:** point it at a folder of SPM T maps (any `.nii` / `.nii.gz`) to get a
   thresholded overlay, T and p at any point, and a cluster/peak table labelled
   by region. The maps are only read, never copied anywhere.
 - **Local overlays:** drop any NIfTI stat map from your computer on the brain.
@@ -273,15 +273,20 @@ remembers which tab and style you used last. The quiz always uses the slices.
 atlaslookup set-results /path/to/your/results
 ```
 
-The folder is searched recursively for `spmT_*.nii` files. Its path is stored
+The folder is searched recursively for `.nii` / `.nii.gz` files, renamed ones
+included (e.g. `Rank5_spmT_0001.nii`); 4D files are left out. T and p values
+need an SPM T header (`SPM{T_[df]}`): for other maps (e.g. TFCE or pTFCE maps)
+the threshold applies to the map's own values and no p values are shown. Its path is stored
 in `~/.atlaslookup/settings.json`, outside any repository, so it's safe to keep
 results out of version control. For one run you can use
 `atlaslookup serve --results DIR` instead.
 
-In the app, click **▦ Open spmT…** above the viewer. It opens the side panel's
+In the app, click **▦ Open map…** above the viewer. It opens the side panel's
 Results tab, a Finder-style column browser of your results folder: click
 through the folders, see a map's contrast, df and grid below, and double-click
 (or press **Show**) to display it. Arrow keys and Enter work as in Finder.
+**Change folder…** picks another results folder: go up with **↑**, click into
+folders or type a path, then **Use this folder** (saved like `set-results`).
 
 Each map you show is added to the **Stat maps** list under the viewer, so you
 can overlay several: tick or untick a map to show or hide it, set its own
@@ -316,7 +321,7 @@ page switches to one column with the viewer on top.
 
 ### Local overlays
 
-Click **⤓ Import new map…** (right of **Open spmT…**), or drop `.nii` / `.nii.gz`
+Click **⤓ Import new map…** (right of **Open map…**), or drop `.nii` / `.nii.gz`
 files on the brain) to overlay any stat map from your computer, inside the
 results folder or not. The file is read by your browser and never uploaded,
 not even to the local server. It should be in MNI space.

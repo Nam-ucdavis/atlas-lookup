@@ -35,7 +35,7 @@ Work through these steps and report each one briefly. If something fails, show m
 
 5. Download data: run `atlaslookup setup` with the updated install. It skips atlases that are already there, and new versions add data (about 100 MB on a first run). It writes only to ~/.atlaslookup (or $ATLASLOOKUP_HOME). Keep my settings, including the results folder set with `atlaslookup set-results`. Never delete or overwrite ~/.atlaslookup/settings.json.
 
-6. Results folder (optional): run `atlaslookup info`. If no results folder is set, ask me whether I have a folder of SPM results (`spmT_*.nii` files) to connect. If yes, run `atlaslookup set-results <path>`. The app only reads those files and never copies them. Skip this if one is already set or I say no.
+6. Results folder (optional): run `atlaslookup info`. If no results folder is set, ask me whether I have a folder of SPM results (`spmT_*.nii` or other `.nii` maps) to connect. If yes, run `atlaslookup set-results <path>`. The app only reads those files and never copies them. Skip this if one is already set or I say no.
 
 7. Verify and show me:
    - `atlaslookup --version` matches the latest release from step 1. Run it from the updated install, using its full path if PATH finds another copy first.

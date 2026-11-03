@@ -26,6 +26,8 @@ GET /api/quiz/point?atlas=&value=&side=  a point well inside a region (side L/R/
 GET /api/quiz/mask/{atlas}/{value}/{side}.nii.gz   that region as a mask
 GET /api/results                         your stat maps (from the local results folder)
 GET /api/results/file/{id}               one map, for the viewer
+GET /api/folders?path=                   subfolder names of a folder (for choosing the results folder)
+POST /api/results/folder                 body: {"path": ...}; makes it the results folder (saved in settings.json)
 GET /api/results/clusters?map=&threshold=&sign=pos|neg|both&min_voxels=
                                          clusters + peaks, labelled by atlas
 GET /api/lookup?...&map={id}             adds the T / p value at the point
@@ -47,7 +49,7 @@ from .config import IMAGE_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FIL
 from .grids import load_grids
 from .screenshots import MAX_BYTES, reveal, save_png
 from . import quiz, regions, tracts
-from .results import Results, configured_dir, repo_warning
+from .results import Results, configured_dir, list_folders, repo_warning, save_results_dir
 from .query import best_guess, query, resolve_mm
 from .version import version_info
 
@@ -363,6 +365,28 @@ def results_list():
     return {"folder": str(root) if root else None, "available": RESULTS.available,
             "warning": repo_warning(root) if RESULTS.available else None,
             "maps": RESULTS.list()}
+
+
+@app.get("/api/folders")
+def folders(path: str | None = None):
+    try:
+        return list_folders(path)
+    except (OSError, ValueError):
+        raise HTTPException(404, "Not a readable folder")
+
+
+@app.post("/api/results/folder")
+async def set_results_folder(request: Request):
+    # As with the screenshot route, requiring JSON keeps other websites out: a cross-site
+    # request with this type needs a CORS preflight, which this server never grants.
+    if request.headers.get("content-type") != "application/json":
+        raise HTTPException(415, "Send the folder as application/json")
+    global RESULTS
+    try:
+        RESULTS = Results(save_results_dir(str((await request.json())["path"])))
+    except (KeyError, TypeError, ValueError, OSError):
+        raise HTTPException(400, "Not a folder")
+    return results_list()
 
 
 @app.get("/api/results/file/{rel:path}")
