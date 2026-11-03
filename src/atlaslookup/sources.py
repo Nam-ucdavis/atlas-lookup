@@ -18,7 +18,8 @@ from pathlib import Path
 import numpy as np
 
 from .atlas import add_atlas
-from .config import ATLASES_DIR, DOWNLOADS_DIR, GRIDS_DIR, MESH_FILE, TEMPLATE_FILE
+from .config import (ATLASES_DIR, DOWNLOADS_DIR, GRIDS_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FILE,
+                     TEMPLATE_FILE)
 from .destrieux_names import readable
 from .grids import grid_from_image, save_grid
 
@@ -487,6 +488,62 @@ def export_mesh():
     return MESH_FILE
 
 
+INFLATED_GAP_MM = 10  # between the two inflated hemispheres
+
+
+def inflated_targets(pial: list[np.ndarray], infl: list[np.ndarray], gap=INFLATED_GAP_MM) -> list[np.ndarray]:
+    """Where each vertex goes when fully inflated, per hemisphere (left, right).
+    FreeSurfer's inflated surfaces are centred on the origin, overlap each other and are
+    ~20 % larger than the pial surface: scale each to its pial surface's length
+    (front to back), centre it on the pial surface, then set the hemispheres side by
+    side with `gap` mm between them."""
+    out = []
+    for side, (p, f) in enumerate(zip(pial, infl)):
+        lo, hi = f.min(0), f.max(0)
+        k = np.ptp(p[:, 1]) / (hi[1] - lo[1])
+        t = (f - (lo + hi) / 2) * k + (p.min(0) + p.max(0)) / 2
+        t[:, 0] += (-gap / 2 - t[:, 0].max()) if side == 0 else (gap / 2 - t[:, 0].min())
+        out.append(t.astype(np.float32))
+    return out
+
+
+def sulcal_shade(sulc: np.ndarray) -> np.ndarray:
+    """Grey level (0-1) per vertex: sulci (positive sulcal depth) darker, gyri lighter."""
+    return (0.6 - 0.16 * np.tanh(1.5 * sulc)).astype(np.float32)
+
+
+def export_inflated():
+    """The 3D view's inflated brain: fsaverage6 (~41k vertices per hemisphere; nilearn
+    downloads it from OSF once, ~8 MB). Writes the pial surface of both hemispheres as
+    one GIfTI and a binary file with, per vertex, the inflated position and a sulcal
+    grey level: uint32 n_left, uint32 n, then float32 xyz (n*3) and float32 shade (n)."""
+    import nibabel as nib
+    from nilearn import datasets
+
+    fs = datasets.fetch_surf_fsaverage("fsaverage6")
+    pial, infl, faces, shade, offset = [], [], [], [], 0
+    for hemi in ("left", "right"):
+        g = nib.load(str(fs[f"pial_{hemi}"]))
+        v, f = g.agg_data("pointset"), g.agg_data("triangle")
+        pial.append(v.astype(np.float32))
+        faces.append((f + offset).astype(np.int32))
+        offset += len(v)
+        infl.append(nib.load(str(fs[f"infl_{hemi}"])).agg_data("pointset"))
+        shade.append(sulcal_shade(np.asarray(nib.load(str(fs[f"sulc_{hemi}"])).agg_data(), np.float32)))
+    img = nib.gifti.GiftiImage(darrays=[
+        nib.gifti.GiftiDataArray(np.vstack(pial), intent="NIFTI_INTENT_POINTSET", datatype="NIFTI_TYPE_FLOAT32"),
+        nib.gifti.GiftiDataArray(np.vstack(faces), intent="NIFTI_INTENT_TRIANGLE", datatype="NIFTI_TYPE_INT32"),
+    ])
+    INFLATED_MESH_FILE.parent.mkdir(parents=True, exist_ok=True)
+    nib.save(img, str(INFLATED_MESH_FILE))
+    targets = np.vstack(inflated_targets(pial, infl))
+    with open(INFLATED_MORPH_FILE, "wb") as fh:
+        fh.write(np.array([len(pial[0]), offset], "<u4").tobytes())
+        fh.write(targets.astype("<f4").tobytes())
+        fh.write(np.concatenate(shade).astype("<f4").tobytes())
+    return INFLATED_MESH_FILE
+
+
 def bootstrap(overwrite=False):
     """Download and register the built-in atlases. Atlases already installed are
     skipped (unless overwrite), so re-running adds only what a newer version brings."""
@@ -513,6 +570,9 @@ def bootstrap(overwrite=False):
     if overwrite or not MESH_FILE.exists():
         print("Brain mesh for the 3D view ...")
         export_mesh()
+    if overwrite or not (INFLATED_MESH_FILE.exists() and INFLATED_MORPH_FILE.exists()):
+        print("Inflated brain for the 3D view (fsaverage6, ~8 MB from OSF) ...")
+        export_inflated()
     if overwrite or not (GRIDS_DIR / "mni-2mm-fsl.json").exists():
         from nilearn import datasets
 

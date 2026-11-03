@@ -535,6 +535,38 @@ def test_brain_mesh(tmp_path, monkeypatch):
     assert -110 < v[:, 1].min() < -95 and 60 < v[:, 1].max() < 80
 
 
+def test_inflated_targets_and_shade():
+    """Inflated hemispheres are scaled to the pial length, centred on it, and set apart
+    with a gap at the midline; sulci (positive sulcal depth) are darker."""
+    from atlaslookup.sources import inflated_targets, sulcal_shade
+
+    rng = np.random.default_rng(0)
+    pial_l = rng.uniform([-70, -105, -45], [-1, 70, 78], (500, 3))
+    pial_r = pial_l * [-1, 1, 1]
+    infl = rng.uniform([-42, -105, -71], [42, 105, 71], (500, 3))  # centred, overlapping, bigger
+    left, right = inflated_targets([pial_l, pial_r], [infl, infl], gap=10)
+    assert np.isclose(left[:, 0].max(), -5) and np.isclose(right[:, 0].min(), 5)
+    assert np.isclose(np.ptp(left[:, 1]), np.ptp(pial_l[:, 1]), atol=1e-3)
+    assert np.isclose((left[:, 2].min() + left[:, 2].max()) / 2, (pial_l[:, 2].min() + pial_l[:, 2].max()) / 2, atol=1e-3)
+    shade = sulcal_shade(np.array([-1.0, 0.0, 1.0]))
+    assert shade[0] > shade[1] > shade[2] and 0 < shade.min() and shade.max() < 1
+
+
+def test_inflated_endpoints_need_setup(tmp_path, monkeypatch):
+    """Without the files the endpoints say to run setup (no download inside a request)."""
+    from fastapi.testclient import TestClient
+
+    from atlaslookup import server
+
+    monkeypatch.setattr(server, "INFLATED_MESH_FILE", tmp_path / "a.gii")
+    monkeypatch.setattr(server, "INFLATED_MORPH_FILE", tmp_path / "a.bin")
+    c = TestClient(server.app)
+    r = c.get("/api/inflated_morph.bin")
+    assert r.status_code == 404 and "atlaslookup setup" in r.json()["detail"]
+    (tmp_path / "a.gii").write_bytes(b"g"); (tmp_path / "a.bin").write_bytes(b"b")
+    assert c.get("/api/inflated_morph.bin").content == b"b" and c.get("/api/inflated_mesh.gii").content == b"g"
+
+
 def test_viewer3d_is_wired():
     """index.html loads the 3D module and gives it the controls it looks up."""
     import re
@@ -545,13 +577,17 @@ def test_viewer3d_is_wired():
     html = (static / "index.html").read_text()
     assert 'from "/static/viewer3d.js"' in html
     for el in ["viewTabs", "gl3wrap", "gl3", "v3Bar", "v3Style", "v3Brain", "v3BrainOut", "v3Views",
-               "v3Regions", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
+               "v3Regions", "v3Infl", "v3Inflate", "v3InflateOut", "v3Hemi", "v3FocusBtn", "v3FocusMenu", "v3Whole",
+               "v3FocusBar", "fcHemi", "fcColors", "fcFill", "gl3f", "fcLegend", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
         assert re.search(rf'id="{el}"', html), el
     assert 'from "/static/sidepanel.js"' in html and 'from "/static/tracts.js"' in html
+    assert 'from "/static/focus3d.js"' in html and 'data-focus="mtl"' not in html and 'data-focus="pfc"' in html
+    assert all(f'data-focus="{f}"' in html for f in ("parietal", "cingulate", "temporal", "occipital"))
     # Page-layout rules must not hit the side panel (also an <aside>).
     assert "aside { display: contents" not in html.replace("main > aside { display: contents", "")
     js = (static / "viewer3d.js").read_text()
     assert "/api/brain_mesh.gii" in js and "export function createViewer3D" in js
+    assert "/api/inflated_mesh.gii" in js and "/api/inflated_morph.bin" in js and 'data-style="inflated"' in html
 
 
 # --- regions window, region meshes, mesh-brain projection, Finder-style browser ------
@@ -629,6 +665,115 @@ def _node(script):
     return out.stdout.strip()
 
 
+def test_focus_helpers():
+    """3D focus: the structure list per focus/hemisphere (atlases with one region
+    per hemisphere use their right-hand value; medial strips carry |xmax), Taubin
+    smoothing keeps size, and per-structure peaks."""
+    import json
+
+    import atlaslookup
+
+    static = Path(atlaslookup.__file__).parent / "static"
+    out = _node(f"""
+      import {{ focusParts, smoothMesh, structurePeaks, voxelSurface }} from {str(static / "focus3d.js")!r};
+      // The MTL (subfields) is the last three groups of the temporal focus.
+      const temporal = focusParts("temporal", "both").map((p) => p.key);
+      const left = focusParts("temporal", "L").filter((p) => p.group >= 5).map((p) => p.name);
+      const pfc = focusParts("pfc", "R");
+      const mpfc = pfc.map((p) => p.key), groups = pfc.map((p) => p.group);
+      const cing = focusParts("cingulate", "L").map((p) => p.key);
+      const par = focusParts("parietal", "L").map((p) => p.group);
+      const occ = focusParts("occipital", "both").map((p) => p.key);
+      // A bumpy sphere (radius 10 +- 1): smoothing evens out the bumps but keeps its size.
+      const N = 24, P = [], T = [], radii = (arr) => {{ const r = [];
+        for (let i = 0; i < arr.length; i += 3) r.push(Math.hypot(arr[i], arr[i + 1], arr[i + 2])); return r; }};
+      for (let i = 1; i < N; i++) for (let j = 0; j < N; j++) {{
+        const th = Math.PI * i / N, ph = 2 * Math.PI * j / N, rad = 10 + ((i + j) % 2 ? 1 : -1);
+        P.push(rad * Math.sin(th) * Math.cos(ph), rad * Math.sin(th) * Math.sin(ph), rad * Math.cos(th));
+      }}
+      P.push(0, 0, 10, 0, 0, -10);
+      const id = (i, j) => (i - 1) * N + (j % N), top = (N - 1) * N, bot = top + 1;
+      for (let i = 1; i < N - 1; i++) for (let j = 0; j < N; j++) T.push(id(i, j), id(i + 1, j), id(i, j + 1), id(i, j + 1), id(i + 1, j), id(i + 1, j + 1));
+      for (let j = 0; j < N; j++) T.push(top, id(1, j), id(1, j + 1), bot, id(N - 1, j + 1), id(N - 1, j));
+      const pts = new Float32Array(P), before = radii(pts);
+      smoothMesh(pts, T, 20);
+      const after = radii(pts), sd = (r) => {{ const m = r.reduce((a, b) => a + b) / r.length;
+        return [m, Math.sqrt(r.reduce((a, b) => a + (b - m) ** 2, 0) / r.length)]; }};
+      const r = [...sd(before), ...sd(after)];
+      // 2x1x1 mask: voxel 1 = structure 1, voxel 2 = structure 2; sample = x coordinate - 0.5.
+      const mask = {{ img: new Uint8Array([1, 2]), dims: [2, 1, 1], affine: [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]] }};
+      const pk = structurePeaks(mask, (x) => (x === 0 ? -3 : 4), 3, -2);
+      // Voxel surfaces: counts, and every triangle facing out of its shape.
+      const outward = ({{ pts, tris }}, c) => {{ let ok = 0;
+        for (let t = 0; t < tris.length; t += 3) {{
+          const [a, b, d] = [tris[t], tris[t + 1], tris[t + 2]].map((v) => [pts[3 * v], pts[3 * v + 1], pts[3 * v + 2]]);
+          const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], w = [d[0] - a[0], d[1] - a[1], d[2] - a[2]];
+          const nrm = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
+          const m = [0, 1, 2].map((k) => (a[k] + b[k] + d[k]) / 3 - c[k]);
+          if (nrm[0] * m[0] + nrm[1] * m[1] + nrm[2] * m[2] > 0) ok++;
+        }}
+        return ok === tris.length / 3; }};
+      const I = [[1, 0, 0, 10], [0, 1, 0, 20], [0, 0, 1, 30], [0, 0, 0, 1]], M = [[-1, 0, 0, 10], [0, 1, 0, 20], [0, 0, 1, 30], [0, 0, 0, 1]];
+      const one = voxelSurface(new Uint8Array([1]), [1, 1, 1], I), two = voxelSurface(new Uint8Array([1, 1]), [2, 1, 1], I);
+      const mir = voxelSurface(new Uint8Array([1, 1]), [2, 1, 1], M);
+      const vox = {{ one: [one.pts.length / 3, one.tris.length / 3, outward(one, [10, 20, 30]), Math.min(...one.pts), Math.max(...one.pts)],
+        two: [two.pts.length / 3, two.tris.length / 3, outward(two, [10.5, 20, 30])], mir: outward(mir, [9.5, 20, 30]) }};
+      console.log(JSON.stringify({{ left, mpfc, groups, temporal, cing, par, occ, r, pk, vox }}));
+    """)
+    r = json.loads(out)
+    assert r["left"][:3] == ["Cornu ammonis (CA)", "Dentate gyrus", "Subiculum"] and len(r["left"]) == 10
+    assert r["mpfc"][0] == "harvard-oxford-cort|25|R" and "harvard-oxford-cort|1|R" in r["mpfc"]
+    assert "harvard-oxford-cort|3|R|ax<=20;y>=10" in r["mpfc"] and "harvard-oxford-cort|3|R|ax>20;y>=10" in r["mpfc"]
+    assert r["groups"] == sorted(r["groups"]) and r["groups"][-1] == 5  # six groups, in order
+    # Temporal: Harvard-Oxford lateral and ventral cortex, then the MTL subfields with the
+    # Destrieux parahippocampal gyrus and collateral sulcus (not the HO hippocampus).
+    assert {"harvard-oxford-cort|8|L", "juelich|9|L", "juelich|11|R", "destrieux2009|23|B", "destrieux2009|62|B"} <= set(r["temporal"])
+    assert "harvard-oxford-sub|9|B" not in r["temporal"] and "destrieux2009|44|B" not in r["temporal"]
+    assert r["cing"][:3] == ["harvard-oxford-cort|29|L", "harvard-oxford-cort|28|L", "harvard-oxford-cort|27|L"]
+    assert "destrieux2009|10|B" in r["cing"]  # retrosplenial (Destrieux isthmus)
+    assert r["par"] == sorted(r["par"]) and r["par"][-1] == 3  # four parietal groups
+    assert r["occ"][:2] == ["harvard-oxford-cort|24|L", "harvard-oxford-cort|24|R"] and len(r["occ"]) == 16
+    v = r["vox"]
+    assert v["one"] == [8, 12, True, 9.5, 30.5] and v["two"] == [12, 20, True] and v["mir"] is True
+    mean0, sd0, mean1, sd1 = r["r"]
+    assert sd1 < sd0 / 3 and abs(mean1 - mean0) < 0.6  # smoother, same size
+    assert r["pk"]["1"]["neg"] == -3 and r["pk"]["1"]["above"] == 1 and r["pk"]["1"]["negAt"] == [0, 0, 0]
+    assert r["pk"]["2"]["pos"] == 4 and r["pk"]["2"]["above"] == 1 and r["pk"]["2"]["n"] == 1
+
+
+def test_region_clip(tmp_path, monkeypatch):
+    """atlas|value|side|clip cuts a region: "4" or "ax<=4" keeps |x| <= 4 mm, "ax>4" the
+    rest, "y>=0" drops what lies behind y = 0; in the mask and the mesh."""
+    from fastapi.testclient import TestClient
+
+    from atlaslookup import server
+
+    lab = np.zeros((11, 11, 11), np.int16)
+    lab[:, 3:8, 3:8] = 1  # x from -10 to +10 mm (2 mm voxels)
+    add_atlas("wide", "Wide", "MNI152NLin6Asym", {1: "slab"}, label_map=nib.Nifti1Image(lab, AFFINE_2MM),
+              lateralize=True, atlases_dir=tmp_path)
+    monkeypatch.setitem(server.ATLASES, "wide", Atlas(tmp_path / "wide"))
+    c = TestClient(server.app)
+    def xs(sel):
+        img = nib.Nifti1Image.from_bytes(__import__("gzip").decompress(c.get("/api/regions/mask.nii.gz", params={"sel": sel}).content))
+        ijk = np.argwhere(np.asarray(img.dataobj) > 0)
+        return (ijk @ img.affine[:3, :3].T + img.affine[:3, 3])[:, 0]
+    full, strip = xs("wide|1|L"), xs("wide|1|L|4")
+    assert full.min() < -9 and strip.min() >= -4 and strip.max() < 0
+    g = nib.GiftiImage.from_bytes(c.get("/api/regions/mesh.gii", params={"sel": "wide|1|L|4"}).content)
+    assert g.agg_data("pointset")[:, 0].min() >= -5
+    assert c.get("/api/regions/mesh.gii", params={"sel": "wide|1|L|0"}).status_code == 400
+    assert c.get("/api/regions/mesh.gii", params={"sel": "wide|1|L|q<3"}).status_code == 400
+    lateral = xs("wide|1|L|ax>4")
+    assert lateral.max() <= -5 and lateral.min() < -9
+    both = nib.Nifti1Image.from_bytes(__import__("gzip").decompress(
+        c.get("/api/regions/mask.nii.gz", params={"sel": "wide|1|L|ax<=4;y>=0"}).content))
+    ijk = np.argwhere(np.asarray(both.dataobj) > 0)
+    mm = ijk @ both.affine[:3, :3].T + both.affine[:3, 3]
+    assert mm[:, 1].min() >= 0 and np.abs(mm[:, 0]).max() <= 4
+    assert c.get("/api/tracts/connections", params={"atlas": "x", "sel": "wide|1|L|4"}).status_code in (400, 404)
+
+
 def test_js_region_search_browser_tree_and_projection():
     import json
 
@@ -638,7 +783,7 @@ def test_js_region_search_browser_tree_and_projection():
     out = _node(f"""
       import {{ matches }} from {str(static / "regionpicker.js")!r};
       import {{ buildTree, entries }} from {str(static / "browser.js")!r};
-      import {{ volumeSampler, projectToVertices }} from {str(static / "viewer3d.js")!r};
+      import {{ volumeSampler, projectToVertices, parseMorph, morph, nearestVertex }} from {str(static / "viewer3d.js")!r};
       const m = [
         matches("medial orbitofrontal", "Left olfactory sulcus (medial orbital sulcus)"),
         matches("hippocampus", "Left Hippocampus"), matches("ifg", "Left Inferior Temporal Gyrus"),
@@ -654,13 +799,23 @@ def test_js_region_search_browser_tree_and_projection():
       // A vertex at x=+1 with an outward normal +x sees 5 at depth 1 and -7 at depth 2 -> keeps -7 (largest |v|).
       const proj = projectToVertices(s, new Float32Array([1, 0, 0]), new Float32Array([1, 0, 0]), [0, 1, 2]);
       const lab = projectToVertices(s, new Float32Array([1, 0, 0]), new Float32Array([1, 0, 0]), [0, 1, 2], true);
-      console.log(JSON.stringify({{ m, top, t1, proj: Array.from(proj), lab: Array.from(lab), out: s(9, 9, 9) }}));
+      // Inflated-brain helpers: the morph file, the pial -> inflated blend, nearest vertex.
+      const buf = new ArrayBuffer(8 + 4 * 3 * 2 + 4 * 2);
+      new Uint32Array(buf, 0, 2).set([1, 2]);
+      new Float32Array(buf, 8).set([0, 0, 0, 10, 10, 10, 0.25, 0.75]);
+      const mo = parseMorph(buf);
+      const mid = morph(new Float32Array([0, 0, 0, 0, 0, 0]), mo.target, 0.5);
+      const near = nearestVertex(mid, [4, 5, 5]), nearR = nearestVertex(mid, [0, 0, 0], 1, 2);
+      console.log(JSON.stringify({{ m, top, t1, proj: Array.from(proj), lab: Array.from(lab), out: s(9, 9, 9),
+        mo: [mo.nLeft, mo.n, Array.from(mo.shade)], mid: Array.from(mid), near: [near.index, near.distance], nearR: nearR.index }}));
     """)
     r = json.loads(out)
     assert r["m"] == [True, True, False, True, True]
     assert r["top"] == ["S1", "S2"]
     assert r["t1"] == ["dir:a", "dir:b"]
     assert r["proj"] == [-7] and r["lab"] == [5] and r["out"] == 0
+    assert r["mo"] == [1, 2, [0.25, 0.75]] and r["mid"] == [0, 0, 0, 5, 5, 5]
+    assert r["near"] == [1, 1] and r["nearR"] == 1  # nearest within [1, 2) only
 
 
 # --- version menu ---------------------------------------------------------------------
@@ -826,7 +981,7 @@ def test_setup_skips_installed_atlases(tmp_path, monkeypatch):
         (tmp_path / "atlases" / i / "atlas.json").write_text("{}")
     (tmp_path / "grids").mkdir()
     (tmp_path / "grids" / "mni-2mm-fsl.json").write_text("{}")
-    for f in ["TEMPLATE_FILE", "MESH_FILE"]:
+    for f in ["TEMPLATE_FILE", "MESH_FILE", "INFLATED_MESH_FILE", "INFLATED_MORPH_FILE"]:
         p = tmp_path / f
         p.write_text("x")
         monkeypatch.setattr(sources, f, p)

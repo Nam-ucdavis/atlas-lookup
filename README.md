@@ -69,7 +69,7 @@ atlaslookup
 Use `--port` to run on another port, e.g. `lookup serve --port 8770 --open`.
 
 The app opens in your browser at http://127.0.0.1:8765. The first run
-downloads the atlases (about 40 MB, one time). If the app is already running,
+downloads the atlases (about 100 MB, one time). If the app is already running,
 the command just opens the browser. Stop it with Ctrl+C.
 
 Your data lives in `~/.atlaslookup`; set `ATLASLOOKUP_HOME` to use another
@@ -132,6 +132,107 @@ straight away.
   it, using the overlay's own threshold and colours. Only the cortex is shown,
   so subcortical and cerebellar results don't appear in this style. The
   projection runs in your browser, so local overlays still aren't uploaded.
+- **Inflated:** the cortex inflated, so results hidden inside sulci show. It is
+  fsaverage6 (~41k points per hemisphere), shaded by sulcal depth (dark = sulci,
+  light = gyri), with the hemispheres set apart. Results and cortical regions are
+  sampled at the folded (pial) cortex, as in Mesh brain, then drawn where each
+  point sits on the inflated surface.
+  - **Inflation** (0–100 %) morphs between the folded and the inflated cortex, so
+    you can watch a blob come out of its sulcus.
+  - **Both / Left / Right** shows one hemisphere on its own: view a left hemisphere
+    from **R** to see its medial side.
+  - **Click** the inflated brain to look up that point (its position on the folded
+    cortex); the slice crosshair is shown at the nearest point of the surface.
+  - Tracts and region shapes are hidden here; chosen cortical regions are painted on.
+  - Needs `atlaslookup setup` once (installs from before 0.18 just run it again): it
+    downloads fsaverage6 from OSF through nilearn (~8 MB).
+  - fsaverage lines up with MNI152 only to within a few mm, and values come from the
+    volume: this is for looking, not a surface-based analysis.
+- **Focus ▾:** one part of the brain on its own (PFC, Parietal, Cingulate, Temporal,
+  Occipital),
+  zoomed in and rotating around it. Each structure is a faint tint with a solid outline in its own colour.
+  - **Blobs** (default): the front map's voxels past its threshold, inside the shown
+    structures, drawn as smoothed solid shapes at their real depth (warm for positive,
+    blue for negative, the map's colours painted on). Hiding a structure hides its
+    blobs too.
+  - **Surface**: every map painted on the structures' surfaces instead (the strongest
+    value up to 3 mm inside), as before 0.19.6. Deeper results don't show this way,
+    which is why Blobs is the default.
+  - Each focus shows one set of structures (Harvard-Oxford; the MTL as Juelich
+    subfields), in groups (tables below).
+  - **Both / Left / Right** shows one hemisphere on its own: view a left hemisphere
+    from **R** to see its medial side.
+  - **Click** the inflated brain to look up that point (its position on the folded
+    cortex); the slice crosshair is shown at the nearest point of the surface.
+  - Tracts and region shapes are hidden here; chosen cortical regions are painted on.
+  - Needs `atlaslookup setup` once (installs from before 0.18 just run it again): it
+    downloads fsaverage6 from OSF through nilearn (~8 MB).
+  - fsaverage lines up with MNI152 only to within a few mm, and values come from the
+    volume: this is for looking, not a surface-based analysis.
+- **Focus ▾:** one part of the brain on its own (PFC, Parietal, Cingulate, Temporal,
+  Occipital),
+  zoomed in and rotating around it. Each structure is a faint tint with a solid outline in its own colour.
+  - **Blobs** (default): the front map's voxels past its threshold, inside the shown
+    structures, drawn as smoothed solid shapes at their real depth (warm for positive,
+    blue for negative, the map's colours painted on). Hiding a structure hides its
+    blobs too.
+  - **Surface**: every map painted on the structures' surfaces instead (the strongest
+    value up to 3 mm inside), as before 0.19.6. Deeper results don't show this way,
+    which is why Blobs is the default.
+  - Each focus has a coarse level (**Structures**, mostly Harvard-Oxford) and a fine
+    one (**Gyri & sulci**, Destrieux), in groups (tables below).
+  - **Both / Left / Right**, **Hue / Gray** (Gray draws every structure in one grey,
+    so only the results are in colour; remembered for every focus), **Fill** (how
+    see-through each structure is), and the usual L R A P S I views.
+  - The legend lists each structure with the peak positive / negative value inside
+    its whole volume (of the front-most map on the slices) and how many mm³ pass that
+    map's threshold. Click a peak, or a structure, to look the point up.
+  - Pick another style (Surface, Glass, Mesh, Inflated) to leave focus.
+- **Focus ▾ → PFC:** the prefrontal cortex, in six groups:
+
+  | Group | Structures (Harvard-Oxford) |
+  |---|---|
+  | Ventromedial PFC | frontal medial cortex, subcallosal cortex |
+  | Dorsomedial PFC & ACC | anterior cingulate, paracingulate, SFG medial part |
+  | Orbitofrontal (lateral / central) | frontal orbital cortex |
+  | Dorsolateral PFC | middle frontal gyrus, SFG lateral part |
+  | Ventrolateral PFC | IFG pars triangularis and opercularis, frontal operculum |
+  | Frontopolar | frontal pole |
+
+  The superior and middle frontal gyri stop at y = +10 mm, leaving out premotor
+  cortex; the superior frontal gyrus is split at |x| = 20 mm into its medial and
+  lateral parts.
+- **Focus ▾ → Parietal, Cingulate, Temporal, Occipital:**
+
+  | Focus | Group | Structures |
+  |---|---|---|
+  | Parietal | Superior parietal | superior parietal lobule |
+  | | Inferior parietal | supramarginal gyrus (anterior, posterior), angular gyrus |
+  | | Medial parietal | precuneus |
+  | | Somatosensory | postcentral gyrus, parietal operculum |
+  | Cingulate | Anterior cingulate | anterior cingulate, paracingulate, subcallosal cortex |
+  | | Posterior cingulate | posterior cingulate, retrosplenial cortex (Destrieux isthmus) |
+  | Temporal | Temporal pole | temporal pole |
+  | | Superior temporal | STG (anterior, posterior), planum polare, Heschl's gyrus, planum temporale |
+  | | Middle temporal | MTG (anterior, posterior, temporo-occipital) |
+  | | Inferior temporal | ITG (anterior, posterior, temporo-occipital) |
+  | | Ventral temporal | temporal fusiform (anterior, posterior), temporo-occipital fusiform |
+  | | Hippocampal formation | Juelich cornu ammonis, dentate gyrus, subiculum, hippocampal-amygdaloid transition area |
+  | | Parahippocampal region | Juelich entorhinal cortex, Destrieux parahippocampal gyrus and collateral sulcus (perirhinal cortex) |
+  | | Amygdala | Juelich centromedial, laterobasal, superficial groups |
+  | Occipital | Medial occipital | intracalcarine, supracalcarine cortex, cuneus, lingual gyrus |
+  | | Lateral occipital | lateral occipital cortex (superior, inferior) |
+  | | Ventral occipital | occipital fusiform gyrus |
+  | | Occipital pole | occipital pole |
+
+  The Juelich hippocampal and amygdala maps are 2 mm maximum-probability maps, so they
+  are coarse, and some sit inside others (lower **Fill** or untick CA to see the dentate
+  gyrus). For the MTL alone, untick the lateral groups, or fold them. Hiding a structure
+  hides it in every focus that has it (the ACC in PFC and Cingulate, say).
+- **Groups (every focus):** the legend lists structures under their group (the tables
+  above). Tick a group to show or hide all of it, or single structures within it (the
+  group's box is half-ticked when only some show); ▾ folds a group. A group's row shows
+  its strongest values and total mm³ past the threshold.
 - **Regions…** opens the side panel's Regions tab to pick regions from any atlas. Search by name
   (common abbreviations like OFC, IFG, ACC work). Each chosen region is drawn
   as a solid shape in its own colour, and in Mesh brain painted onto the
@@ -369,11 +470,11 @@ copies: `rm -rf ~/.atlaslookup/versions && git worktree prune`.
 
 ## Branches
 
-`main` is an exact copy of [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup);
-`dev` is this version, with its own changes on top, and is the default branch. New
-work goes on `dev`. See
-[BRANCHES.md](BRANCHES.md) for everyday commands, pulling in ccn-spark's updates, and
-offering changes back.
+`dev` is the default branch, where all new work goes and releases are tagged. `main`
+is the stable version: `dev` is merged into it once it has been tried. (`main` used to
+mirror [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup); it no longer
+does.) See [BRANCHES.md](BRANCHES.md) for everyday commands, moving `dev` to `main`,
+pulling in ccn-spark's updates, and offering changes back.
 
 ## Contributors
 

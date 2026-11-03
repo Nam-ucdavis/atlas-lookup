@@ -9,13 +9,19 @@
 //            the overlays drawn as solid blobs inside it
 //   mesh     the same mesh, opaque, with each overlay projected onto it: every vertex
 //            takes the strongest value found up to 4 mm beneath it (cortex only)
+//   inflated fsaverage6, morphed between its pial (0 %) and inflated (100 %) shape, with
+//            the hemispheres set apart and shaded by sulcal depth. Overlays and cortical
+//            regions are sampled at the pial positions (as in mesh), then drawn wherever
+//            the vertex is now. Clicking it looks up the vertex's pial position; the slice
+//            crosshair is shown at the nearest vertex. Tracts and region shapes are hidden
+//            (they have no place on an inflated surface).
 // Projection runs here in the browser, so local overlays still never leave it.
 //
 // Regions chosen in the Regions window are drawn as solid surfaces in their own
 // colours (smooth meshes built by the server from the atlas masks; NiiVue draws flat
 // on/off volumes only faintly), are painted onto the mesh brain, and can optionally
 // restrict the overlays to inside them. The 3D view is for looking: drag to rotate, scroll to zoom. Clicks to
-// look up a point stay on the slices; the slice crosshair is shown here too.
+// look up a point stay on the slices (except on the inflated brain); the slice crosshair is shown here too.
 
 import { NVMesh, NVMeshLayerDefaults, NVMeshUtilities } from "./vendor/niivue-0.69.0.js";
 
@@ -51,7 +57,9 @@ void main() {
   color = vec4(min(vClr.rgb * shade, vec3(1.0)), mix(opacity, 1.0, coloured));
 }`;
 // Brain transparency (%) per style until the user changes it: glass starts see-through.
-const DEFAULT_TRANSPARENCY = { surface: 0, glass: 75, mesh: 0 };
+const DEFAULT_TRANSPARENCY = { surface: 0, glass: 75, mesh: 0, inflated: 0 };
+const PAINTED = new Set(["mesh", "inflated"]);  // styles that paint the overlays onto a surface
+const CROSSHAIR_NEAR_MM = 8;  // on the inflated brain, show the crosshair only this close to the cortex
 const DEPTHS = [0, 1, 2, 3, 4];  // mm beneath the pial surface sampled for the mesh style
 const REGION_SEE_THROUGH = 0.35;
 const TRACT_OPACITY = 0.9;  // a touch see-through, so regions behind a tract still show  // region opacity when results are shown only inside them
@@ -113,6 +121,40 @@ export function projectToVertices(sample, pts, normals, depths = DEPTHS, label =
   return out;
 }
 
+/** Inflated-brain file (see sources.export_inflated): uint32 nLeft, uint32 n, float32
+ * inflated xyz (3n), float32 sulcal grey (n). */
+export function parseMorph(buf) {
+  const [nLeft, n] = new Uint32Array(buf, 0, 2);
+  return { nLeft, n, target: new Float32Array(buf, 8, 3 * n), shade: new Float32Array(buf, 8 + 12 * n, n) };
+}
+
+/** Vertex positions t of the way (0-1) from `from` to `to`. */
+export function morph(from, to, t, out = new Float32Array(from.length)) {
+  for (let i = 0; i < from.length; i++) out[i] = from[i] + t * (to[i] - from[i]);
+  return out;
+}
+
+/** Index of the vertex nearest to mm among vertices [lo, hi), and its distance. */
+export function nearestVertex(pts, mm, lo = 0, hi = pts.length / 3) {
+  let best = -1, d2 = Infinity;
+  for (let v = lo; v < hi; v++) {
+    const dx = pts[3 * v] - mm[0], dy = pts[3 * v + 1] - mm[1], dz = pts[3 * v + 2] - mm[2];
+    const d = dx * dx + dy * dy + dz * dz;
+    if (d < d2) { d2 = d; best = v; }
+  }
+  return { index: best, distance: Math.sqrt(d2) };
+}
+
+/** Outward normals for a closed cortical surface: flipped if the left-most vertex's
+ * normal points right. */
+function outwardNormals(pts, tris) {
+  const normals = NVMeshUtilities.generateNormals(pts, tris);
+  let lm = 0;
+  for (let v = 1; v < pts.length / 3; v++) if (pts[3 * v] < pts[3 * lm]) lm = v;
+  if (normals[3 * lm] > 0) for (let i = 0; i < normals.length; i++) normals[i] = -normals[i];
+  return normals;
+}
+
 const samplerOf = (vol) => volumeSampler({
   img: vol.img, dims: vol.hdr.dims.slice(1, 4), affine: vol.hdr.affine,
   slope: vol.hdr.scl_slope || 1, inter: vol.hdr.scl_inter || 0,
@@ -120,8 +162,17 @@ const samplerOf = (vol) => volumeSampler({
 
 // --- the view ------------------------------------------------------------------------
 
-export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, controls, crosshairToggle, setHint }) {
+export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, controls, crosshairToggle, setHint, onPick, focus }) {
+  // Focus (PFC, Temporal, ...) swaps this whole-brain scene for focus3d.js's, in the same panel.
+  let focusId = store.get("view3dFocus", "");  // "" = whole brain, else a focus3d FOCI key
+  if (focusId === "mpfc") focusId = "pfc";  // 0.19.1's medial PFC grew into the PFC
+  if (focusId === "mtl") focusId = "temporal";  // 0.19.4 merged the MTL into the temporal focus
+  if (focusId && !focus?.label(focusId)) focusId = "";
+  let focused = !!focusId;
   let nv3 = null, ready = null, mesh = null, normals = null, active = false;
+  // Inflated brain: { mesh, pial, normals, target, shade, nLeft, allTris }, loaded on first use.
+  let infl = null, inflError = null;
+  let inflation = store.get("view3dInflation", 100), hemi = store.get("view3dHemi", "both");
   let drawNow = null;  // NiiVue's own, immediate drawScene
   let clones = [];  // [{ src, copy }] in slice-viewer order
   let regionVol = null, regionKey = "", maskResults = false, regionMeshes = [];
@@ -133,7 +184,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   const brainOpacity = () => 1 - transparency[style] / 100;
   // NiiVue skips a mesh whose opacity is 0; keep the mesh brain drawn (invisibly) so the
   // results painted on it still show at 100 % transparency.
-  const meshOpacity = () => Math.max(brainOpacity(), style === "mesh" ? 0.002 : 0);
+  const meshOpacity = () => Math.max(brainOpacity(), PAINTED.has(style) ? 0.002 : 0);
 
   async function init() {
     nv3 = new Niivue({
@@ -172,20 +223,73 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     // regions and tracts added before it (e.g. restored on reload) disappear behind it.
     nv3.meshes.splice(nv3.meshes.indexOf(mesh), 1);
     nv3.meshes.unshift(mesh);
-    normals = NVMeshUtilities.generateNormals(mesh.pts, mesh.tris);
-    // Sampling goes inwards, so normals must point out of the brain: the left-most
-    // vertex's normal should point left.
-    let lm = 0;
-    for (let v = 1; v < mesh.pts.length / 3; v++) if (mesh.pts[3 * v] < mesh.pts[3 * lm]) lm = v;
-    if (normals[3 * lm] > 0) for (let i = 0; i < normals.length; i++) normals[i] = -normals[i];
+    // Sampling goes inwards, so normals must point out of the brain.
+    normals = outwardNormals(mesh.pts, mesh.tris);
     return mesh;
   }
 
+  async function ensureInflated() {
+    if (infl || inflError) return infl;
+    const [g, b] = await Promise.all([fetch("/api/inflated_mesh.gii"), fetch("/api/inflated_morph.bin")]);
+    if (!g.ok || !b.ok) {
+      inflError = (await (g.ok ? b : g).json().catch(() => ({}))).detail || "Inflated brain unavailable.";
+      return null;
+    }
+    const m = await NVMesh.readMesh(await g.arrayBuffer(), "inflated.gii", nv3.gl, brainOpacity(), new Uint8Array(MESH_RGBA), true);
+    const { nLeft, target, shade } = parseMorph(await b.arrayBuffer());
+    const pial = Float32Array.from(m.pts);
+    infl = { mesh: m, pial, normals: outwardNormals(pial, m.tris), target, shade, nLeft, allTris: Uint32Array.from(m.tris) };
+    applyHemi(false);
+    applyInflation(false);
+    m.updateMesh(nv3.gl);
+    nv3.addMesh(m);
+    nv3.meshes.splice(nv3.meshes.indexOf(m), 1);  // brains first (see ensureMesh)
+    nv3.meshes.unshift(m);
+    return infl;
+  }
+  // Move every vertex `inflation` % of the way from its pial to its inflated position.
+  function applyInflation(redraw = true) {
+    morph(infl.pial, infl.target, inflation / 100, infl.mesh.pts);
+    if (redraw) { infl.mesh.updateMesh(nv3.gl); placeCrosshair(); nv3.drawScene(); }
+  }
+  // Keep only one hemisphere's triangles (left vertices come first in the file).
+  function applyHemi(redraw = true) {
+    const { allTris, nLeft } = infl;
+    infl.mesh.tris = hemi === "both" ? allTris : allTris.filter((_, i, t) => {
+      const first = t[i - (i % 3)];
+      return hemi === "left" ? first < nLeft : first >= nLeft;
+    });
+    if (redraw) { infl.mesh.updateMesh(nv3.gl); placeCrosshair(); nv3.drawScene(); }
+  }
+  const hemiRange = () => (hemi === "left" ? [0, infl.nLeft] : hemi === "right" ? [infl.nLeft, infl.pial.length / 3] : [0, infl.pial.length / 3]);
+  // The slice crosshair on the inflated brain: at the vertex nearest to it, if any is close.
+  function placeCrosshair() {
+    if (style !== "inflated" || !infl) return;
+    const nv = getNv(), mm = nv.frac2mm(nv.scene.crosshairPos);
+    const { index, distance } = nearestVertex(infl.pial, mm, ...hemiRange());
+    const near = index >= 0 && distance <= CROSSHAIR_NEAR_MM;
+    nv3.opts.show3Dcrosshair = crosshairToggle.checked && near;
+    if (near) nv3.scene.crosshairPos = nv3.mm2frac(Array.from(infl.mesh.pts.slice(3 * index, 3 * index + 3)));
+  }
+
   async function applyStyle() {
-    for (const b of controls.style.querySelectorAll("button")) b.classList.toggle("on", b.dataset.style === style);
+    showFocusMode();
     showTransparency();
+    controls.inflBar.hidden = style !== "inflated";
     nv3.setOpacity(0, style === "surface" ? brainOpacity() : 0);
-    if (style === "surface") {
+    if (style === "inflated") {
+      if (mesh) nv3.setMeshProperty(mesh.id, "visible", false);
+      await ensureInflated();
+      if (!infl) { setHint(inflError); }
+      else {
+        nv3.setMeshProperty(infl.mesh.id, "visible", true);
+        nv3.setMeshShader(infl.mesh.id, MESH_SHADER);
+        nv3.setMeshProperty(infl.mesh.id, "opacity", meshOpacity());
+        if (regionMeshes.length || tractMeshes.length) {
+          setHint("Inflated brain: cortical regions are painted on it; tracts and deep regions are hidden. Click it to look up a point.");
+        }
+      }
+    } else if (style === "surface") {
       if (mesh) nv3.setMeshProperty(mesh.id, "visible", false);
     } else {
       await ensureMesh();
@@ -195,8 +299,14 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
       nv3.setMeshProperty(mesh.id, "rgba255", glass ? GLASS_RGBA : MESH_RGBA);
       nv3.setMeshProperty(mesh.id, "opacity", meshOpacity());
     }
+    if (infl && style !== "inflated") nv3.setMeshProperty(infl.mesh.id, "visible", false);
+    showShapes();
     layersDirty = true;
     sync(true);
+  }
+  // Region and tract surfaces: hidden on the inflated brain.
+  function showShapes() {
+    for (const m of [...regionMeshes, ...tractMeshes]) nv3.setMeshProperty(m.id, "visible", style !== "inflated");
   }
 
   // Zero the voxels of a cloned overlay that fall outside the chosen regions.
@@ -214,21 +324,26 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   // Mesh style: one mesh layer per overlay (and one for the regions), recomputed only
   // when the volumes change; thresholds and colours are copied on every sync.
   function updateLayers() {
-    if (!mesh) return;
-    if (style !== "mesh") {
-      if (mesh.layers.length) { mesh.layers = []; mesh.updateMesh(nv3.gl); }
-      return;
-    }
+    // The painted surface (pial positions and normals to sample at), if this style has one.
+    const surfaces = [mesh && { m: mesh, pts: mesh.pts, normals, on: style === "mesh" },
+      infl && { m: infl.mesh, pts: infl.pial, normals: infl.normals, on: style === "inflated", shade: infl.shade }].filter(Boolean);
+    for (const S of surfaces) if (!S.on && S.m.layers.length) { S.m.layers = []; S.m.updateMesh(nv3.gl); }
+    const S = surfaces.find((x) => x.on);
+    if (!S) return;
+    const target = S.m;
+    // Sulcal shading: an opaque grey layer under everything else.
+    const base = S.shade ? [{ ...NVMeshLayerDefaults, name: "sulcal depth", frame4D: 0, nFrame4D: 1, values: S.shade,
+      colormap: "gray", cal_min: 0, cal_max: 1, opacity: 1, isTransparentBelowCalMin: false }] : [];
     const sources = clones.map(({ src, copy }) => ({ src, vol: copy, label: !!src.colormapLabel }));
     if (regionVol) sources.push({ src: regionVol, vol: regionVol, label: true });
-    if (layersDirty || mesh.layers.length !== sources.length) {
-      mesh.layers = sources.map(({ vol, label }) => ({
+    if (layersDirty || target.layers.length !== base.length + sources.length) {
+      target.layers = [...base, ...sources.map(({ vol, label }) => ({
         ...NVMeshLayerDefaults, name: vol.name, frame4D: 0, nFrame4D: 1,
-        values: projectToVertices(samplerOf(vol), mesh.pts, normals, label ? [1, 2] : DEPTHS, label),
-      }));
+        values: projectToVertices(samplerOf(vol), S.pts, S.normals, label ? [1, 2] : DEPTHS, label),
+      }))];
       layersDirty = false;
     }
-    mesh.layers.forEach((L, i) => {
+    target.layers.slice(base.length).forEach((L, i) => {
       const s = sources[i].src;
       if (s.colormapLabel) {
         L.colormapLabel = s.colormapLabel; L.opacity = 1;
@@ -240,7 +355,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
         });
       }
     });
-    mesh.updateMesh(nv3.gl);
+    target.updateMesh(nv3.gl);
   }
 
   // Copy the slice viewer's overlays. Re-clone only when the set of volumes (or the
@@ -258,7 +373,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
       }
       layersDirty = true;
     }
-    const onMesh = style === "mesh";  // overlays are painted on the mesh instead
+    const onMesh = PAINTED.has(style);  // overlays are painted on the surface instead
     for (const { src: v, copy } of clones) {
       for (const k of DISPLAY_KEYS) if (k in v) copy[k] = v[k];
       copy.colormapLabel = v.colormapLabel ?? null;
@@ -267,6 +382,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     updateLayers();
     nv3.opts.show3Dcrosshair = crosshairToggle.checked;
     nv3.scene.crosshairPos = [...getNv().scene.crosshairPos];  // same template, same fractions
+    placeCrosshair();
     nv3.updateGLVolume();
   }
   let syncTimer;
@@ -275,19 +391,64 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   // Follow every change on the slice viewer (overlays added, thresholds dragged, ...).
   const nv = getNv();
   const update = nv.updateGLVolume.bind(nv);
-  nv.updateGLVolume = (...args) => { const r = update(...args); if (active) scheduleSync(); return r; };
+  let focusTimer;
+  const focusSources = () => focus?.setSources(getNv().volumes.slice(1));
+  nv.updateGLVolume = (...args) => {
+    const r = update(...args);
+    if (active && focused) { clearTimeout(focusTimer); focusTimer = setTimeout(focusSources, 120); }
+    else if (active) scheduleSync();
+    return r;
+  };
+
+  // Focus sits with the styles: its button opens a menu of what to focus on, and once
+  // one is picked reads "Focus: Temporal". Picking another style leaves focus.
+  function showFocusMode() {
+    for (const b of controls.style.querySelectorAll("button")) {
+      b.classList.toggle("on", focused ? b.dataset.style === "focus" : b.dataset.style === style);
+    }
+    controls.focusBtn.firstChild.textContent = focused ? `Focus: ${focus.label(focusId)} ` : "Focus ";
+    for (const b of controls.focusMenu.querySelectorAll("button")) b.classList.toggle("on", b.dataset.focus === focusId);
+    controls.whole.hidden = focused;
+    canvas.hidden = focused;
+  }
+  function openFocusMenu(open) {
+    controls.focusMenu.hidden = !open;
+    controls.focusBtn.setAttribute("aria-expanded", String(open));
+    if (open) controls.focusMenu.querySelector("button")?.focus();
+  }
+  async function setFocus(f) {
+    focusId = f;
+    focused = !!f;
+    store.set("view3dFocus", f);
+    showFocusMode();
+    if (active) { await focus?.show(false); await show(true); }
+  }
+  showFocusMode();
+  controls.focusMenu.addEventListener("click", (e) => {
+    const f = e.target.closest("button")?.dataset.focus;
+    if (!f) return;
+    openFocusMenu(false);
+    if (f !== focusId) setFocus(f);
+  });
+  document.addEventListener("click", (e) => { if (!e.target.closest(".v3-style-wrap")) openFocusMenu(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !controls.focusMenu.hidden) { openFocusMenu(false); controls.focusBtn.focus(); } });
 
   async function show(on) {
     active = on;
     wrap.hidden = !on;
     controls.bar.hidden = !on;
+    if (focus && (!on || focused)) {
+      await focus.show(on && focused, focusId);
+      if (on) { focusSources(); return; }
+    }
     if (!on) return;
     if (!ready) ready = init().then(() => Promise.all([loadRegions(), loadTracts()]));
     await ready;
     await applyStyle();
     nv3.resizeListener?.();
     nv3.drawScene();
-    setHint("3D: drag to rotate, scroll to zoom. Click on the slices to look up a point.");
+    setHint(style === "inflated" && infl ? "3D: drag to rotate, scroll to zoom. Click the inflated brain (or the slices) to look up a point."
+      : style === "inflated" ? inflError : "3D: drag to rotate, scroll to zoom. Click on the slices to look up a point.");
   }
 
   // Tracts from the Regions tab's "Connecting tracts": [{ atlas, value, threshold, color }].
@@ -309,6 +470,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
       nv3.addMesh(m);
       nv3.setMeshShader(m.id, "Phong");
     }
+    showShapes();
     nv3.drawScene();
   }
   async function setTracts(list) {
@@ -343,6 +505,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
           nv3.addMesh(m);
           nv3.setMeshShader(m.id, "Phong");
         }
+        showShapes();
         regionVol = await NVImage.loadFromUrl({ url: "regions.nii.gz", name: "regions.nii.gz", buffer: buf });
         regionVol.setColormapLabel({
           R: [0, ...regions.map((r) => r.color[0])], G: [0, ...regions.map((r) => r.color[1])],
@@ -364,9 +527,12 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   }
 
   controls.style.addEventListener("click", async (e) => {
-    const s = e.target.dataset.style;
-    if (!s || s === style) return;
+    const s = e.target.closest("button")?.dataset.style;
+    if (!s) return;
+    if (s === "focus") { openFocusMenu(controls.focusMenu.hidden); return; }
+    if (s === style && !focused) return;
     style = s; store.set("view3dStyle", s);
+    if (focused) { await setFocus(""); return; }
     await applyStyle();
   });
   function showTransparency() {
@@ -379,21 +545,68 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     controls.brainOut.textContent = `${transparency[style]}%`;
     if (!nv3) return;
     if (style === "surface") nv3.setOpacity(0, brainOpacity());
+    else if (style === "inflated") { if (infl) nv3.setMeshProperty(infl.mesh.id, "opacity", meshOpacity()); }
     else if (mesh) nv3.setMeshProperty(mesh.id, "opacity", meshOpacity());
     nv3.drawScene();
   });
   showTransparency();
   controls.views.addEventListener("click", (e) => {
     const v = VIEWS[e.target.dataset.view];
-    if (v && nv3) nv3.setRenderAzimuthElevation(...v);
+    if (v && focused) focus?.setView(...v);
+    else if (v && nv3) nv3.setRenderAzimuthElevation(...v);
   });
   crosshairToggle.addEventListener("change", () => active && sync());
+
+  // Inflated brain controls: how inflated, and which hemispheres.
+  function showInflControls() {
+    controls.inflation.value = inflation;
+    controls.inflationOut.textContent = `${inflation}%`;
+    for (const b of controls.hemi.querySelectorAll("button")) b.classList.toggle("on", b.dataset.hemi === hemi);
+  }
+  showInflControls();
+  controls.inflation.addEventListener("input", () => {
+    inflation = +controls.inflation.value;
+    store.set("view3dInflation", inflation);
+    showInflControls();
+    if (infl) applyInflation();
+  });
+  controls.hemi.addEventListener("click", (e) => {
+    const h = e.target.dataset.hemi;
+    if (!h || h === hemi) return;
+    hemi = h; store.set("view3dHemi", h);
+    showInflControls();
+    if (infl) applyHemi();
+  });
+  // A click (not a drag) on the inflated brain looks up the clicked vertex's pial position.
+  let down = null;
+  canvas.addEventListener("pointerdown", (e) => { down = [e.clientX, e.clientY]; });
+  canvas.addEventListener("pointerup", (e) => {
+    const click = down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 4;
+    down = null;
+    if (!click || style !== "inflated" || !infl) return;
+    // NiiVue picks a 3D point only on double-click: ask it to pick on this draw (it reads
+    // the depth under mousePos) and catch the point it reports.
+    let picked = null;
+    nv3.onLocationChange = (d) => { picked = Array.from(d.mm.slice(0, 3)); };
+    const r = canvas.getBoundingClientRect(), dpr = nv3.uiData.dpr || 1;
+    nv3.mousePos = [(e.clientX - r.left) * dpr, (e.clientY - r.top) * dpr];
+    const before = Array.from(nv3.scene.crosshairPos);
+    nv3.uiData.mouseDepthPicker = true;
+    drawNow();
+    nv3.onLocationChange = () => {};
+    // A miss reports the unchanged crosshair.
+    if (!picked || Array.from(nv3.scene.crosshairPos).every((v, i) => v === before[i])) return;
+    const { index, distance } = nearestVertex(infl.mesh.pts, picked, ...hemiRange());
+    if (index < 0 || distance > 3) return;
+    onPick?.(Array.from(infl.pial.slice(3 * index, 3 * index + 3), Math.round));
+  });
 
   // "scr" while the 3D tab is open: the render plus the colour bars, same size as the
   // slice captures. Copy right after a redraw (the WebGL canvas is not preserved).
   function capture(drawBars) {
-    drawNow();  // must be synchronous: the WebGL canvas is copied right after
-    const src = nv3.canvas, out = document.createElement("canvas");
+    // must be synchronous: the WebGL canvas is copied right after
+    if (focused) focus.redraw(); else drawNow();
+    const src = focused ? focus.canvas : nv3.canvas, out = document.createElement("canvas");
     out.width = W; out.height = H + BAND;
     const ctx = out.getContext("2d");
     ctx.fillStyle = "#000"; ctx.fillRect(0, 0, out.width, out.height);
@@ -410,6 +623,6 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     get active() { return active; },
     get nv() { return nv3; },
     follow: () => active && sync(),
-    capture: (drawBars) => (active && nv3 ? capture(drawBars) : null),
+    capture: (drawBars) => (active && (focused || nv3) ? capture(drawBars) : null),
   };
 }

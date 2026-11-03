@@ -8,6 +8,116 @@ title in the app (and at `/api/version`, or `atlaslookup --version`).
   outside its analysis mask, and the viewer painted NaN in the top colour of the scale;
   NaN voxels are now treated as 0 (stat maps and local overlays).
 
+## 0.19.10 (2026-11-02)
+- Focus blobs are shaded like the results painted on surfaces (same shader), so the
+  two modes show results at the same brightness.
+
+## 0.19.9 (2026-11-02)
+- **One set of structures per focus**: the level buttons (Structures / Gyri & sulci,
+  Visual areas) and the MTL structures / subfields switch are gone. Every focus shows
+  its Harvard-Oxford structures; Focus: Temporal's MTL is the Juelich subfields (CA,
+  dentate gyrus, subiculum, HATA, entorhinal cortex, amygdala groups) with the Destrieux
+  parahippocampal gyrus and collateral sulcus.
+
+## 0.19.8 (2026-11-02)
+- **MTL detail of its own in Focus: Temporal**: an **MTL structures / MTL subfields**
+  switch (shown only in Temporal) picks the MTL's level separately from the lateral
+  cortex's. The second level button is **Gyri & sulci** again (lateral and ventral
+  cortex only). Subfields: Juelich CA, dentate gyrus, subiculum, HATA, entorhinal
+  cortex, the Destrieux parahippocampal gyrus and collateral sulcus, and three amygdala
+  groups.
+
+## 0.19.7 (2026-11-02)
+- Removed the peak dots from Focus (the legend's peaks still look the point up); blobs
+  are solid again.
+
+## 0.19.6 (2026-11-02)
+- **Results inside the focus structures**: Focus now draws the front map's
+  suprathreshold voxels inside the shown structures as smoothed 3D blobs at their real
+  depth, not only what reaches 3 mm under the surface. **Blobs / Surface** in the focus
+  bar switches back to painting every map on the surfaces.
+- **Peak dots**: each shown structure's positive and negative peak past the threshold
+  is a white dot; click one to look the peak up. Blobs are slightly see-through so the
+  dots inside show.
+
+## 0.19.5 (2026-11-02)
+- **Focus: Occipital** (Focus ▾): structures (Harvard-Oxford) in medial occipital
+  (intra- and supracalcarine cortex, cuneus, lingual gyrus), lateral occipital (LOC
+  superior, inferior), ventral occipital (occipital fusiform gyrus) and occipital pole
+  groups; or **Visual areas** (Juelich): early visual cortex (V1, V2), ventral visual
+  (V3v, V4) and motion (V5 / MT+).
+
+## 0.19.4 (2026-11-02)
+- **Focus: MTL is now part of Focus: Temporal**: the temporal focus gains three groups,
+  hippocampus (hippocampal formation), parahippocampal region and amygdala, after the
+  lateral and ventral temporal ones. Its fine level, **Gyri & subfields**, has the
+  Juelich subfields plus the Destrieux parahippocampal gyrus and collateral sulcus
+  (perirhinal cortex). Untick or fold the lateral groups to see the MTL alone.
+- A saved Focus: MTL opens as Focus: Temporal, at the level it had.
+
+## 0.19.3 (2026-11-02)
+- **Focus: Parietal, Cingulate, Temporal** (Focus ▾), like Focus: PFC, each with a
+  Harvard-Oxford and a Destrieux level, in groups:
+  - Parietal: superior parietal, inferior parietal (supramarginal, angular), medial
+    parietal (precuneus), somatosensory (postcentral gyrus, parietal operculum).
+  - Cingulate: anterior (ACC, paracingulate, subcallosal), midcingulate (aMCC, pMCC;
+    Destrieux only), posterior (PCC, retrosplenial / isthmus), and the pericallosal and
+    marginal sulci.
+  - Temporal, without the MTL: pole, superior (STG, planum polare, Heschl's gyrus,
+    planum temporale, STS), middle, inferior and ventral (fusiform) temporal cortex.
+
+## 0.19.2 (2026-11-01)
+- **Focus: PFC** replaces Focus: mPFC: the whole prefrontal cortex in six groups
+  (ventromedial, dorsomedial & ACC, orbitofrontal, dorsolateral, ventrolateral,
+  frontopolar), at Harvard-Oxford or Destrieux detail. The superior and middle frontal
+  gyri stop at y = +10 mm (premotor cortex left out); the superior frontal gyrus is
+  split at |x| = 20 mm into medial (dmPFC) and lateral (dlPFC) parts.
+- **Groups in every focus**: tick a group to show or hide all its structures, or single
+  structures (the group box is half-ticked when only some show); fold a group with ▾.
+  Group rows show the group's peaks and mm³ past the threshold. MTL groups:
+  hippocampus, amygdala and parahippocampal region (subfields: hippocampal formation,
+  entorhinal cortex, amygdala).
+- Region cuts are now conditions: `atlas|value|side|ax<=20;y>=10` (`ax` = |x|; a bare
+  number still means |x| ≤ that).
+
+## 0.19.1 (2026-11-01)
+- **Focus: mPFC** (Focus ▾ → mPFC): the medial and ventromedial prefrontal cortex, like
+  Focus: MTL. Structures (Harvard-Oxford): frontal medial cortex (vmPFC), subcallosal
+  cortex, anterior cingulate and paracingulate gyri, medial frontal pole and superior
+  frontal gyrus (|x| ≤ 20 mm), and the frontal orbital cortex (lateral / central OFC).
+  Gyri & sulci (Destrieux): gyrus rectus, medial orbital and suborbital sulci,
+  subcallosal gyrus, anterior cingulate gyrus and sulcus, medial transverse frontopolar
+  gyri and superior frontal gyrus, and the orbital gyri.
+- The second level button is named for each focus (Subfields for the MTL, Gyri & sulci
+  for the mPFC); each focus remembers its own level. Hemispheres, Hue / Gray and Fill
+  are shared.
+- Region endpoints accept `atlas|value|side|xmax` to keep only |x| ≤ xmax mm.
+
+## 0.19.0 (2026-11-01)
+- **Focus: MTL** in the 3D view: a **Focus ▾** button next to Inflated opens a menu;
+  pick **MTL** to see the medial temporal lobe on its own (the button then reads
+  "Focus: MTL").
+  - Structures (hippocampus, amygdala, entorhinal cortex, anterior and posterior
+    parahippocampal gyrus) or Juelich subfields (CA, dentate gyrus, subiculum,
+    entorhinal, HATA, amygdala groups), each in its own hue, drawn as a faint tint
+    with a solid outline; results on the slices are painted onto them.
+  - Both / Left / Right hemispheres, a Fill slider, and **Hue / Gray**: Gray draws every
+    structure in one grey so the effects stand out (applies to every focus).
+  - Legend with each structure's peak positive / negative value and the mm³ past the
+    threshold; click a peak or a structure to look it up.
+
+## 0.18.0 (2026-10-31)
+- **Inflated brain** in the 3D view, next to Surface, Glass brain and Mesh brain:
+  fsaverage6 (~41k points per hemisphere), shaded by sulcal depth, with the hemispheres
+  set apart. Results and cortical regions are sampled at the folded cortex and drawn on
+  the inflated surface, so effects inside sulci show.
+  - **Inflation** slider (0–100 %) morphs between the folded and the inflated cortex.
+  - **Both / Left / Right** hemispheres (view one from the other side for its medial wall).
+  - **Click to look up**: a click on the inflated brain looks up that point's position on
+    the folded cortex; the slice crosshair is shown at the nearest surface point.
+  - Tracts and region shapes are hidden in this style; chosen cortical regions are painted on.
+  - `atlaslookup setup` downloads fsaverage6 once (from OSF through nilearn, ~8 MB).
+
 ## 0.17.3 (2026-10-29)
 - **AT / PM memory systems** (Ranganath & Ritchey 2012): two new atlases, built from the
   installed ones (no download; `atlaslookup setup` adds them). *AT / PM memory systems*

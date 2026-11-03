@@ -8,12 +8,12 @@ vanilla-JS front end, NiiVue for the viewer. Human-facing docs: `README.md`,
 
 ## Branches
 
-- `main` is an exact mirror of `ccn-spark/main`. **Never commit to `main`.** It only moves
-  by `git pull --ff-only ccn-spark main`.
 - `dev` is where all work happens: check `git branch --show-current` before committing,
-  and switch to `dev` (or a feature branch made from it) if needed.
-- To bring in ccn-spark updates, fast-forward `main` first, then merge `main` into `dev`.
-  To offer a change upstream, branch from `main`, not `dev`. Details: `BRANCHES.md`.
+  and switch to `dev` (or a feature branch made from it) if needed. Releases are tagged on `dev`.
+- `main` is the stable version. **Never commit to `main` directly.** It only moves by
+  `git merge --ff-only dev`, when the user asks. It no longer mirrors ccn-spark.
+- ccn-spark updates (optional) are merged into `dev`. To offer a change upstream, branch
+  from `ccn-spark/main`. Details: `BRANCHES.md`.
 
 ## Commands
 
@@ -73,7 +73,14 @@ src/atlaslookup/
   screenshots.py  saves "scr" captures as DATA_DIR/image/<date_time>.png
   static/viewertools.js  crosshair toggle, slice coordinate labels, "scr" capture; exports sliceLabel() for tests
   static/overlays.js  local NIfTI overlays read in the browser (never uploaded); exports tSf/tFromP/dfFromHeader for tests
-  static/viewer3d.js  3D tab: a second NiiVue instance that mirrors the slice viewer's overlays
+  static/viewer3d.js  3D tab: a second NiiVue instance that mirrors the slice viewer's overlays;
+                      the inflated style morphs fsaverage6 pial -> inflated (sources.export_inflated
+                      writes the morph file) and samples overlays at the pial positions
+  static/focus3d.js   3D "Focus": its own NiiVue instance (meshes only, so the camera frames the
+                      structures), structure meshes from /api/regions/mesh.gii smoothed client-side,
+                      continuous slice overlays painted on, per-structure peaks; FOCI lists each
+                      focus (PFC, parietal, cingulate, temporal with the MTL, occipital), each a list of groups of structures
+                      (cuts like "ax<=20;y>=10" go to the server: regions.parse_clip)
                       (clones volumes + copies display settings); surface or glass-brain mesh
                       (/api/brain_mesh.gii, fsaverage5 pial built by sources.export_mesh);
                       mesh style projects overlays onto the mesh in the browser; chosen regions
