@@ -57,10 +57,9 @@ py -m pipx ensurepath
 Open a new PowerShell window and run the `pipx install` line above.
 
 **Let Claude do it:** paste the prompt in [install_prompt.md](install_prompt.md) into
-Claude Code. It asks where to install, sets everything up and shows you the app running.
-To update an existing install (or install if there is none), on any system, use
-[update_prompt.md](update_prompt.md) instead: it finds how the app was installed,
-updates it from this repository, downloads new data and shows the new version running.
+Claude Code, on any system. It finds out whether and how the app is already installed,
+updates it from this repository (or asks where to install it if there is none), downloads
+the data and shows you the app running. Use the same prompt again to update.
 
 ## Start
 
@@ -485,7 +484,7 @@ in Nam's updates, and offering changes back.
 
 Atlas Lookup is developed in [ccn-spark/atlas-lookup](https://github.com/ccn-spark/atlas-lookup)
 (local NIfTI overlays, colour bars, the viewer tools, image capture, the `lookup`
-alias, `install_prompt.md`, `update_prompt.md`) and
+alias, `install_prompt.md`) and
 [Nam-ucdavis/atlas-lookup](https://github.com/Nam-ucdavis/atlas-lookup).
 
 ## License
