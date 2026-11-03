@@ -3,7 +3,21 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
-## Unreleased
+## 0.20.0 (2026-11-03)
+- **k now thins the picture too**: the cluster-size threshold (k ≥ in the T-value range)
+  used to apply only to the cluster table. Clusters smaller than k are now also removed
+  from the slices and image captures, so the viewer shows exactly the clusters the
+  table lists.
+- **Change the results folder in the app**: the Results tab has **Change folder…**. Go up
+  with ↑, click into folders or type a path, and press **Use this folder**; it is saved
+  like `atlaslookup set-results`. Only folder names are shown while browsing, and maps are
+  still only read, never copied.
+- **Any NIfTI in the results folder**: maps no longer have to be called `spmT_0001.nii`.
+  Renamed SPM T maps (e.g. `Rank5_spmT_0001.nii`) keep their T and p values; other maps
+  (e.g. TFCE) are listed too, with no p values (the threshold applies to the map's own
+  values). The button is now **Open map…**.
+- **Light / dark toggle** in the top right. The app follows your system setting until you
+  pick one; your choice is remembered.
 - **Fix:** SPM T maps no longer show a solid colour box around the brain. SPM writes NaN
   outside its analysis mask, and the viewer painted NaN in the top colour of the scale;
   NaN voxels are now treated as 0 (stat maps and local overlays).
