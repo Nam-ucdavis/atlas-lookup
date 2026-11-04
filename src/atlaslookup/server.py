@@ -22,6 +22,8 @@ GET /api/atlases/{id}/label_map.nii.gz   parcellation in MNI space, for the view
 GET /api/atlases/{id}/colormap           NiiVue label colormap for that overlay
 GET /api/results                         your stat maps (from the local results folder)
 GET /api/results/file/{id}               one map, for the viewer
+GET /api/folders?path=                   subfolder names of a folder (for choosing the results folder)
+POST /api/results/folder                 body: {"path": ...}; makes it the results folder (saved in settings.json)
 GET /api/results/clusters?map=&threshold=&sign=pos|neg|both&min_voxels=
                                          clusters + peaks, labelled by atlas
 GET /api/lookup?...&map={id}             adds the T / p value at the point
@@ -43,7 +45,7 @@ from .config import IMAGE_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FIL
 from .grids import load_grids
 from .screenshots import MAX_BYTES, reveal, save_png
 from . import regions, tracts
-from .results import Results, configured_dir, repo_warning
+from .results import Results, configured_dir, list_folders, repo_warning, save_results_dir
 from .query import best_guess, query, resolve_mm
 from .version import version_info
 
@@ -53,6 +55,34 @@ GRIDS = load_grids()
 RESULTS = Results(configured_dir())
 # Atlases used to label cluster peaks, in column order.
 PEAK_ATLASES = ["harvard-oxford-cort", "harvard-oxford-sub", "juelich", "talairach-ba"]
+
+
+# Host names this server answers to. A web page can point its own domain at 127.0.0.1
+# (DNS rebinding) and so reach this server as "same origin"; its requests still carry its
+# own Host, so refusing other Host headers keeps such pages out. "testserver" is
+# Starlette's TestClient; `serve --host X` adds X.
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "testserver"}
+
+
+def _allowed_hosts() -> set[str]:
+    import json
+    import os
+
+    host = json.loads(os.environ.get("ATLASLOOKUP_SERVE", "{}")).get("host")
+    return LOCAL_HOSTS | ({host} if host else set())
+
+
+def _host_name(header: str) -> str:
+    """The name in a Host header, without its port ("[::1]:8765" -> "[::1]")."""
+    h = header.strip().lower()
+    return h[: h.index("]") + 1] if h.startswith("[") and "]" in h else h.rsplit(":", 1)[0] if ":" in h else h
+
+
+@app.middleware("http")
+async def local_hosts_only(request, call_next):
+    if _host_name(request.headers.get("host", "")) not in _allowed_hosts():
+        return Response("Unknown host", status_code=400, media_type="text/plain")
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -322,6 +352,28 @@ def results_list():
     return {"folder": str(root) if root else None, "available": RESULTS.available,
             "warning": repo_warning(root) if RESULTS.available else None,
             "maps": RESULTS.list()}
+
+
+@app.get("/api/folders")
+def folders(path: str | None = None):
+    try:
+        return list_folders(path)
+    except (OSError, ValueError):
+        raise HTTPException(404, "Not a readable folder")
+
+
+@app.post("/api/results/folder")
+async def set_results_folder(request: Request):
+    # As with the screenshot route, requiring JSON keeps other websites out: a cross-site
+    # request with this type needs a CORS preflight, which this server never grants.
+    if request.headers.get("content-type") != "application/json":
+        raise HTTPException(415, "Send the folder as application/json")
+    global RESULTS
+    try:
+        RESULTS = Results(save_results_dir(str((await request.json())["path"])))
+    except (KeyError, TypeError, ValueError, OSError):
+        raise HTTPException(400, "Not a folder")
+    return results_list()
 
 
 @app.get("/api/results/file/{rel:path}")

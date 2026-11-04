@@ -12,8 +12,17 @@
 // p values are uncorrected and one-sided (in the direction of each sign), as in the
 // rest of the app.
 
-const POS_MAPS = ["warm", "hot", "red", "green", "blue", "violet", "plasma", "viridis", "inferno", "magma", "actc"];
-const NEG_MAPS = ["winter", "cool", "blue", "electric_blue", "green", "violet", "viridis"];
+// Colormaps offered for each sign, defaults first. NiiVue has "hot" but no "cold", so
+// addColdColormap() registers one: hot with red and blue swapped (black, blue, cyan, white).
+export const POS_MAPS = ["hot", "warm", "red", "redyell", "green", "blue", "violet", "plasma", "viridis", "inferno", "magma", "actc"];
+export const NEG_MAPS = ["cold", "winter", "cool", "blue", "blue2cyan", "electric_blue", "green", "violet", "viridis"];
+export const [DEFAULT_CMAP, DEFAULT_CMAP_NEG] = [POS_MAPS[0], NEG_MAPS[0]];
+const COLD = { R: [0, 0, 0, 255], G: [0, 0, 255, 255], B: [3, 255, 255, 255], A: [0, 48, 96, 128], I: [0, 95, 191, 255] };
+
+/** Register "cold" (NiiVue keeps colormaps globally, so once covers every viewer). */
+export function addColdColormap(nv) {
+  if (!nv.colormaps().includes("cold")) nv.addColormap("cold", COLD);
+}
 const P_SLIDER = { min: -8, max: -1 };  // log10 p range of the slider in p mode
 
 // --- t distribution (pure, exported for tests) --------------------------------------
@@ -88,6 +97,57 @@ export function dfFromHeader(hdr) {
   return null;
 }
 
+/**
+ * Set NaN voxels to 0, in place. SPM writes NaN outside its analysis mask, and NiiVue
+ * paints NaN with the top of the colour map, so the whole box around the brain would
+ * show up in full colour. Returns how many voxels changed.
+ */
+export function zeroNaN(vol) {
+  const img = vol?.img;
+  if (!(img instanceof Float32Array || img instanceof Float64Array)) return 0;
+  let n = 0;
+  for (let i = 0; i < img.length; i++) if (img[i] !== img[i]) { img[i] = 0; n++; }
+  return n;
+}
+
+// The 18 neighbours SPM uses for clusters: faces and edges, not corners.
+const N18 = [];
+for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+  const n = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
+  if (n === 1 || n === 2) N18.push([dx, dy, dz]);
+}
+
+/** Blank (in place) the voxels of clusters smaller than k voxels, so the slices show only
+ * the clusters the cluster table lists. Clusters are |T| >= threshold per sign with
+ * 18-connectivity, as on the server (results._clusters). Returns how many voxels were
+ * blanked. Exported for tests. */
+export function dropSmallClusters(img, dims, threshold, sign, k, slope = 1, inter = 0) {
+  if (!img || !(k > 1)) return 0;
+  const [nx, ny, nz] = dims, n = nx * ny * nz, zero = slope ? -inter / slope : 0;
+  const src = img.slice(), seen = new Uint8Array(n), queue = new Int32Array(n);
+  let blanked = 0;
+  // The two signs never share a voxel (threshold > 0), so one `seen` serves both.
+  for (const s of sign === "both" ? [1, -1] : [sign === "neg" ? -1 : 1]) {
+    const inside = (i) => s * (src[i] * slope + inter) >= threshold;
+    for (let start = 0; start < n; start++) {
+      if (seen[start] || !inside(start)) continue;
+      let head = 0, tail = 0;
+      queue[tail++] = start; seen[start] = 1;
+      while (head < tail) {
+        const i = queue[head++], x = i % nx, y = ((i / nx) | 0) % ny, z = (i / (nx * ny)) | 0;
+        for (const [dx, dy, dz] of N18) {
+          const X = x + dx, Y = y + dy, Z = z + dz;
+          if (X < 0 || Y < 0 || Z < 0 || X >= nx || Y >= ny || Z >= nz) continue;
+          const j = X + nx * (Y + ny * Z);
+          if (!seen[j] && inside(j)) { seen[j] = 1; queue[tail++] = j; }
+        }
+      }
+      if (tail < k) { for (let q = 0; q < tail; q++) img[queue[q]] = zero; blanked += tail; }
+    }
+  }
+  return blanked;
+}
+
 function fmtP(p) {
   if (p == null || !isFinite(p)) return "–";
   return p < 0.001 ? p.toExponential(1) : p.toFixed(3);
@@ -120,13 +180,14 @@ export function createOverlays({ NVImage, getNv, esc, head, list }) {
     for (const file of files) {
       if (!/\.nii(\.gz)?$/i.test(file.name)) continue;
       try {
-        const vol = await NVImage.loadFromFile({ file, name: file.name, colormap: "warm", opacity: 0.9 });
+        const vol = await NVImage.loadFromFile({ file, name: file.name, colormap: DEFAULT_CMAP, opacity: 0.9 });
+        zeroNaN(vol);
         const df = dfFromHeader(vol.hdr);
         const maxPos = Math.max(+vol.global_max || 0, 0), maxNeg = Math.max(-(+vol.global_min) || 0, 0);
         layers.unshift({
           id: nextId++, name: file.name, vol, df, dfFromFile: df != null, maxPos, maxNeg,
           mode: "t", t: 3, p: 0.001, max: null, sign: maxNeg > 0 && maxPos > 0 ? "both" : maxNeg > 0 ? "neg" : "pos",
-          cmap: "warm", cmapNeg: "winter", opacity: 0.9, visible: true, error: null,
+          cmap: DEFAULT_CMAP, cmapNeg: DEFAULT_CMAP_NEG, opacity: 0.9, visible: true, error: null,
         });
       } catch (e) {
         layers.unshift({ id: nextId++, name: file.name, error: e.message || String(e) });

@@ -12,14 +12,14 @@ labelled cluster table. A quiz mode helps you learn the regions, on the slices a
   probabilities and a "what's within N mm" readout for borderline points.
 - **Viewer:** axial, coronal and sagittal slices of the MNI template. Click to
   look up a point, and overlay any atlas (Atlas overlay, in the left sidebar). Each slice shows its coordinate, the
-  crosshair can be hidden, and **scr** saves the slices as a PNG.
+  crosshair can be hidden, and the **camera** button saves the slices as a PNG.
 - **3D:** a second tab renders the brain in 3D (solid surface, see-through
   **glass brain**, or **mesh brain** with your results painted on the cortex),
   showing the same overlays and results as the slices. A **Regions** window
   picks regions to show as solid shapes, optionally showing results only
   inside them, and lists the **white-matter tracts that connect them**, which
   you can draw in 3D.
-- **Your stat maps:** point it at a folder of `spmT_*.nii` files to get a
+- **Your stat maps:** point it at a folder of SPM T maps (any `.nii` / `.nii.gz`) to get a
   thresholded overlay, T and p at any point, and a cluster/peak table labelled
   by region. The maps are only read, never copied anywhere.
 - **Local overlays:** drop any NIfTI stat map from your computer on the brain.
@@ -57,7 +57,9 @@ py -m pipx ensurepath
 Open a new PowerShell window and run the `pipx install` line above.
 
 **Let Claude do it:** paste the prompt in [install_prompt.md](install_prompt.md) into
-Claude Code. It asks where to install, sets everything up and shows you the app running.
+Claude Code, on any system. It finds out whether and how the app is already installed,
+updates it from this repository (or asks where to install it if there is none), downloads
+the data and shows you the app running. Use the same prompt again to update.
 
 ## Start
 
@@ -74,7 +76,7 @@ the command just opens the browser. Stop it with Ctrl+C.
 
 Your data lives in `~/.atlaslookup`; set `ATLASLOOKUP_HOME` to use another
 folder. It holds the atlases, voxel grids, the viewer template, your
-settings and the images saved with **scr** (in `image/`). Nothing is stored inside the installed package. Run `atlaslookup info`
+settings and the images saved with the **camera** button (in `image/`). Nothing is stored inside the installed package. Run `atlaslookup info`
 to see what's there.
 
 ## Looking up coordinates
@@ -104,7 +106,7 @@ for axial, y for coronal, x for sagittal; k, j, i in voxel mode). Untick
 the slices, from the threshold to its strongest value, in T or in p (one-sided,
 uncorrected) as you thresholded it, with separate + and − bars. Type into the
 boxes at either end to set the minimum (the threshold) or the maximum of the
-colour range; **auto** resets the maximum to the strongest value in the map. **scr** saves
+colour range; **auto** resets the maximum to the strongest value in the map. The **camera** button saves
 the three slices and the colour bars as one PNG, always 2400 × 960 px, in
 `~/.atlaslookup/image/`, named by the date and time (e.g.
 `2026-10-28_09-19-20.png`), and opens that folder in Finder (Explorer on
@@ -259,7 +261,7 @@ straight away.
 - **Camera:** drag to rotate, scroll to zoom. **L R A P S I** jump to the
   left, right, front, back, top and bottom views.
 - **Crosshair and capture:** the slice crosshair is shown in 3D too (the
-  Crosshair checkbox applies to both). **scr** saves the 3D view with its
+  Crosshair checkbox applies to both). The **camera** button saves the 3D view with its
   colour bars, at the same size as slice captures.
 
 To look up a point, click on the slices; clicks in 3D only rotate. The app
@@ -272,15 +274,20 @@ the slices.
 atlaslookup set-results /path/to/your/results
 ```
 
-The folder is searched recursively for `spmT_*.nii` files. Its path is stored
+The folder is searched recursively for `.nii` / `.nii.gz` files, renamed ones
+included (e.g. `Rank5_spmT_0001.nii`); 4D files are left out. T and p values
+need an SPM T header (`SPM{T_[df]}`): for other maps (e.g. TFCE or pTFCE maps)
+the threshold applies to the map's own values and no p values are shown. Its path is stored
 in `~/.atlaslookup/settings.json`, outside any repository, so it's safe to keep
 results out of version control. For one run you can use
 `atlaslookup serve --results DIR` instead.
 
-In the app, click **▦ Open spmT…** above the viewer. It opens the side panel's
+In the app, click **▦ Open map…** above the viewer. It opens the side panel's
 Results tab, a Finder-style column browser of your results folder: click
 through the folders, see a map's contrast, df and grid below, and double-click
 (or press **Show**) to display it. Arrow keys and Enter work as in Finder.
+**Change folder…** picks another results folder: go up with **↑**, click into
+folders or type a path, then **Use this folder** (saved like `set-results`).
 
 Each map you show is added to the **Stat maps** list under the viewer, so you
 can overlay several: tick or untick a map to show or hide it, set its own
@@ -301,8 +308,11 @@ to a slim rail on the right edge, and the rail's buttons bring it back. Its
 state, tab and width are remembered. When little room is left beside it, the
 page switches to one column with the viewer on top.
 
-- **Overlay:** thresholded at **T ≥** your value; positive orange, negative
-  blue, or one sign only. **Opacity** sets how see-through it is (remembered,
+- **Overlay:** thresholded at **T ≥** your value; both signs or one sign only.
+  Each map's row has a colormap for each sign (**hot** for positive and **cold** for
+  negative by default; remembered per map). Type a **label** in a map's row to tell
+  maps with the same file name apart: it names the map's colour bars in camera-button
+  captures. Labels are not saved; they are gone when you close the page. **Opacity** sets how see-through it is (remembered,
   and applied in the 3D view too). The equivalent p is shown, using the df from the SPM
   header.
 - **Readout:** T and p at whatever point you click.
@@ -312,7 +322,7 @@ page switches to one column with the viewer on top.
 
 ### Local overlays
 
-Click **⤓ Import new map…** (right of **Open spmT…**), or drop `.nii` / `.nii.gz`
+Click **⤓ Import new map…** (right of **Open map…**), or drop `.nii` / `.nii.gz`
 files on the brain) to overlay any stat map from your computer, inside the
 results folder or not. The file is read by your browser and never uploaded,
 not even to the local server. It should be in MNI space.
@@ -488,8 +498,9 @@ pulling in ccn-spark's updates, and offering changes back.
 
 ## Contributors
 
-Local NIfTI overlays, colour bars, the viewer tools, **scr** capture, the `lookup`
-alias and `install_prompt.md` came from the
+Local NIfTI overlays, colour bars, the viewer tools, image capture, the `lookup`
+alias, `install_prompt.md`, per-map colormaps and labels, the folder picker, the
+light/dark toggle and several fixes came from the
 [ccn-spark fork](https://github.com/ccn-spark/atlas-lookup).
 
 ## License

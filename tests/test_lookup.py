@@ -309,6 +309,37 @@ def test_results_list_value_clusters(results_dir):
     assert r.cluster_at("modelA/spmT_0001.nii", edge_mm, 5.0, "both", 1) is None  # below 5
 
 
+def test_results_lists_any_nifti(tmp_path):
+    """Renamed SPM T maps and other NIfTI maps (e.g. TFCE) are listed; only SPM T headers
+    give a df (and so p values). Hidden, 4D and non-NIfTI files are left out."""
+    from atlaslookup.results import Results
+
+    def save(rel, shape=(6, 6, 6), descrip=b""):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        d = np.zeros(shape, np.float32)
+        d[2:4, 2:4, 2:4] = 4.0
+        img = nib.Nifti1Image(d, np.eye(4))
+        img.header["descrip"] = descrip
+        img.to_filename(str(tmp_path / rel))
+
+    save("Rank5/Rank5_spmT_0001.nii", descrip=b"SPM{T_[30.0]} - rank")
+    save("Rank5/Rank5_wholeb_TFCE_t05.nii.gz")
+    save("Rank5/.hidden.nii")
+    save("Rank5/series.nii", shape=(6, 6, 6, 3))
+    save("Rank5/single.nii", shape=(6, 6, 6, 1))
+    (tmp_path / "Rank5" / "notes.nii.txt").write_text("not a map")
+
+    r = Results(tmp_path)
+    maps = {m["id"]: m for m in r.list()}
+    assert set(maps) == {"Rank5/Rank5_spmT_0001.nii", "Rank5/Rank5_wholeb_TFCE_t05.nii.gz", "Rank5/single.nii"}
+    assert maps["Rank5/Rank5_spmT_0001.nii"]["df"] == 30.0
+    assert maps["Rank5/Rank5_wholeb_TFCE_t05.nii.gz"]["df"] is None
+    c = r.clusters("Rank5/single.nii", 3.0)
+    assert c["n_clusters"] == 1 and c["clusters"][0]["voxels"] == 8 and c["clusters"][0]["peak_p"] is None
+    with pytest.raises(FileNotFoundError):
+        r.resolve("Rank5/notes.nii.txt")
+
+
 def test_results_refuses_paths_outside_folder(results_dir):
     from atlaslookup.results import Results
 
@@ -1036,3 +1067,137 @@ def test_at_pm_systems_from_installed_atlases(tmp_path):
     assert parts.labels[d[8, 1, 0]] == "PM · Retrosplenial cortex (cingulate isthmus)"
     assert parts.labels[d[8, 1, 5]] == "PM · Posterior cingulate cortex"
     assert parts.lookup([-6, -10, -10])["label"]["name"].startswith("Left AT · Perirhinal")
+
+
+def test_zero_nan_for_display():
+    """static/overlays.js: SPM's NaN (outside the mask) becomes 0 before display, so the
+    box around the brain is not painted in full colour; integer images are untouched."""
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    import atlaslookup
+
+    js = Path(atlaslookup.__file__).parent / "static" / "overlays.js"
+    script = (f"import {{ zeroNaN }} from {str(js)!r};"
+              "const f = {img: new Float32Array([NaN, 1.5, NaN, -2])};"
+              "const i = {img: new Int16Array([0, 3])};"
+              "console.log(JSON.stringify([zeroNaN(f), Array.from(f.img), zeroNaN(i), zeroNaN(null)]));")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.strip() == "[2,[0,1.5,0,-2],0,0]"
+
+
+def test_k_removes_the_same_clusters_on_the_slices_as_in_the_table(tmp_path):
+    """static/overlays.js dropSmallClusters (what the viewer shows) keeps exactly the
+    voxels of the clusters the server lists (18-connectivity, per sign, size >= k)."""
+    import json
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    import atlaslookup
+    from atlaslookup.results import Results
+
+    rng = np.random.default_rng(0)
+    d = rng.normal(0, 1.6, (14, 12, 10)).astype(np.float32)
+    d[0, 0, 0] = np.nan
+    img = nib.Nifti1Image(d, np.diag([2.0, 2, 2, 1]))
+    img.header["descrip"] = b"SPM{T_[20.0]} - c"
+    img.to_filename(str(tmp_path / "spmT_0001.nii"))
+    r = Results(tmp_path)
+    js = Path(atlaslookup.__file__).parent / "static" / "overlays.js"
+    flat = np.nan_to_num(d).ravel(order="F").tolist()  # NiiVue's order: x fastest
+    for thr, sign, k in [(2.0, "both", 3), (2.5, "pos", 2), (1.5, "neg", 6)]:
+        found, labs = r._found("spmT_0001.nii", thr, sign, k)
+        keep = np.zeros(d.shape, bool)
+        for c in found:
+            keep |= labs[c["_key"][0]] == c["_key"][1]
+        script = (f"import {{ dropSmallClusters }} from {str(js)!r};"
+                  f"const img = new Float32Array({json.dumps(flat)});"
+                  f"dropSmallClusters(img, {list(d.shape)}, {thr}, {json.dumps(sign)}, {k});"
+                  "console.log(JSON.stringify(Array.from(img)));")
+        out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+        assert out.returncode == 0, out.stderr
+        shown = np.array(json.loads(out.stdout), np.float32).reshape(d.shape, order="F")
+        t = np.nan_to_num(d)
+        supra = (t >= thr) if sign == "pos" else (t <= -thr) if sign == "neg" else (np.abs(t) >= thr)
+        assert keep.any() and (supra & ~keep).any()          # the case is not trivial
+        assert np.array_equal(supra & (shown != 0), keep)    # same clusters survive
+        assert np.array_equal(shown[~supra], t[~supra])      # nothing else is touched
+
+
+def test_choose_results_folder(results_dir, tmp_path, monkeypatch):
+    """The UI can list folder names anywhere and switch the results folder; maps are still
+    read only inside the chosen folder, and cross-site posts are refused."""
+    import json
+
+    from fastapi.testclient import TestClient
+    from atlaslookup import results, server
+    from atlaslookup.results import Results
+
+    settings = tmp_path / "settings" / "settings.json"
+    monkeypatch.setattr(results, "SETTINGS_FILE", settings)
+    monkeypatch.setattr(server, "RESULTS", Results(results_dir / "modelB"))
+    c = TestClient(server.app)
+
+    up = c.get("/api/folders", params={"path": str(results_dir / "modelB")}).json()
+    assert up["dirs"] == ["sub"] and up["maps_here"] == 0
+    top = c.get("/api/folders", params={"path": up["parent"]}).json()
+    assert {"modelA", "modelB"} <= set(top["dirs"]) and "notes.txt" not in top["dirs"]
+    assert c.get("/api/folders", params={"path": str(results_dir / "nope")}).status_code == 404
+
+    assert c.post("/api/results/folder", content=json.dumps({"path": str(results_dir)}),
+                  headers={"content-type": "text/plain"}).status_code == 415
+    assert c.post("/api/results/folder", json={"path": str(results_dir / "nope")}).status_code == 400
+    r = c.post("/api/results/folder", json={"path": str(results_dir)}).json()
+    assert {m["id"] for m in r["maps"]} == {"modelA/spmT_0001.nii", "modelB/sub/spmT_0001.nii"}
+    assert c.get("/api/results/file/modelA/spmT_0001.nii").status_code == 200
+    assert c.get("/api/results/file/modelA/notes.txt").status_code == 404
+    assert json.loads(settings.read_text())["results_dir"] == str(results_dir.resolve())
+
+
+def test_default_colormaps_are_hot_and_cold():
+    """static/overlays.js: hot / cold are the defaults, and "cold" mirrors NiiVue's hot
+    (red and blue swapped), so the two signs read as one scale."""
+    import json
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    import atlaslookup
+
+    js = Path(atlaslookup.__file__).parent / "static" / "overlays.js"
+    script = (f"import {{ DEFAULT_CMAP, DEFAULT_CMAP_NEG, POS_MAPS, NEG_MAPS, addColdColormap }} from {str(js)!r};"
+              "const added = {}; const nv = { colormaps: () => Object.keys(added), addColormap: (n, c) => (added[n] = c) };"
+              "addColdColormap(nv); addColdColormap(nv);"
+              "console.log(JSON.stringify([DEFAULT_CMAP, DEFAULT_CMAP_NEG, POS_MAPS.includes('hot'), NEG_MAPS.includes('cold'), added]));")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    pos, neg, has_hot, has_cold, added = json.loads(out.stdout)
+    assert (pos, neg, has_hot, has_cold) == ("hot", "cold", True, True)
+    cold = added["cold"]  # NiiVue's hot: R [3,255,255,255], G [0,0,255,255], B [0,0,0,255]
+    assert (cold["R"], cold["G"], cold["B"]) == ([0, 0, 0, 255], [0, 0, 255, 255], [3, 255, 255, 255])
+    assert list(added) == ["cold"]  # registering twice is harmless
+
+
+def test_only_local_host_names_are_answered():
+    """A page that rebinds its own domain to 127.0.0.1 still sends its own Host header;
+    the server refuses it, so it can't read results or change the results folder."""
+    from fastapi.testclient import TestClient
+
+    from atlaslookup.server import _host_name, app
+
+    c = TestClient(app)
+    assert c.get("/api/version").status_code == 200  # Host: testserver
+    for host in ("127.0.0.1:8765", "localhost:8765", "[::1]:8765", "LOCALHOST"):
+        assert c.get("/api/version", headers={"host": host}).status_code == 200, host
+    for host in ("evil.example:8765", "127.0.0.1.evil.example", "example.com"):
+        assert c.get("/api/results", headers={"host": host}).status_code == 400, host
+    assert _host_name("[::1]:8765") == "[::1]" and _host_name("localhost") == "localhost"

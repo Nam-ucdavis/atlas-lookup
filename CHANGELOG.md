@@ -3,6 +3,41 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.21.0 (2026-11-04)
+Merged from the [ccn-spark fork](https://github.com/ccn-spark/atlas-lookup) (released there as its 0.20.0):
+- **k now thins the picture too**: the cluster-size threshold (k ≥ in the T-value range)
+  used to apply only to the cluster table. Clusters smaller than k are now also removed
+  from the slices and image captures, so the viewer shows exactly the clusters the
+  table lists.
+- **Change the results folder in the app**: the Results tab has **Change folder…**. Go up
+  with ↑, click into folders or type a path, and press **Use this folder**; it is saved
+  like `atlaslookup set-results`. Only folder names are shown while browsing, and maps are
+  still only read, never copied.
+- **Any NIfTI in the results folder**: maps no longer have to be called `spmT_0001.nii`.
+  Renamed SPM T maps (e.g. `Rank5_spmT_0001.nii`) keep their T and p values; other maps
+  (e.g. TFCE) are listed too, with no p values (the threshold applies to the map's own
+  values). The button is now **Open map…**.
+- **Light / dark toggle** in the top right. The app follows your system setting until you
+  pick one; your choice is remembered.
+- **Fix:** SPM T maps no longer show a solid colour box around the brain. SPM writes NaN
+  outside its analysis mask, and the viewer painted NaN in the top colour of the scale;
+  NaN voxels are now treated as 0 (stat maps and local overlays).
+- **Fix:** switching stat maps on and off quickly no longer leaves an old map on the
+  slices. A redraw that was overtaken by a newer one while its map was still loading used
+  to keep that map; it now takes it back out. Most visible on slower machines (seen on
+  Linux).
+- **Colormaps for results-folder maps**: each map's row in the Stat maps list has a
+  colormap for positive and for negative T, saved with the map. The defaults are now
+  **hot** (positive) and **cold** (negative, hot's blue mirror image) for these maps and
+  for local overlays; maps you already had open switch to hot / cold too.
+- **Labels for stat maps**: type a label in a map's row in the Stat maps list (handy when
+  several maps are all called `spmT_0001.nii`). It names that map's colour bars in image
+  captures. Labels are temporary: nothing is saved, and they are gone when the page closes.
+- The **scr** button is now a camera icon.
+- **Fix:** the server now only answers requests addressed to 127.0.0.1 / localhost, so
+  a web page can't reach it through DNS rebinding (which would let it read your
+  results, or with Change folder… browse folder names and switch the results folder).
+
 ## 0.20.1 (2026-11-04)
 - Removed the server's old quiz API (`/api/quiz/regions`, `/divisions`, `/point`,
   `/mask/...`) and `quiz.py`; the quiz has built its questions in the browser from the

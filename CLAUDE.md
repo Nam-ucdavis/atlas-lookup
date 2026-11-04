@@ -8,12 +8,13 @@ vanilla-JS front end, NiiVue for the viewer. Human-facing docs: `README.md`,
 
 ## Branches
 
-- `dev` is where all work happens: check `git branch --show-current` before committing,
-  and switch to `dev` (or a feature branch made from it) if needed. Releases are tagged on `dev`.
-- `main` is the stable version. **Never commit to `main` directly.** It only moves by
-  `git merge --ff-only dev`, when the user asks. It no longer mirrors ccn-spark.
-- ccn-spark updates (optional) are merged into `dev`. To offer a change upstream, branch
-  from `ccn-spark/main`. Details: `BRANCHES.md`.
+- This is ccn-spark/atlas-lookup. Work happens on `main` (the only branch); push only
+  when the user asks.
+- Nam-ucdavis/atlas-lookup (remote `nam`) develops the app too; its `dev` has the newest
+  work. To bring it in, `git merge nam/dev` into `main`. On conflicts keep this repo's
+  ccn-spark install/clone URLs and its branch notes (this section, `BRANCHES.md`, the
+  README's Branches section); take everything else from `nam/dev`.
+- To offer a change to Nam, branch from `nam/dev`. Details: `BRANCHES.md`.
 
 ## Commands
 
@@ -53,7 +54,7 @@ src/atlaslookup/
   labels.py       label-file readers (tsv/csv, LUT txt, FSL xml)
   grids.py        voxel grids (voxel index <-> mm)
   query.py        input resolution (mm / voxel, 1-based default) + best_guess()
-  results.py      read-only access to the user's spmT maps: list, value, clusters, cluster_at
+  results.py      read-only access to the user's stat maps (any .nii; SPM T header gives df/p): list, value, clusters, cluster_at
                   (which cluster-table row a point falls in; clusters are cached per map +
                   threshold/sign/k in _clusters, keyed by file mtime)
   server.py       FastAPI routes (docstring lists them all)
@@ -71,9 +72,10 @@ src/atlaslookup/
   static/quiz.js      quiz + progress UI over the focus structures (FOCI), with a second Focus
                       view (createFocusView quiz: true) beside the slices; exports matchName()
                       and quizItems() for tests
-  screenshots.py  saves "scr" captures as DATA_DIR/image/<date_time>.png
+  screenshots.py  saves camera-button ("scr") captures as DATA_DIR/image/<date_time>.png
   static/viewertools.js  crosshair toggle, slice coordinate labels, "scr" capture; exports sliceLabel() for tests
   static/overlays.js  local NIfTI overlays read in the browser (never uploaded); exports tSf/tFromP/dfFromHeader for tests
+                      dropSmallClusters() applies k to the displayed stat maps (same clusters as results._clusters)
   static/viewer3d.js  3D tab: a second NiiVue instance that mirrors the slice viewer's overlays;
                       the inflated style morphs fsaverage6 pial -> inflated (sources.export_inflated
                       writes the morph file) and samples overlays at the pial positions
@@ -90,6 +92,8 @@ src/atlaslookup/
                       draw is needed (e.g. before copying the canvas)
   static/regionpicker.js  the Regions tab (search all atlases, colours, "results only inside")
   static/browser.js   Finder-style column browser for the results folder's stat maps (side panel, Results tab)
+                      "Change folder…" picks another results folder (/api/folders lists names only;
+                      POST /api/results/folder saves it); maps are still opened only via Results.resolve()
   static/sidepanel.js docked, resizable, collapsible right-hand panel hosting Results and Regions;
                       the page narrows (body.sp-open), one column when cramped (body.sp-narrow).
                       Note: it is an <aside>, so page-layout rules must target `main > aside`
@@ -109,7 +113,7 @@ tests/test_lookup.py
   `settings.json` go in `config.DATA_DIR`. Never add data files, example results, or
   machine paths to tracked files, including docs (write `/path/to/your/results`).
 - Results are read-only. All access to the results folder goes through
-  `Results.resolve()`, which refuses paths outside the folder and non-`spmT_*` files.
+  `Results.resolve()`, which refuses paths outside the folder and non-NIfTI files.
   Don't add routes that open files another way, and don't cache maps to disk.
 - The server binds to 127.0.0.1 by default. Don't change that default.
 - Tests use synthetic data (`tmp_path`, fixtures such as `results_dir`) and never a real

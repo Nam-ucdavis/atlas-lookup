@@ -1,6 +1,7 @@
 // Finder-style column browser for the results folder's stat maps.
 //
-// The maps arrive as paths relative to the results folder ("modelA/sub/spmT_0001.nii").
+// The maps arrive as paths relative to the results folder ("modelA/sub/spmT_0001.nii");
+// any .nii / .nii.gz is listed, and those without an SPM T header are marked as such.
 // The browser lives in the side panel's Results tab and shows them as Finder's column
 // view: one column per folder level, details of the chosen map below, and a path bar.
 // Choosing a map sets the (hidden) <select id="statMap"> and fires its change event, so
@@ -10,6 +11,10 @@
 //
 // Keyboard: up/down move within a column, right opens a folder, left goes back up,
 // Enter shows the selected map, Esc closes.
+//
+// "Change folder…" swaps the columns for a folder chooser that can go anywhere above or
+// below the current folder. The server lists folder names only, and the chosen folder
+// becomes the results folder (saved in settings.json); maps are still read only there.
 
 /** Folder tree from map ids: { name, path, dirs: Map, files: [map] }. Exported for tests. */
 export function buildTree(maps) {
@@ -35,7 +40,7 @@ export function entries(node) {
   return [...dirs.map((d) => ({ kind: "dir", node: d })), ...files.map((f) => ({ kind: "file", map: f }))];
 }
 
-export function createResultsBrowser({ select, esc, panel, host }) {
+export function createResultsBrowser({ select, esc, panel, host, onFolder }) {
   let maps = [], folder = "", tree = null;
   let trail = [];       // folders open, root first
   let picked = null;    // highlighted map in the last column, if any
@@ -53,16 +58,28 @@ export function createResultsBrowser({ select, esc, panel, host }) {
   dlg.classList.add("finder");
   dlg.innerHTML = `
     <div class="finder-head"><span class="finder-root"></span><span class="grow"></span>
+      <button type="button" class="btn small" data-act="folder" title="Choose another results folder">Change folder…</button>
       <button type="button" class="btn small" data-act="none" title="Close every open stat map">Close all</button></div>
+    <div class="folder-pick" hidden>
+      <div class="fp-bar"><button type="button" class="btn small" data-act="up" title="Parent folder">↑</button>
+        <input type="text" class="fp-path" spellcheck="false" aria-label="Folder path" title="Type a path and press Enter"></div>
+      <div class="fp-list" role="listbox" aria-label="Subfolders"></div>
+      <div class="fp-foot"><span class="fp-note muted"></span><span class="grow"></span>
+        <button type="button" class="btn small" data-act="cancel">Cancel</button>
+        <button type="button" class="btn small primary" data-act="use">Use this folder</button></div>
+    </div>
     <div class="finder-body"><div class="finder-cols" tabindex="0" aria-label="Results folder"></div><div class="finder-preview"></div></div>
     <div class="finder-path"></div>`;
   const cols = dlg.querySelector(".finder-cols"), preview = dlg.querySelector(".finder-preview");
+  const pick = dlg.querySelector(".folder-pick"), fpPath = pick.querySelector(".fp-path");
+  const fpList = pick.querySelector(".fp-list"), fpNote = pick.querySelector(".fp-note");
+  let pickAt = null;  // the folder the chooser shows: { path, parent, dirs, maps_here }
 
   const current = () => maps.find((m) => m.id === select.value) || null;
 
   // The button opens the browser; the open maps are listed under the viewer.
   function label() {
-    button.innerHTML = `<span class="finder-ico">▦</span> Open spmT…`;
+    button.innerHTML = `<span class="finder-ico">▦</span> Open map…`;
     button.title = "Load a stat map from your results folder";
   }
 
@@ -109,7 +126,7 @@ export function createResultsBrowser({ select, esc, panel, host }) {
       <div class="finder-doc">◼</div>
       <div class="finder-title">${esc(picked.name)}</div>
       <dl><dt>Contrast</dt><dd>${esc(picked.contrast)}</dd>
-        <dt>df</dt><dd>${picked.df ?? "–"}</dd>
+        <dt>df</dt><dd>${picked.df ?? "– (not an SPM T map: no p values; T ≥ applies to its values)"}</dd>
         <dt>Grid</dt><dd>${picked.shape.join(" × ")} · ${picked.voxel_size.map((v) => +v.toFixed(2)).join(" × ")} mm</dd>
         <dt>Folder</dt><dd class="wrap">${esc(picked.id.split("/").slice(0, -1).join(" / ") || "(top level)")}</dd></dl>
       <button type="button" class="btn primary" data-act="show">${picked.id === select.value ? "Showing" : "Show"}</button>`
@@ -142,6 +159,55 @@ export function createResultsBrowser({ select, esc, panel, host }) {
     render();  // "Showing" and the ● marker follow the choice
   }
 
+  // --- folder chooser -------------------------------------------------------------
+  function showPicker(on) {
+    pick.hidden = !on;
+    dlg.querySelector(".finder-body").hidden = on;
+    dlg.querySelector(".finder-path").hidden = on;
+    if (on) browseFolder(folder || null);
+    else if (tree) render();
+  }
+  async function browseFolder(path) {
+    const r = await fetch("/api/folders?" + new URLSearchParams(path ? { path } : {})).catch(() => null);
+    if (!r?.ok) { fpNote.textContent = "Can't open that folder"; return; }
+    pickAt = await r.json();
+    fpPath.value = pickAt.path;
+    pick.querySelector('[data-act="up"]').disabled = !pickAt.parent;
+    fpList.innerHTML = pickAt.dirs.map((n) => `<div class="finder-item dir" role="option" data-sub="${esc(n)}">
+        <span class="finder-ico">▸</span><span class="finder-name">${esc(n)}</span><span class="chev">›</span></div>`).join("")
+      || `<div class="finder-empty">No subfolders</div>`;
+    fpNote.textContent = pickAt.maps_here ? `${pickAt.maps_here} NIfTI map${pickAt.maps_here > 1 ? "s" : ""} here` : "";
+  }
+  // Join with the separator the server's path uses (a backslash on Windows).
+  const join = (dir, name) => {
+    const sep = dir.includes("\\") && !dir.includes("/") ? "\\" : "/";
+    return dir.endsWith(sep) ? dir + name : dir + sep + name;
+  };
+  async function useFolder() {
+    if (!pickAt) return;
+    fpNote.textContent = "Looking for maps…";
+    const r = await fetch("/api/results/folder", { method: "POST", headers: { "Content-Type": "application/json" },
+                                                   body: JSON.stringify({ path: pickAt.path }) }).catch(() => null);
+    if (!r?.ok) { fpNote.textContent = "Could not use that folder"; return; }
+    const d = await r.json();
+    pick.hidden = true;
+    dlg.querySelector(".finder-body").hidden = dlg.querySelector(".finder-path").hidden = false;
+    await onFolder?.(d);
+  }
+  fpList.addEventListener("click", (e) => {
+    const item = e.target.closest("[data-sub]");
+    if (item && pickAt) browseFolder(join(pickAt.path, item.dataset.sub));
+  });
+  fpPath.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); browseFolder(fpPath.value.trim()); }
+  });
+  pick.addEventListener("click", (e) => {
+    const act = e.target.dataset.act;
+    if (act === "up" && pickAt?.parent) browseFolder(pickAt.parent);
+    else if (act === "cancel") showPicker(false);
+    else if (act === "use") useFolder();
+  });
+
   cols.addEventListener("click", (e) => {
     const item = e.target.closest(".finder-item"), col = +e.target.closest(".finder-col")?.dataset.col;
     if (!item) return;
@@ -154,6 +220,7 @@ export function createResultsBrowser({ select, esc, panel, host }) {
   dlg.addEventListener("click", (e) => {
     const act = e.target.dataset.act;
     if (act === "none") choose("");
+    else if (act === "folder") showPicker(pick.hidden);
     else if (act === "show" && picked) choose(picked.id);
     else if (e.target.dataset.crumb !== undefined) {
       const i = +e.target.dataset.crumb;
@@ -184,7 +251,7 @@ export function createResultsBrowser({ select, esc, panel, host }) {
 
   panel.onShow("results", () => {
     if (!tree) {
-      dlg.querySelector(".finder-cols").innerHTML = `<div class="finder-empty">No results folder set.<br>Run <code>atlaslookup set-results DIR</code>.</div>`;
+      dlg.querySelector(".finder-cols").innerHTML = `<div class="finder-empty">No .nii maps here.<br>Use <b>Change folder…</b> to choose your results folder.</div>`;
       return;
     }
     revealCurrent();
@@ -192,12 +259,12 @@ export function createResultsBrowser({ select, esc, panel, host }) {
     cols.focus({ preventScroll: true });
   });
   button.addEventListener("click", () => panel.open("results"));
+  label();
 
   return {
     setMaps(list, root) {
       maps = list; folder = root || ""; tree = buildTree(list);
       dlg.querySelector(".finder-root").textContent = folder;
-      button.disabled = !list.length;
       label();
       if (panel.isOpen && panel.tab === "results") { revealCurrent(); render(); }
     },

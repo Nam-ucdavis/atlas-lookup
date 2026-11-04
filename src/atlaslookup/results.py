@@ -1,4 +1,4 @@
-"""Read-only access to your statistical maps (spmT_*.nii).
+"""Read-only access to your statistical maps (any .nii / .nii.gz; SPM T maps get p values).
 
 The results folder is set per machine, in this order of precedence:
   1. `atlaslookup serve --results DIR`, or
@@ -24,7 +24,8 @@ from scipy import ndimage, stats
 
 from .config import SETTINGS_FILE
 
-MAP_PATTERN = re.compile(r"^spmT_\d+\.nii(\.gz)?$")
+# Any NIfTI, renamed ones included (e.g. "Rank5_spmT_0001.nii"); hidden files are skipped.
+MAP_PATTERN = re.compile(r"^[^.].*\.nii(\.gz)?$", re.IGNORECASE)
 
 
 # --- settings -------------------------------------------------------------------------
@@ -50,6 +51,27 @@ def save_results_dir(path: str | Path) -> Path:
     SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
     SETTINGS_FILE.write_text(json.dumps(s, indent=2) + "\n")
     return p
+
+
+def list_folders(path: str | Path | None) -> dict:
+    """A folder's subfolders, by name only, for choosing the results folder in the UI.
+    Files are never listed; it only says how many maps the folder itself holds."""
+    p = Path(path).expanduser().resolve(strict=True) if path else Path.home()
+    if not p.is_dir():
+        raise NotADirectoryError(p)
+    dirs, maps = [], 0
+    for c in p.iterdir():
+        try:
+            if c.name.startswith("."):
+                continue
+            if c.is_dir():
+                dirs.append(c.name)
+            elif MAP_PATTERN.match(c.name):
+                maps += 1
+        except OSError:  # unreadable entries are skipped, not fatal
+            continue
+    return {"path": str(p), "parent": str(p.parent) if p.parent != p else None,
+            "home": str(Path.home()), "dirs": sorted(dirs, key=str.lower), "maps_here": maps}
 
 
 def repo_warning(path: Path) -> str | None:
@@ -80,6 +102,8 @@ def _df_and_contrast(img) -> tuple[float | None, str]:
 def _load(path: str, mtime: float):
     img = nib.load(path)
     data = np.asarray(img.dataobj, dtype=np.float32)
+    if data.ndim > 3:  # a trailing singleton dimension; list() leaves out real 4D files
+        data = data.reshape(*data.shape[:3], -1)[..., 0]
     data = np.where(np.isfinite(data), data, 0)  # SPM writes NaN outside the mask
     return data, img.affine, _df_and_contrast(img)
 
@@ -124,7 +148,7 @@ class Results:
 
     def resolve(self, rel: str) -> Path:
         """Turn a map id (path relative to the root) into a file path, refusing
-        anything outside the results folder or that isn't an SPM T map."""
+        anything outside the results folder or that isn't a NIfTI file."""
         if not self.available:
             raise FileNotFoundError("No results folder configured")
         p = (self.root / rel).resolve()
@@ -139,12 +163,19 @@ class Results:
     def list(self) -> list[dict]:
         if not self.available:
             return []
-        files = sorted(p for p in self.root.rglob("spmT_*") if MAP_PATTERN.match(p.name))
-        rels = [p.relative_to(self.root) for p in files]
+        found = []
+        for p in sorted(self._files()):
+            try:
+                img = nib.load(str(p))  # header only
+            except Exception:  # not a readable NIfTI after all
+                continue
+            if len(img.shape) < 3 or int(np.prod(img.shape[3:])) > 1:  # 2D, or several volumes
+                continue
+            found.append((p, img))
+        rels = [p.relative_to(self.root) for p, _ in found]
         prefix = os.path.commonpath([str(r.parent) for r in rels]) if len(rels) > 1 else ""
         out = []
-        for p, rel in zip(files, rels):
-            img = nib.load(str(p))  # header only
+        for (p, img), rel in zip(found, rels):
             df, contrast = _df_and_contrast(img)
             folder = str(rel.parent)
             short = folder[len(prefix):].lstrip(os.sep) if prefix else folder
@@ -156,6 +187,11 @@ class Results:
                 "shape": list(img.shape[:3]), "voxel_size": [float(z) for z in img.header.get_zooms()[:3]],
             })
         return out
+
+    def _files(self):
+        for d, dirs, files in os.walk(self.root):
+            dirs[:] = [x for x in dirs if not x.startswith(".")]
+            yield from (Path(d) / f for f in files if MAP_PATTERN.match(f))
 
     # --- values ---------------------------------------------------------------------
     def value(self, rel: str, mm) -> dict:
