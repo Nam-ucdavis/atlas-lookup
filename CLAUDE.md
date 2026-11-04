@@ -56,7 +56,6 @@ src/atlaslookup/
   results.py      read-only access to the user's spmT maps: list, value, clusters, cluster_at
                   (which cluster-table row a point falls in; clusters are cached per map +
                   threshold/sign/k in _clusters, keyed by file mtime)
-  quiz.py         quiz regions, interior points, masks, brain-division mapping
   server.py       FastAPI routes (docstring lists them all)
   __main__.py     CLI (`atlaslookup ...`)
   version.py      version + git commit badge
@@ -71,7 +70,7 @@ src/atlaslookup/
                       Each map's colour bars live in its row (viewertools barHost)
   static/quiz.js      quiz + progress UI over the focus structures (FOCI), with a second Focus
                       view (createFocusView quiz: true) beside the slices; exports matchName()
-                      and quizItems() for tests. The /api/quiz endpoints are no longer used by it
+                      and quizItems() for tests
   screenshots.py  saves "scr" captures as DATA_DIR/image/<date_time>.png
   static/viewertools.js  crosshair toggle, slice coordinate labels, "scr" capture; exports sliceLabel() for tests
   static/overlays.js  local NIfTI overlays read in the browser (never uploaded); exports tSf/tFromP/dfFromHeader for tests
@@ -124,11 +123,6 @@ tests/test_lookup.py
   converted through a registered grid and is 1-based by default (SPM/MATLAB).
 - Talairach atlases use `mm_transform` (Lancaster icbm_spm2tal). Their MNI-resampled copy
   (`overlay_map_mni.nii.gz`) must agree with the transformed lookup; a test checks this.
-- The quiz never contradicts lookup: `quiz.point()` returns only points whose
-  `Atlas.lookup()` gives the asked region. Keep that check if you change sampling.
-- Every quizzable region must map to a brain division (`quiz.DIVISIONS` /
-  `BRODMANN_DIVISION`); a test enforces it. Watch regex substrings ("tri-angular-is"
-  once matched `angular`); use `\b` where needed.
 - Stat-map p values are uncorrected, one-sided, using the df parsed from the SPM header.
   Say so in any UI or docs you touch.
 

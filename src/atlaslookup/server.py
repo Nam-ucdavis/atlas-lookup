@@ -20,10 +20,6 @@ GET /api/tracts/connections?atlas=&sel=atlas|value|side,...&threshold=&distance=
 GET /api/tracts/mesh.gii?atlas=&value=&threshold=   one tract's core as a smooth surface mesh
 GET /api/atlases/{id}/label_map.nii.gz   parcellation in MNI space, for the viewer overlay
 GET /api/atlases/{id}/colormap           NiiVue label colormap for that overlay
-GET /api/quiz/regions?atlases=a,b        quizzable regions per atlas (with brain division)
-GET /api/quiz/divisions                  division names, in display order
-GET /api/quiz/point?atlas=&value=&side=  a point well inside a region (side L/R/B)
-GET /api/quiz/mask/{atlas}/{value}/{side}.nii.gz   that region as a mask
 GET /api/results                         your stat maps (from the local results folder)
 GET /api/results/file/{id}               one map, for the viewer
 GET /api/results/clusters?map=&threshold=&sign=pos|neg|both&min_voxels=
@@ -46,7 +42,7 @@ from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
 from .config import IMAGE_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FILE, STATIC_DIR, TEMPLATE_FILE
 from .grids import load_grids
 from .screenshots import MAX_BYTES, reveal, save_png
-from . import quiz, regions, tracts
+from . import regions, tracts
 from .results import Results, configured_dir, repo_warning
 from .query import best_guess, query, resolve_mm
 from .version import version_info
@@ -318,43 +314,6 @@ def colormap(atlas_id: str):
         r, g, b = colorsys.hls_to_rgb((n * 0.618034) % 1, 0.55, 0.65)
         R.append(round(r * 255)); G.append(round(g * 255)); B.append(round(b * 255)); A.append(255)
     return {"R": R, "G": G, "B": B, "A": A, "I": idx, "labels": [""] + [a.labels[i] for i in idx[1:]]}
-
-
-def _quiz_atlas(atlas_id: str):
-    if atlas_id not in quiz.QUIZ_ATLASES or atlas_id not in ATLASES:
-        raise HTTPException(404, f"{atlas_id!r} is not a quiz atlas")
-    return ATLASES[atlas_id]
-
-
-@app.get("/api/quiz/regions")
-def quiz_regions(atlases: str | None = None):
-    ids = atlases.split(",") if atlases else [i for i in quiz.QUIZ_ATLASES if i in ATLASES]
-    out = []
-    for i in ids:
-        a = _quiz_atlas(i)
-        out.append({"atlas": a.id, "atlas_name": a.manifest.name, "role": a.manifest.role,
-                    "regions": quiz.regions(a)})
-    return out
-
-
-@app.get("/api/quiz/divisions")
-def quiz_divisions():
-    return [d for d, _ in quiz.DIVISIONS]
-
-
-@app.get("/api/quiz/point")
-def quiz_point(atlas: str, value: int, side: str = Query("B", pattern="^[LRB]$")):
-    p = quiz.point(_quiz_atlas(atlas), value, side)
-    if p is None:
-        raise HTTPException(404, "No usable point in that region")
-    return p
-
-
-@app.get("/api/quiz/mask/{atlas_id}/{value}/{side}.nii.gz")
-def quiz_mask(atlas_id: str, value: int, side: str):
-    if side not in ("L", "R", "B"):
-        raise HTTPException(400, "side must be L, R or B")
-    return Response(quiz.mask_nifti(_quiz_atlas(atlas_id), value, side), media_type="application/gzip")
 
 
 @app.get("/api/results")

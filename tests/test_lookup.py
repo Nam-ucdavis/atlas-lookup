@@ -164,42 +164,6 @@ def test_viewer_endpoints():
 
 # --- quiz ------------------------------------------------------------------------
 
-@bootstrapped
-def test_quiz_points_land_in_their_region():
-    """Every quizzable region yields a point whose lookup returns that region,
-    on the asked side, so the quiz can never contradict the lookup view."""
-    import numpy as np
-    from fastapi.testclient import TestClient
-    from atlaslookup.server import app
-
-    c = TestClient(app)
-    rng = np.random.default_rng(1)
-    for atlas in c.get("/api/quiz/regions").json():
-        regions = atlas["regions"]
-        assert len(regions) > 10, atlas["atlas"]
-        for r in [regions[i] for i in rng.choice(len(regions), 8, replace=False)]:
-            for side in r["sides"]:
-                p = c.get("/api/quiz/point", params=dict(atlas=atlas["atlas"], value=r["value"], side=side)).json()
-                x, y, z = p["mm"]
-                assert side == "B" or (x < 0) == (side == "L")
-                res = c.get("/api/lookup", params=dict(x=x, y=y, z=z, radius=0, atlases=atlas["atlas"])).json()
-                assert res["results"][0]["label"]["value"] == r["value"]
-                m = c.get(f"/api/quiz/mask/{atlas['atlas']}/{r['value']}/{side}.nii.gz")
-                assert m.status_code == 200 and m.content[:2] == b"\x1f\x8b"
-
-
-@bootstrapped
-def test_quiz_excludes_non_regions():
-    from fastapi.testclient import TestClient
-    from atlaslookup.server import app
-
-    names = {a["atlas"]: [r["name"] for r in a["regions"]]
-             for a in TestClient(app).get("/api/quiz/regions").json()}
-    assert not any("White Matter" in n or "Ventric" in n for n in names["harvard-oxford-sub"])
-    assert not any(n.startswith("WM ") or n.startswith("GM ") for n in names["juelich"])
-    assert all(n.startswith("Brodmann area") for n in names["talairach-ba"])
-
-
 def test_quiz_answer_matching():
     """Runs the browser's matcher (static/quiz.js) under node."""
     import shutil
@@ -292,25 +256,6 @@ def test_quiz_items_cover_the_foci():
     assert r["acc"] == ["cingulate"]
     assert r["ca"]["label"] == "Right Cornu ammonis (CA)" and r["ca"]["focus"] == "temporal"
     assert r["ca"]["group"] == "Hippocampal formation"
-
-
-def test_every_quiz_region_has_a_division():
-    from fastapi.testclient import TestClient
-    from atlaslookup.quiz import division
-    from atlaslookup.server import app
-
-    c = TestClient(app)
-    divisions = c.get("/api/quiz/divisions").json()
-    for a in c.get("/api/quiz/regions").json():
-        for r in a["regions"]:
-            assert r["division"] in divisions, (a["atlas"], r["name"], r["division"])
-    assert division("Inferior Frontal Gyrus, pars triangularis") == "Frontal lobe"
-    assert division("Angular Gyrus") == "Parietal lobe"
-    assert division("Temporal Occipital Fusiform Cortex") == "Temporal lobe"
-    assert division("Paracingulate Gyrus") == "Limbic system"
-    assert division("Brodmann area 44") == "Frontal lobe"
-    assert division("Brodmann area 28") == "Limbic system"
-    assert division("Left Accumbens") == "Basal ganglia"
 
 
 # --- stat maps (synthetic results folder; never your real data) ---------------------

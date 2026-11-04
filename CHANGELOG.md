@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.20.1 (2026-11-04)
+- Removed the server's old quiz API (`/api/quiz/regions`, `/divisions`, `/point`,
+  `/mask/...`) and `quiz.py`; the quiz has built its questions in the browser from the
+  3D foci since 0.20.0. `display_name()` moved to `regions.py`.
+
 ## 0.20.0 (2026-11-02)
 - **The quiz, redone around the 3D foci**: it asks the structures of PFC, Parietal,
   Cingulate, Temporal (with the MTL subfields) and Occipital (108 in all), with the three

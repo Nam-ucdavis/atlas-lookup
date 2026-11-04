@@ -10,6 +10,7 @@ shared 1 mm grid: every atlas voxel fills the 1 mm voxels it covers.
 from __future__ import annotations
 
 import gzip
+import re
 from functools import lru_cache
 
 import nibabel as nib
@@ -17,10 +18,14 @@ import numpy as np
 from scipy import sparse
 
 from .atlas import MNI_1MM_AFFINE, MNI_1MM_SHAPE, Atlas
-from .quiz import display_name
 
 SIDES = {"L": "Left", "R": "Right", "B": ""}
 MAX_REGIONS = 255  # uint8 mask
+
+
+def display_name(name: str) -> str:
+    """Tidy atlas names: 'GM Amygdala_laterobasal group' -> 'Amygdala, laterobasal group'."""
+    return re.sub(r"^GM ", "", name).replace("_", ", ")
 
 
 def _side_mask(shape, affine, side):
