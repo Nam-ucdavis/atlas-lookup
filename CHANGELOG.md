@@ -3,6 +3,31 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.21.1 (2026-11-04)
+- **One Focus for the whole brain**: the five separate foci (Focus ▾ menu) are now a
+  single **Focus** view. Its legend lists the lobes: tick one to show it or switch it
+  off (its structures load the first time), unfold it for its groups, and click its name
+  to zoom to it on its own (click again to go back). Blobs, peaks and look-ups follow
+  whatever is shown.
+- **Presets**: **Whole brain** shows everything; **Limbic system** shows only the limbic
+  structures (ventromedial PFC, anterior / subgenual / posterior cingulate, retrosplenial
+  cortex, hippocampal formation, parahippocampal region, amygdala, anterior thalamic
+  nucleus, mammillary bodies, hypothalamus, fornix) and frames them.
+- **New structures**:
+  - Frontal (was PFC): a *Motor & premotor* group (precentral gyrus, SMA / pre-SMA, the
+    superior and middle frontal gyri behind y = +10 mm).
+  - **Insula & operculum**, a new lobe: insular cortex, frontal, central and parietal
+    opercula (the frontal and parietal opercula moved here from PFC and Parietal).
+  - **Subcortical**, a new lobe: caudate, putamen, pallidum, nucleus accumbens, thalamus
+    and brainstem (Harvard-Oxford subcortical); a *Limbic circuit* group with the
+    anterior thalamic nucleus, mammillary bodies and hypothalamus (Talairach Daemon) and
+    the fornix (JHU white-matter labels).
+- Every structure is in one lobe only: the ACC, paracingulate and subcallosal cortex are
+  under Cingulate (no longer also under PFC).
+- The quiz covers the new lobes (140 structures); each question still shows its own lobe
+  in 3D. If you had picked lobes before, tick *Insula & operculum* and *Subcortical* in
+  the quiz sidebar to add them.
+
 ## 0.21.0 (2026-11-04)
 Merged from the [ccn-spark fork](https://github.com/ccn-spark/atlas-lookup) (released there as its 0.20.0):
 - **k now thins the picture too**: the cluster-size threshold (k ≥ in the T-value range)

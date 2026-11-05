@@ -163,12 +163,9 @@ const samplerOf = (vol) => volumeSampler({
 // --- the view ------------------------------------------------------------------------
 
 export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, controls, crosshairToggle, setHint, onPick, focus }) {
-  // Focus (PFC, Temporal, ...) swaps this whole-brain scene for focus3d.js's, in the same panel.
-  let focusId = store.get("view3dFocus", "");  // "" = whole brain, else a focus3d FOCI key
-  if (focusId === "mpfc") focusId = "pfc";  // 0.19.1's medial PFC grew into the PFC
-  if (focusId === "mtl") focusId = "temporal";  // 0.19.4 merged the MTL into the temporal focus
-  if (focusId && !focus?.label(focusId)) focusId = "";
-  let focused = !!focusId;
+  // Focus swaps this whole-brain scene for focus3d.js's, in the same panel. (Before 0.21.1
+  // the store held which focus; any of them now means Focus.)
+  let focused = !!store.get("view3dFocus", "") && !!focus;
   let nv3 = null, ready = null, mesh = null, normals = null, active = false;
   // Inflated brain: { mesh, pial, normals, target, shade, nLeft, allTris }, loaded on first use.
   let infl = null, inflError = null;
@@ -400,45 +397,28 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     return r;
   };
 
-  // Focus sits with the styles: its button opens a menu of what to focus on, and once
-  // one is picked reads "Focus: Temporal". Picking another style leaves focus.
+  // Focus sits with the styles; picking another style leaves it.
   function showFocusMode() {
     for (const b of controls.style.querySelectorAll("button")) {
       b.classList.toggle("on", focused ? b.dataset.style === "focus" : b.dataset.style === style);
     }
-    controls.focusBtn.firstChild.textContent = focused ? `Focus: ${focus.label(focusId)} ` : "Focus ";
-    for (const b of controls.focusMenu.querySelectorAll("button")) b.classList.toggle("on", b.dataset.focus === focusId);
     controls.whole.hidden = focused;
     canvas.hidden = focused;
   }
-  function openFocusMenu(open) {
-    controls.focusMenu.hidden = !open;
-    controls.focusBtn.setAttribute("aria-expanded", String(open));
-    if (open) controls.focusMenu.querySelector("button")?.focus();
-  }
-  async function setFocus(f) {
-    focusId = f;
-    focused = !!f;
-    store.set("view3dFocus", f);
+  async function setFocus(on) {
+    focused = on;
+    store.set("view3dFocus", on ? "all" : "");
     showFocusMode();
     if (active) { await focus?.show(false); await show(true); }
   }
   showFocusMode();
-  controls.focusMenu.addEventListener("click", (e) => {
-    const f = e.target.closest("button")?.dataset.focus;
-    if (!f) return;
-    openFocusMenu(false);
-    if (f !== focusId) setFocus(f);
-  });
-  document.addEventListener("click", (e) => { if (!e.target.closest(".v3-style-wrap")) openFocusMenu(false); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !controls.focusMenu.hidden) { openFocusMenu(false); controls.focusBtn.focus(); } });
 
   async function show(on) {
     active = on;
     wrap.hidden = !on;
     controls.bar.hidden = !on;
     if (focus && (!on || focused)) {
-      await focus.show(on && focused, focusId);
+      await focus.show(on && focused);
       if (on) { focusSources(); return; }
     }
     if (!on) return;
@@ -529,10 +509,10 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   controls.style.addEventListener("click", async (e) => {
     const s = e.target.closest("button")?.dataset.style;
     if (!s) return;
-    if (s === "focus") { openFocusMenu(controls.focusMenu.hidden); return; }
+    if (s === "focus") { if (!focused) await setFocus(true); return; }
     if (s === style && !focused) return;
     style = s; store.set("view3dStyle", s);
-    if (focused) { await setFocus(""); return; }
+    if (focused) { await setFocus(false); return; }
     await applyStyle();
   });
   function showTransparency() {

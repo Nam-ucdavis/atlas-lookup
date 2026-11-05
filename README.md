@@ -150,91 +150,73 @@ straight away.
     downloads fsaverage6 from OSF through nilearn (~8 MB).
   - fsaverage lines up with MNI152 only to within a few mm, and values come from the
     volume: this is for looking, not a surface-based analysis.
-- **Focus ▾:** one part of the brain on its own (PFC, Parietal, Cingulate, Temporal,
-  Occipital),
-  zoomed in and rotating around it. Each structure is a faint tint with a solid outline in its own colour.
+- **Focus:** the brain lobe by lobe, as see-through structures (each a faint tint with
+  a solid outline in its own colour), rotating around what is shown. The legend lists
+  seven lobes (tables below). Tick a lobe to show it or switch it off (its structures load
+  the first time), ▸ to unfold its groups, and click its **name** to zoom to it on its own
+  (click again to go back to every lobe ticked).
+  - **Whole brain** shows every lobe and structure; **Limbic system** shows only the
+    limbic structures (marked ✦ in the tables) and frames them.
   - **Blobs** (default): the front map's voxels past its threshold, inside the shown
     structures, drawn as smoothed solid shapes at their real depth (warm for positive,
     blue for negative, the map's colours painted on). Hiding a structure hides its
     blobs too.
   - **Surface**: every map painted on the structures' surfaces instead (the strongest
-    value up to 3 mm inside), as before 0.19.6. Deeper results don't show this way,
-    which is why Blobs is the default.
-  - Each focus shows one set of structures (Harvard-Oxford; the MTL as Juelich
-    subfields), in groups (tables below).
-  - **Both / Left / Right** shows one hemisphere on its own: view a left hemisphere
-    from **R** to see its medial side.
-  - **Click** the inflated brain to look up that point (its position on the folded
-    cortex); the slice crosshair is shown at the nearest point of the surface.
-  - Tracts and region shapes are hidden here; chosen cortical regions are painted on.
-  - Needs `atlaslookup setup` once (installs from before 0.18 just run it again): it
-    downloads fsaverage6 from OSF through nilearn (~8 MB).
-  - fsaverage lines up with MNI152 only to within a few mm, and values come from the
-    volume: this is for looking, not a surface-based analysis.
-- **Focus ▾:** one part of the brain on its own (PFC, Parietal, Cingulate, Temporal,
-  Occipital),
-  zoomed in and rotating around it. Each structure is a faint tint with a solid outline in its own colour.
-  - **Blobs** (default): the front map's voxels past its threshold, inside the shown
-    structures, drawn as smoothed solid shapes at their real depth (warm for positive,
-    blue for negative, the map's colours painted on). Hiding a structure hides its
-    blobs too.
-  - **Surface**: every map painted on the structures' surfaces instead (the strongest
-    value up to 3 mm inside), as before 0.19.6. Deeper results don't show this way,
-    which is why Blobs is the default.
-  - Each focus has a coarse level (**Structures**, mostly Harvard-Oxford) and a fine
-    one (**Gyri & sulci**, Destrieux), in groups (tables below).
-  - **Both / Left / Right**, **Hue / Gray** (Gray draws every structure in one grey,
-    so only the results are in colour; remembered for every focus), **Fill** (how
-    see-through each structure is), and the usual L R A P S I views.
-  - The legend lists each structure with the peak positive / negative value inside
-    its whole volume (of the front-most map on the slices) and how many mm³ pass that
+    value up to 3 mm inside). Deeper results don't show this way, which is why Blobs is
+    the default.
+  - **Both / Left / Right**, **Hue / Gray** (Gray draws every structure in one grey, so
+    only the results are in colour), **Fill** (how see-through each structure is), and
+    the usual L R A P S I views. View a left hemisphere from **R** to see its medial side.
+  - The legend lists each lobe, group and structure with the peak positive / negative
+    value inside it (of the front-most map on the slices) and how many mm³ pass that
     map's threshold. Click a peak, or a structure, to look the point up.
-  - Pick another style (Surface, Glass, Mesh, Inflated) to leave focus.
-- **Focus ▾ → PFC:** the prefrontal cortex, in six groups:
+  - Tick a group to show or hide all of it, or single structures within it (the group's
+    box is half-ticked when only some show); ▾ folds a group.
+  - Pick another style (Surface, Glass, Mesh, Inflated) to leave Focus.
+- **The lobes** (Harvard-Oxford unless noted; every structure is in one lobe only;
+  ✦ = in the Limbic system preset):
 
-  | Group | Structures (Harvard-Oxford) |
-  |---|---|
-  | Ventromedial PFC | frontal medial cortex, subcallosal cortex |
-  | Dorsomedial PFC & ACC | anterior cingulate, paracingulate, SFG medial part |
-  | Orbitofrontal (lateral / central) | frontal orbital cortex |
-  | Dorsolateral PFC | middle frontal gyrus, SFG lateral part |
-  | Ventrolateral PFC | IFG pars triangularis and opercularis, frontal operculum |
-  | Frontopolar | frontal pole |
-
-  The superior and middle frontal gyri stop at y = +10 mm, leaving out premotor
-  cortex; the superior frontal gyrus is split at |x| = 20 mm into its medial and
-  lateral parts.
-- **Focus ▾ → Parietal, Cingulate, Temporal, Occipital:**
-
-  | Focus | Group | Structures |
+  | Lobe | Group | Structures |
   |---|---|---|
+  | Frontal | Ventromedial PFC | frontal medial cortex ✦ |
+  | | Dorsomedial PFC | SFG medial part |
+  | | Orbitofrontal (lateral / central) | frontal orbital cortex |
+  | | Dorsolateral PFC | middle frontal gyrus, SFG lateral part |
+  | | Ventrolateral PFC | IFG pars triangularis and opercularis |
+  | | Frontopolar | frontal pole |
+  | | Motor & premotor | precentral gyrus, juxtapositional lobule (SMA / pre-SMA), SFG and MFG behind y = +10 mm |
+  | Insula & operculum | Insula | insular cortex |
+  | | Opercula | frontal operculum, central opercular cortex, parietal operculum |
+  | Cingulate | Anterior cingulate | anterior cingulate ✦, paracingulate, subcallosal cortex ✦ |
+  | | Posterior cingulate | posterior cingulate ✦, retrosplenial cortex (Destrieux isthmus) ✦ |
   | Parietal | Superior parietal | superior parietal lobule |
   | | Inferior parietal | supramarginal gyrus (anterior, posterior), angular gyrus |
   | | Medial parietal | precuneus |
-  | | Somatosensory | postcentral gyrus, parietal operculum |
-  | Cingulate | Anterior cingulate | anterior cingulate, paracingulate, subcallosal cortex |
-  | | Posterior cingulate | posterior cingulate, retrosplenial cortex (Destrieux isthmus) |
+  | | Somatosensory | postcentral gyrus |
   | Temporal | Temporal pole | temporal pole |
   | | Superior temporal | STG (anterior, posterior), planum polare, Heschl's gyrus, planum temporale |
   | | Middle temporal | MTG (anterior, posterior, temporo-occipital) |
   | | Inferior temporal | ITG (anterior, posterior, temporo-occipital) |
   | | Ventral temporal | temporal fusiform (anterior, posterior), temporo-occipital fusiform |
-  | | Hippocampal formation | Juelich cornu ammonis, dentate gyrus, subiculum, hippocampal-amygdaloid transition area |
-  | | Parahippocampal region | Juelich entorhinal cortex, Destrieux parahippocampal gyrus and collateral sulcus (perirhinal cortex) |
-  | | Amygdala | Juelich centromedial, laterobasal, superficial groups |
+  | | Hippocampal formation ✦ | Juelich cornu ammonis, dentate gyrus, subiculum, hippocampal-amygdaloid transition area |
+  | | Parahippocampal region ✦ | Juelich entorhinal cortex, Destrieux parahippocampal gyrus and collateral sulcus (perirhinal cortex) |
+  | | Amygdala ✦ | Juelich centromedial, laterobasal, superficial groups |
   | Occipital | Medial occipital | intracalcarine, supracalcarine cortex, cuneus, lingual gyrus |
   | | Lateral occipital | lateral occipital cortex (superior, inferior) |
   | | Ventral occipital | occipital fusiform gyrus |
   | | Occipital pole | occipital pole |
+  | Subcortical | Basal ganglia | caudate, putamen, pallidum, nucleus accumbens (Harvard-Oxford subcortical) |
+  | | Thalamus | thalamus (Harvard-Oxford subcortical) |
+  | | Limbic circuit ✦ | anterior thalamic nucleus, mammillary body, hypothalamus (Talairach Daemon); fornix column and body, fornix crus with stria terminalis (JHU white-matter labels) |
+  | | Brainstem | brainstem (Harvard-Oxford subcortical) |
 
-  The Juelich hippocampal and amygdala maps are 2 mm maximum-probability maps, so they
-  are coarse, and some sit inside others (lower **Fill** or untick CA to see the dentate
-  gyrus). For the MTL alone, untick the lateral groups, or fold them. Hiding a structure
-  hides it in every focus that has it (the ACC in PFC and Cingulate, say).
-- **Groups (every focus):** the legend lists structures under their group (the tables
-  above). Tick a group to show or hide all of it, or single structures within it (the
-  group's box is half-ticked when only some show); ▾ folds a group. A group's row shows
-  its strongest values and total mm³ past the threshold.
+  The superior and middle frontal gyri are cut at y = +10 mm (prefrontal in front,
+  premotor behind); the superior frontal gyrus is split at |x| = 20 mm into its medial
+  and lateral parts. The Juelich hippocampal and amygdala maps are 2 mm
+  maximum-probability maps, so they are coarse, and some sit inside others (lower
+  **Fill** or untick CA to see the dentate gyrus); the anterior thalamic nucleus sits
+  inside the thalamus. The Talairach structures are small and approximate (rule-based
+  boundaries, converted from Talairach space). No cerebellum yet.
 - **Regions…** opens the side panel's Regions tab to pick regions from any atlas. Search by name
   (common abbreviations like OFC, IFG, ACC work). Each chosen region is drawn
   as a solid shape in its own colour, and in Mesh brain painted onto the
@@ -342,24 +324,23 @@ so your maps aren't reachable from other machines.
 
 ## Quiz and progress
 
-Click **🧠 Quiz me!** (top right) to practise the structures of the 3D foci (PFC,
-Parietal, Cingulate, Temporal with the MTL subfields, Occipital: 108 structures);
-**↩ Back to lookup** returns. The three slices and a 3D view of the question's focus sit
-side by side; in 3D every structure is grey (drag to rotate, scroll to zoom).
+Click **🧠 Quiz me!** (top right) to practise the structures of the Focus lobes (Frontal,
+Insula & operculum, Cingulate, Parietal, Temporal with the MTL subfields, Occipital,
+Subcortical: 140 structures); **↩ Back to lookup** returns. The three slices and a 3D
+view of the question's lobe sit side by side; in 3D every structure is grey (drag to rotate, scroll to zoom).
 
 - **Find it:** click the structure on a slice or in 3D (your pick turns blue in 3D),
   then press Submit (↵). Within 5 mm, or the right structure on the wrong side,
   counts as close.
 - **Name it:** the structure is yellow in 3D and on the slices; type its name.
-  Suggestions (that focus's structures) appear as you type, typos are tolerated, and
+  Suggestions (that lobe's structures) appear as you type, typos are tolerated, and
   abbreviations like IFG, STG, CA or PHC work.
 - After you answer, the structure is green (right) or red (wrong) in both views, and
   the card shows its group.
 
-Choose which foci to be quizzed on in the left sidebar. **Progress** (next to Back to
-lookup) shows what you've mastered per focus, and **Practise** sticks to one focus. A
-structure in two foci (the ACC in PFC and Cingulate) is asked under the narrower one.
-Quiz history is kept in your browser.
+Choose which lobes to be quizzed on in the left sidebar. **Progress** (next to Back to
+lookup) shows what you've mastered per lobe, and **Practise** sticks to one lobe. Quiz
+history is kept in your browser.
 
 ## Adding an atlas from a paper
 

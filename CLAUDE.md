@@ -69,7 +69,7 @@ src/atlaslookup/
                       drives the T-value range controls, the cluster table, and the T and cluster
                       highlight at the crosshair (/api/lookup gets its threshold/sign/min_voxels).
                       Each map's colour bars live in its row (viewertools barHost)
-  static/quiz.js      quiz + progress UI over the focus structures (FOCI), with a second Focus
+  static/quiz.js      quiz + progress UI over the focus structures (FOCI), one lobe per question, with a second Focus
                       view (createFocusView quiz: true) beside the slices; exports matchName()
                       and quizItems() for tests
   screenshots.py  saves camera-button ("scr") captures as DATA_DIR/image/<date_time>.png
@@ -82,7 +82,10 @@ src/atlaslookup/
   static/focus3d.js   3D "Focus": its own NiiVue instance (meshes only, so the camera frames the
                       structures), structure meshes from /api/regions/mesh.gii smoothed client-side,
                       continuous slice overlays painted on, per-structure peaks; FOCI lists each
-                      focus (PFC, parietal, cingulate, temporal with the MTL, occipital), each a list of groups of structures
+                      lobe (LOBES order: frontal, insula, cingulate, parietal, temporal with the MTL,
+                      occipital, subcortical), each a list of groups of structures, every structure in
+                      one lobe only; the view shows the lobes switched on (store focusLobes), keeps built
+                      meshes per key, and frames them via an nv.setPivot3D override
                       (cuts like "ax<=20;y>=10" go to the server: regions.parse_clip)
                       (clones volumes + copies display settings); surface or glass-brain mesh
                       (/api/brain_mesh.gii, fsaverage5 pial built by sources.export_mesh);

@@ -1,5 +1,6 @@
-// Quiz mode: learn the structures of each 3D focus (PFC, parietal, cingulate, temporal
-// with the MTL subfields, occipital), on the slices and in 3D at once.
+// Quiz mode: learn the structures of each lobe of the 3D Focus (frontal, insula &
+// operculum, cingulate, parietal, temporal with the MTL subfields, occipital,
+// subcortical), on the slices and in 3D at once.
 //
 // The slices and the quiz's own Focus view sit side by side; the 3D view shows the
 // question's focus, every structure grey. Two kinds of question, mixed at random:
@@ -10,7 +11,7 @@
 // The Progress dialog summarises that history by focus, and "Practise" there sticks to
 // one focus.
 
-import { FOCI, focusParts } from "./focus3d.js";
+import { FOCI, LOBES, focusParts } from "./focus3d.js";
 
 const TYPES = [
   { id: "find", label: "Find it (click a slice or the 3D view)" },
@@ -37,20 +38,19 @@ const ABBREV = {
   hata: "hippocampal amygdaloid transition area", hipp: "hippocampus", amyg: "amygdala",
 };
 
-/** Every structure of every focus, once, as quiz items: { key, focus, focusLabel, group,
- * name, label }. A structure in two foci (the ACC, in PFC and Cingulate) is asked in the
- * narrower one. */
-const BROAD = ["pfc"];  // foci whose shared structures belong to another
+// "Left Putamen"; a midline structure (the brainstem) has no side.
+const sided = (p) => p.hemi === "M" ? p.name : `${p.hemi === "L" ? "Left" : "Right"} ${p.name}`;
+/** Every structure of every lobe, once, as quiz items: { key, focus (its lobe),
+ * focusLabel, group, name, label }. */
 export function quizItems() {
   const seen = new Set(), out = [];
-  const order = Object.keys(FOCI).sort((a, b) => BROAD.includes(a) - BROAD.includes(b));
-  for (const id of order) {
+  for (const id of LOBES) {
     const f = FOCI[id];
     for (const p of focusParts(id, "both")) {
       if (seen.has(p.key)) continue;
       seen.add(p.key);
       out.push({ key: p.key, focus: id, focusLabel: f.label, group: f.groups[p.group].name, name: p.name,
-        hemi: p.hemi, label: `${p.hemi === "L" ? "Left" : "Right"} ${p.name}` });
+        hemi: p.hemi, label: sided(p) });
     }
   }
   return out;
@@ -65,14 +65,14 @@ export function createQuiz(ctx) {
   };
   const ALL = quizItems();
   let stats = store.get("quizStats", {});
-  const selFoci = () => new Set(store.get("quizFoci", Object.keys(FOCI)));
+  const selFoci = () => new Set(store.get("quizFoci", LOBES));
   const selTypes = () => new Set(store.get("quizTypes", TYPES.map((t) => t.id)));
   const practise = () => store.get("quizPractise", "");  // a focus id, or "" for all chosen
 
   // --- setup panel ----------------------------------------------------------------
   function renderSetup() {
     const f = selFoci(), t = selTypes();
-    $("qFoci").innerHTML = Object.entries(FOCI).map(([id, x]) => `<label class="atlas-toggle"><input type="checkbox" data-qf="${id}" ${f.has(id) ? "checked" : ""}><span>${esc(x.label)}<br><span class="hint" style="margin:0">${ALL.filter((i) => i.focus === id).length} structures</span></span></label>`).join("");
+    $("qFoci").innerHTML = LOBES.map((id) => [id, FOCI[id]]).map(([id, x]) => `<label class="atlas-toggle"><input type="checkbox" data-qf="${id}" ${f.has(id) ? "checked" : ""}><span>${esc(x.label)}<br><span class="hint" style="margin:0">${ALL.filter((i) => i.focus === id).length} structures</span></span></label>`).join("");
     $("qTypes").innerHTML = TYPES.map((x) => `<label class="atlas-toggle"><input type="checkbox" data-qt="${x.id}" ${t.has(x.id) ? "checked" : ""}><span>${esc(x.label)}</span></label>`).join("");
     const pr = practise();
     $("qFocus").hidden = !pr;
@@ -214,7 +214,7 @@ export function createQuiz(ctx) {
     feedback(verdict, msg);
     reveal(q, verdict === "ok" ? COLORS.ok : COLORS.bad, got && got.key !== q.key ? got : null);
   }
-  const label = (p) => `${p.hemi === "L" ? "Left" : "Right"} ${p.name}`;
+  const label = sided;
   // What a click outside the focus's structures hit, from Harvard-Oxford.
   async function nameAt(mm) {
     const r = await fetch(`/api/lookup?x=${mm[0]}&y=${mm[1]}&z=${mm[2]}&radius=0&atlases=harvard-oxford-cort,harvard-oxford-sub`)
@@ -352,7 +352,7 @@ export function createQuiz(ctx) {
       ${stack(o.counts, ALL.length)}</div>
       <div class="legend">${STATUS.map((s) => `<span><i class="pseg ${s.id}"></i>${esc(s.label)}${s.hint ? ` <span class="hint" style="margin:0">(${esc(s.hint)})</span>` : ""}</span>`).join("")}</div>`;
     const rank = { struggling: 0, learning: 1, unseen: 2, mastered: 3 };
-    for (const [id, f] of Object.entries(FOCI)) {
+    for (const [id, f] of LOBES.map((id) => [id, FOCI[id]])) {
       const list = ALL.filter((it) => it.focus === id);
       if (!list.length) continue;
       const x = summarise(list);

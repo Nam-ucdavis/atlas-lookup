@@ -180,6 +180,15 @@
   .fc-fold { border: 0; background: none; color: #9a9993; padding: 0; font: inherit; font-size: 10px; cursor: pointer; width: 12px; }
   .fc-peak { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; text-decoration: underline dotted; }
   .fc-peak.pos { color: #ffb06b; } .fc-peak.neg { color: #7fb5ff; }
+  .fc-presets { display: flex; gap: 6px; margin: 2px 0 6px; }
+  .fc-lobe + .fc-lobe { margin-top: 4px; }
+  .fc-lrow { border-top: 1px solid #5a5a54; font-weight: 700; }
+  .fc-lobe.off .fc-lrow { color: #8d8c86; font-weight: 600; }
+  .fc-zoom { border: 0; background: none; color: inherit; padding: 0; font: inherit; text-align: left; cursor: pointer; }
+  .fc-zoom:hover:not(:disabled) { text-decoration: underline; }
+  .fc-zoom.on { color: var(--accent); }
+  .fc-zoom:disabled, .fc-fold:disabled { cursor: default; }
+  .fc-lobe .fc-group { padding-left: 8px; }
   .v3-brain output { display: inline-block; width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
   .view-tabs { margin: 0; flex: 0 0 auto; }
   .view-tabs button { padding: 4px 14px; }
@@ -602,15 +611,8 @@
           <button type="button" data-style="glass">Glass brain</button>
           <button type="button" data-style="mesh">Mesh brain</button>
           <button type="button" data-style="inflated" title="fsaverage6 cortex, inflated so the results inside sulci show">Inflated</button>
-          <button type="button" data-style="focus" id="v3FocusBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="v3FocusMenu"
-            title="Look at one part of the brain on its own">Focus <span class="caret" aria-hidden="true">▾</span></button>
-        </div>
-        <div class="v3-menu" id="v3FocusMenu" role="menu" aria-label="Focus on" hidden>
-          <button type="button" role="menuitem" data-focus="pfc"><b>PFC</b> <span>prefrontal cortex: ventromedial, dorsomedial &amp; ACC, orbitofrontal, dorsolateral, ventrolateral, frontopolar</span></button>
-          <button type="button" role="menuitem" data-focus="parietal"><b>Parietal</b> <span>superior and inferior parietal lobules, precuneus, postcentral gyrus and parietal operculum</span></button>
-          <button type="button" role="menuitem" data-focus="cingulate"><b>Cingulate</b> <span>anterior, mid- and posterior cingulate, retrosplenial cortex</span></button>
-          <button type="button" role="menuitem" data-focus="temporal"><b>Temporal</b> <span>temporal cortex with the MTL: pole, superior, middle, inferior temporal, fusiform, hippocampus, amygdala, parahippocampal region</span></button>
-          <button type="button" role="menuitem" data-focus="occipital"><b>Occipital</b> <span>calcarine, cuneus, lingual, lateral occipital, occipital fusiform, pole; Juelich V1, V2, V3v, V4, V5</span></button>
+          <button type="button" data-style="focus" id="v3FocusBtn"
+            title="The brain lobe by lobe, as see-through structures you switch on and off, with the results inside them">Focus</button>
         </div>
         </span>
         <span class="v3-mode" id="v3Whole">
@@ -899,7 +901,7 @@ async function initViewer() {
     Niivue, NVImage, getNv: () => nv, store, wrap: $("gl3wrap"), canvas: $("gl3"), crosshairToggle: $("crosshairOn"), setHint: flashHint,
     controls: { bar: $("v3Bar"), style: $("v3Style"), brainTransparency: $("v3Brain"), brainOut: $("v3BrainOut"), views: $("v3Views"),
                 inflBar: $("v3Infl"), inflation: $("v3Inflate"), inflationOut: $("v3InflateOut"), hemi: $("v3Hemi"),
-                focusBtn: $("v3FocusBtn"), focusMenu: $("v3FocusMenu"), whole: $("v3Whole") },
+                whole: $("v3Whole") },
     onPick: (mm) => lookupAtMM(mm),  // a click on the inflated brain
   });
   // Results browser and Regions picker share a side panel docked on the right.

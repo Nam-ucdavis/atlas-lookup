@@ -249,13 +249,15 @@ def test_quiz_items_cover_the_foci():
       const all = new Set(Object.keys(FOCI).flatMap((f) => focusParts(f, "both").map((p) => p.key)));
       console.log(JSON.stringify({{ n: items.length, unique: new Set(keys).size, all: all.size,
         acc: items.filter((i) => i.key === "harvard-oxford-cort|29|L").map((i) => i.focus),
-        ca: items.find((i) => i.key === "juelich|9|R") }}));
+        ca: items.find((i) => i.key === "juelich|9|R"),
+        stem: (({{ label, focus }}) => ({{ label, focus }}))(items.find((i) => i.name === "Brainstem")) }}));
     """)
     r = json.loads(out)
     assert r["n"] == r["unique"] == r["all"]
     assert r["acc"] == ["cingulate"]
     assert r["ca"]["label"] == "Right Cornu ammonis (CA)" and r["ca"]["focus"] == "temporal"
     assert r["ca"]["group"] == "Hippocampal formation"
+    assert r["stem"] == {"label": "Brainstem", "focus": "subcortical"}
 
 
 # --- stat maps (synthetic results folder; never your real data) ---------------------
@@ -578,12 +580,12 @@ def test_viewer3d_is_wired():
     html = (static / "index.html").read_text()
     assert 'from "/static/viewer3d.js"' in html
     for el in ["viewTabs", "gl3wrap", "gl3", "v3Bar", "v3Style", "v3Brain", "v3BrainOut", "v3Views",
-               "v3Regions", "v3Infl", "v3Inflate", "v3InflateOut", "v3Hemi", "v3FocusBtn", "v3FocusMenu", "v3Whole",
+               "v3Regions", "v3Infl", "v3Inflate", "v3InflateOut", "v3Hemi", "v3FocusBtn", "v3Whole",
                "v3FocusBar", "fcHemi", "fcColors", "fcFill", "gl3f", "fcLegend", "statList", "statFor", "leftToggle", "leftBar", "overlayPanel", "ovHead", "statRange", "statCtl", "statMsg", "tTable", "tDf"]:
         assert re.search(rf'id="{el}"', html), el
     assert 'from "/static/sidepanel.js"' in html and 'from "/static/tracts.js"' in html
-    assert 'from "/static/focus3d.js"' in html and 'data-focus="mtl"' not in html and 'data-focus="pfc"' in html
-    assert all(f'data-focus="{f}"' in html for f in ("parietal", "cingulate", "temporal", "occipital"))
+    # 0.21.1: one Focus of the whole brain (lobes switched on in its legend), no focus menu.
+    assert 'from "/static/focus3d.js"' in html and 'data-focus=' not in html
     # Page-layout rules must not hit the side panel (also an <aside>).
     assert "aside { display: contents" not in html.replace("main > aside { display: contents", "")
     js = (static / "viewer3d.js").read_text()
@@ -725,7 +727,9 @@ def test_focus_helpers():
     assert r["left"][:3] == ["Cornu ammonis (CA)", "Dentate gyrus", "Subiculum"] and len(r["left"]) == 10
     assert r["mpfc"][0] == "harvard-oxford-cort|25|R" and "harvard-oxford-cort|1|R" in r["mpfc"]
     assert "harvard-oxford-cort|3|R|ax<=20;y>=10" in r["mpfc"] and "harvard-oxford-cort|3|R|ax>20;y>=10" in r["mpfc"]
-    assert r["groups"] == sorted(r["groups"]) and r["groups"][-1] == 5  # six groups, in order
+    assert r["groups"] == sorted(r["groups"]) and r["groups"][-1] == 6  # seven groups (motor last), in order
+    assert "harvard-oxford-cort|7|R" in r["mpfc"] and "harvard-oxford-cort|26|R" in r["mpfc"]
+    assert "harvard-oxford-cort|4|R|y<10" in r["mpfc"] and "harvard-oxford-cort|41|R" not in r["mpfc"]
     # Temporal: Harvard-Oxford lateral and ventral cortex, then the MTL subfields with the
     # Destrieux parahippocampal gyrus and collateral sulcus (not the HO hippocampus).
     assert {"harvard-oxford-cort|8|L", "juelich|9|L", "juelich|11|R", "destrieux2009|23|B", "destrieux2009|62|B"} <= set(r["temporal"])
@@ -740,6 +744,40 @@ def test_focus_helpers():
     assert sd1 < sd0 / 3 and abs(mean1 - mean0) < 0.6  # smoother, same size
     assert r["pk"]["1"]["neg"] == -3 and r["pk"]["1"]["above"] == 1 and r["pk"]["1"]["negAt"] == [0, 0, 0]
     assert r["pk"]["2"]["pos"] == 4 and r["pk"]["2"]["above"] == 1 and r["pk"]["2"]["n"] == 1
+
+
+def test_focus_lobes():
+    """0.21.1: every structure sits in one lobe; the new lobes (insula & operculum,
+    subcortical) use per-hemisphere atlases and midline structures; the Limbic preset's
+    structures; all of them fit one uint8 structure mask."""
+    import json
+
+    import atlaslookup
+
+    static = Path(atlaslookup.__file__).parent / "static"
+    out = _node(f"""
+      import {{ FOCI, LOBES, focusParts }} from {str(static / "focus3d.js")!r};
+      const every = focusParts(LOBES, "both"), keys = every.map((p) => p.key);
+      const left = focusParts(LOBES, "L");
+      console.log(JSON.stringify({{ lobes: LOBES, foci: Object.keys(FOCI).sort(), n: keys.length, unique: new Set(keys).size,
+        sub: focusParts("subcortical", "both").map((p) => [p.key, p.hemi]),
+        ins: focusParts("insula", "L").map((p) => p.key),
+        leftMid: left.filter((p) => p.hemi === "M").map((p) => p.name), leftR: left.filter((p) => p.hemi === "R").length,
+        limbic: [...new Set(every.filter((p) => p.limbic).map((p) => p.lobe))].sort(),
+        limbicNames: every.filter((p) => p.limbic && p.lobe === "subcortical").map((p) => p.name) }}));
+    """)
+    r = json.loads(out)
+    assert sorted(r["lobes"]) == r["foci"] and r["lobes"][0] == "pfc" and r["lobes"][-1] == "subcortical"
+    assert r["n"] == r["unique"] <= 255
+    sub = dict(map(tuple, r["sub"]))
+    assert sub["harvard-oxford-sub|6|B"] == "L" and sub["harvard-oxford-sub|17|B"] == "R"  # putamen
+    assert sub["harvard-oxford-sub|8|B"] == "M" and sub["jhu-labels|6|B"] == "M"  # brainstem, fornix body
+    assert sub["jhu-labels|40|B"] == "L" and sub["jhu-labels|39|B"] == "R"  # fornix crus
+    assert sub["talairach-ba|24|L"] == "L" and sub["talairach-ba|52|R"] == "R"  # mammillary body, anterior nucleus
+    assert r["ins"] == ["harvard-oxford-cort|2|L", "harvard-oxford-cort|41|L", "harvard-oxford-cort|42|L", "harvard-oxford-cort|43|L"]
+    assert r["leftMid"] == ["Fornix, column and body", "Brainstem"] and r["leftR"] == 0
+    assert r["limbic"] == ["cingulate", "pfc", "subcortical", "temporal"]
+    assert "Mammillary body" in r["limbicNames"] and "Putamen" not in r["limbicNames"]
 
 
 def test_region_clip(tmp_path, monkeypatch):
