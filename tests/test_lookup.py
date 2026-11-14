@@ -365,7 +365,7 @@ def test_results_api(results_dir, monkeypatch):
     assert c.get("/api/results/file/../tests/test_lookup.py").status_code == 404
     cl = c.get("/api/results/clusters", params={"map": "modelA/spmT_0001.nii", "threshold": 3}).json()
     assert cl["n_clusters"] == 1 and set(cl["clusters"][0]["labels"]) <= {
-        "harvard-oxford-cort", "harvard-oxford-sub", "juelich", "talairach-ba"}
+        "harvard-oxford-cort", "harvard-oxford-sub", "juelich", "talairach-ba", "oxford-cbp"}
     x, y, z = cl["clusters"][0]["peak_mm"]
     res = c.get("/api/lookup", params=dict(x=x, y=y, z=z, map="modelA/spmT_0001.nii", atlases="juelich")).json()
     assert res["stat"]["t"] == 6.0
@@ -373,6 +373,93 @@ def test_results_api(results_dir, monkeypatch):
     res = c.get("/api/lookup", params=dict(x=x, y=y, z=z, map="modelA/spmT_0001.nii", atlases="juelich",
                                            threshold=3, sign="both", min_voxels=5)).json()
     assert res["stat"]["cluster"] == 0
+
+
+def test_tags(results_dir, tmp_path_factory, monkeypatch):
+    """Tags: saved per map in the data folder (never the results folder), matched by path
+    or contents (a moved map keeps its tags), JSON-only writes, CSV export."""
+    import shutil
+
+    from fastapi.testclient import TestClient
+    from atlaslookup import server
+    from atlaslookup.results import Results
+    from atlaslookup.tags import TagStore
+
+    monkeypatch.setattr(server, "RESULTS", Results(results_dir))
+    data = tmp_path_factory.mktemp("data")  # results_dir is its own tmp folder
+    monkeypatch.setattr(server, "TAGS", TagStore(data / "tags.json"))
+    before = sorted(p.name for p in results_dir.rglob("*"))
+    c = TestClient(server.app)
+    A, B = "modelA/spmT_0001.nii", "modelB/sub/spmT_0001.nii"
+    t = c.post("/api/tags", json={"label": "  dmFC  ", "mm": [2, 40, 30], "map": A}).json()
+    assert t["label"] == "dmFC" and t["mm"] == [2.0, 40.0, 30.0] and t["map"] == A and len(t["map_sha256"]) == 64
+    c.post("/api/tags", json={"label": "free", "mm": [0, 0, 0]})
+    c.post("/api/tags", json={"label": "other", "mm": [1, 1, 1], "map": B})
+    mine = lambda m: [x["label"] for x in c.get("/api/tags", params={"map": m} if m else {}).json()["tags"] if x["mine"]]
+    assert mine(A) == ["dmFC"] and mine(B) == ["other"] and mine(None) == ["free"]
+    assert c.post("/api/tags", data={"label": "x", "mm": "1"}).status_code == 415
+    assert c.post("/api/tags", json={"label": "", "mm": [1, 2, 3]}).status_code == 400
+    assert c.post("/api/tags", json={"label": "x", "mm": [1, 2]}).status_code == 400
+    assert c.post("/api/tags", json={"label": "x", "mm": [1, 2, 3], "map": "../x.nii"}).status_code == 404
+    assert c.patch(f"/api/tags/{t['id']}", json={"label": "dmPFC"}).json()["label"] == "dmPFC"
+    # The same map under another path (results folder reorganised) still has its tags.
+    (results_dir / "moved").mkdir()
+    shutil.copy(results_dir / A, results_dir / "moved" / "spmT_0001.nii")
+    assert mine("moved/spmT_0001.nii") == ["dmPFC"]
+    csv = c.get("/api/tags.csv").text.splitlines()
+    assert csv[0].startswith("label,x,y,z,map,note,created") and len(csv) == 4
+    assert c.delete(f"/api/tags/{t['id']}").json() == {"ok": True}
+    assert c.delete(f"/api/tags/{t['id']}").status_code == 404
+    assert mine(A) == []
+    (results_dir / "moved" / "spmT_0001.nii").unlink(); (results_dir / "moved").rmdir()
+    assert sorted(p.name for p in results_dir.rglob("*")) == before  # nothing written there
+    assert (data / "tags.json").exists()
+
+
+def test_oxford_cbp(tmp_path):
+    """add-cbp: FSL-format zips (XML + 4D 2 mm maps) merged into one atlas: area names,
+    hemisphere from the XML centres, a repeated area named after its source, max-probability
+    labels; zips are read in memory."""
+    import gzip
+    import io
+    import zipfile
+
+    from atlaslookup.cbp import area_name, build
+
+    assert area_name("Right 8m", True) == "Right Area 8m"
+    assert area_name("Left Area 11", False) == "Left Area 11"
+    assert area_name("Cluster3 (Area 9)", True) == "Right Area 9"
+    assert area_name("Cluster9 (Ant PMd)", True) == "Right Anterior PMd (dorsal premotor cortex)"
+    assert area_name("SPLA", True) == "Right SPL A" and area_name("TPJp", True) == "Right TPJp (TPJ, posterior)"
+    aff = np.array([[-2, 0, 0, 90], [0, 2, 0, -126], [0, 0, 2, -72], [0, 0, 0, 1]], float)  # FSL MNI 2 mm
+    def fsl_zip(name, img_stem, labels, vols):
+        data = np.zeros((91, 109, 91, len(vols)), np.float32)
+        for v, (box, p) in enumerate(vols):
+            data[box + (v,)] = p
+        nii = gzip.compress(nib.Nifti1Image(data, aff).to_bytes())
+        xml = (f'<atlas><header><images><imagefile>/{name}/{img_stem}_2mm</imagefile></images></header><data>'
+               + "".join(f'<label index="{i}" x="{x}" y="50" z="50">{t}</label>' for i, (t, x) in enumerate(labels))
+               + "</data></atlas>")
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr(f"{name}.xml", xml)
+            z.writestr(f"{name}/{img_stem}_2mm.nii.gz", nii)
+            z.writestr(f"__MACOSX/._{name}.xml", b"junk")
+        path = tmp_path / f"{name}.zip"
+        path.write_bytes(buf.getvalue())
+        return path
+    box_r, box_l = np.s_[30:34, 50:54, 50:54], np.s_[56:60, 50:54, 50:54]
+    neu = fsl_zip("NeubertCingulateOrbitoFrontalParcellation", "CingulateOrbitoFrontal_thr25",
+                  [("Right SMA", 32), ("Left SMA", 58)], [(box_r, 60), (box_l, 60)])
+    sal = fsl_zip("SalletDorsalFrontalParcellation", "DorsalFrontal_thr25",
+                  [("Cluster1 (SMA)", 32), ("Cluster3 (Area 9)", 31)], [(box_r, 40), (np.s_[29:33, 50:54, 50:54], 90)])
+    r = build([sal, neu], atlases_dir=tmp_path / "atlases")
+    assert r["sources"] == ["NeubertCingulateOrbitoFrontalParcellation", "SalletDorsalFrontalParcellation"]
+    a = Atlas(tmp_path / "atlases" / "oxford-cbp")
+    assert a.manifest.role == "Brodmann area"
+    assert list(a.labels.values()) == ["Right SMA", "Left SMA", "Right SMA (Sallet)", "Right Area 9"]
+    lab = np.asarray(nib.load(str(tmp_path / "atlases" / "oxford-cbp" / "label_map.nii.gz")).dataobj)
+    assert lab[31, 51, 51] == 4 and lab[33, 51, 51] == 1 and lab[57, 51, 51] == 2 and lab[10, 10, 10] == 0
 
 
 def test_no_results_folder(monkeypatch):

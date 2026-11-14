@@ -54,3 +54,11 @@ def best_guess(result: dict) -> str | None:
         n = result["nearest"]
         return f"near {n['name']} ({n['distance_mm']} mm)"
     return None
+
+
+def peak_atlases(atlases) -> list[str]:
+    """Atlases that label cluster peaks and tags, in column order. Brodmann-style areas
+    come from the Oxford connectivity-based parcellations when added (`add-cbp`), else
+    from the Talairach Daemon."""
+    ba = "oxford-cbp" if "oxford-cbp" in atlases else "talairach-ba"
+    return [i for i in ("harvard-oxford-cort", "harvard-oxford-sub", "juelich", ba) if i in atlases]

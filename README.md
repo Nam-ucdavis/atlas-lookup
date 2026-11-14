@@ -117,6 +117,58 @@ probabilistic atlases), the share of each region within the chosen radius, and
 the nearest label if the point lands in a gap. The URL updates with each
 lookup, so a link reproduces the query.
 
+### Tags
+
+Name a point and keep it: under the coordinate, type a name (e.g. `dmFC`) and press
+**Enter** (or **Add tag**) to tag the point at the crosshair.
+
+- **Per map:** a tag belongs to the stat map that is active when you make it (or to no
+  map, if none is open). Open that map again and its tags come back.
+- **Where you see them:** as a yellow dot and name on any slice within 2.5 mm of the tag,
+  and as a chip under the coordinate when the crosshair is within 3 mm (click it to go
+  there).
+- **The Tags tab** (side panel) lists the active map's tags: click one to go there,
+  **Rename**, **Delete**. Tick **Show other maps' tags** to see the rest too (greyed).
+  **Export all as CSV** downloads every tag with its coordinate, map, and the cortical,
+  subcortical, cytoarchitectonic and Brodmann-area labels at that point.
+- **Where they are saved:** in your data folder, `~/.atlaslookup/tags.json`. Your results
+  folder stays read-only: nothing is written next to your maps. Each tag records its map
+  by path *and* by a hash of the file's contents, so tags stay with a map even after you
+  move or rename the results folder.
+- Tags are for results-folder maps; dropped local overlays don't carry tags (a tag made
+  while only a local overlay is open belongs to no map).
+
+### Brodmann areas (Oxford connectivity-based parcellations)
+
+The **Brodmann area** card can come from the Rushworth lab's connectivity-based
+parcellations instead of the Talairach Daemon. Download the FSL-format zips and add them
+in one go:
+
+```bash
+atlaslookup add-cbp ~/Downloads/NeubertCingulateOrbitoFrontalParcellation.zip \
+    ~/Downloads/SalletDorsalFrontalParcellation.zip ~/Downloads/MarsParietalParcellation.zip \
+    ~/Downloads/MarsTPJParcellation.zip
+```
+
+Then restart the app. They are merged into one atlas, **Oxford connectivity-based areas**
+(each voxel gets the area with the highest probability; every map is thresholded at 25%):
+
+| Source | Covers | Areas |
+|---|---|---|
+| Neubert et al. 2015 (cingulate / orbitofrontal) | medial frontal, cingulate and orbital cortex, both hemispheres | 8m, 9m, 11, 11m, 13, 14m, 23ab, 24, 25, 32d, 32pl, 47m, 47o, FPl, FPm, CCZ, RCZa, RCZp, SMA, pre-SMA, M1 |
+| Sallet et al. 2013 (dorsal frontal) | dorsal and lateral frontal, **right only** | 8A, 8B, 9, 9/46D, 9/46V, 10, 46, SMA, pre-SMA, anterior PMd |
+| Mars et al. 2011 (parietal) | superior and inferior parietal lobules, **right only** | SPL A-E, IPL A-E |
+| Mars et al. 2012 (TPJ) | temporoparietal junction, **right only** | TPJa, TPJp |
+
+The Neubert 2014 ventral frontal parcellation (`NeubertVentralFrontalParcellation`, in
+FSL) is recognised too, if you add it. Once added, the Oxford areas replace the
+Talairach Daemon's in the lookup and in cluster and tag labels: the Talairach card is
+unticked under *Atlases* (tick it again to see both; it is now called *Brodmann area
+(Talairach)*). Points outside these maps, such as the left lateral frontal cortex or
+anything temporal or occipital, get no Brodmann label. These areas come from diffusion
+tractography and are named after Brodmann / Petrides-Pandya areas; they are not
+cytoarchitectonic maps.
+
 ## 3D view
 
 Switch the viewer from **Slices** to **3D**. It shows whatever is on the slices:
@@ -300,7 +352,8 @@ page switches to one column with the viewer on top.
 - **Readout:** T and p at whatever point you click.
 - **Clusters:** clusters use 18-connectivity, as in SPM, with a minimum size
   **k**. The table lists each peak with Harvard-Oxford, Juelich and Brodmann
-  labels; click a row to jump to it.
+  labels (the Oxford areas once added with `add-cbp`, else Talairach); click a row to
+  jump to it.
 
 ### Local overlays
 

@@ -28,6 +28,11 @@ GET /api/results/clusters?map=&threshold=&sign=pos|neg|both&min_voxels=
                                          clusters + peaks, labelled by atlas
 GET /api/lookup?...&map={id}             adds the T / p value at the point
 POST /api/screenshot                     body: a PNG of the viewer; saved as image/<date_time>.png and shown in Finder/Explorer
+GET /api/tags?map={id}                   every tag; "mine" marks those of that map (none = tags made with no map)
+POST /api/tags  {"label", "mm", "map", "note"}   tag a point (JSON only); saved in DATA_DIR/tags.json
+PATCH /api/tags/{id}  {"label"?, "note"?, "mm"?}   rename / annotate / move a tag (JSON only)
+DELETE /api/tags/{id}                    remove a tag
+GET /api/tags.csv                        every tag, with the regions at each point
 
 The lookup endpoint is stateless (one coordinate in, all atlas readouts out);
 the viewer in the UI calls it on every click.
@@ -41,20 +46,20 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
-from .config import IMAGE_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FILE, STATIC_DIR, TEMPLATE_FILE
+from .config import TAGS_FILE, IMAGE_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FILE, STATIC_DIR, TEMPLATE_FILE
 from .grids import load_grids
 from .screenshots import MAX_BYTES, reveal, save_png
 from . import regions, tracts
 from .results import Results, configured_dir, list_folders, repo_warning, save_results_dir
-from .query import best_guess, query, resolve_mm
+from .tags import TagStore, belongs, file_key, to_csv
+from .query import best_guess, peak_atlases, query, resolve_mm
 from .version import version_info
 
 app = FastAPI(title="Atlas lookup")
 ATLASES = load_atlases()
 GRIDS = load_grids()
 RESULTS = Results(configured_dir())
-# Atlases used to label cluster peaks, in column order.
-PEAK_ATLASES = ["harvard-oxford-cort", "harvard-oxford-sub", "juelich", "talairach-ba"]
+TAGS = TagStore(TAGS_FILE)
 
 
 # Host names this server answers to. A web page can point its own domain at 127.0.0.1
@@ -395,13 +400,96 @@ def results_clusters(
         res = RESULTS.clusters(map, threshold, sign, min_voxels)
     except FileNotFoundError:
         raise HTTPException(404, f"No stat map {map!r}")
-    labelled = [i for i in PEAK_ATLASES if i in ATLASES]
+    labelled = peak_atlases(ATLASES)
     for c in res["clusters"]:
         c["labels"] = {r["atlas"]["id"]: best_guess(r)
                        for r in query(ATLASES, c["peak_mm"], radius_mm=5, only=labelled)}
     res["label_atlases"] = [{"id": i, "role": ATLASES[i].manifest.role, "name": ATLASES[i].manifest.name}
                             for i in labelled]
     return res
+
+
+# --- tags ----------------------------------------------------------------------------
+def _map_key(map_id: str | None) -> str | None:
+    if not map_id:
+        return None
+    try:
+        return file_key(RESULTS.resolve(map_id))
+    except FileNotFoundError:
+        return None
+
+
+async def _json_body(request: Request) -> dict:
+    # JSON only: a cross-site request of this type needs a CORS preflight, which this
+    # server never grants (as with /api/results/folder).
+    if request.headers.get("content-type", "").split(";")[0] != "application/json":
+        raise HTTPException(415, "Send application/json")
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(400, "Not JSON")
+    if not isinstance(body, dict):
+        raise HTTPException(400, "Send a JSON object")
+    return body
+
+
+def _tags_or_500():
+    try:
+        return TAGS.all()
+    except ValueError as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/api/tags")
+def tags_list(map: str | None = None):
+    key = _map_key(map)
+    return {"map": map, "tags": [{**t, "mine": belongs(t, map, key)} for t in _tags_or_500()]}
+
+
+@app.post("/api/tags")
+async def tags_add(request: Request):
+    b = await _json_body(request)
+    map_id = b.get("map") or None
+    if map_id:
+        try:
+            RESULTS.resolve(map_id)
+        except FileNotFoundError:
+            raise HTTPException(404, f"No stat map {map_id!r}")
+    try:
+        t = TAGS.add(b.get("label"), b.get("mm"), map_id, _map_key(map_id), b.get("note", ""))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {**t, "mine": True}
+
+
+@app.patch("/api/tags/{tag_id}")
+async def tags_update(tag_id: str, request: Request):
+    b = await _json_body(request)
+    try:
+        return TAGS.update(tag_id, **{k: b[k] for k in ("label", "note", "mm") if k in b})
+    except KeyError:
+        raise HTTPException(404, "No such tag")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.delete("/api/tags/{tag_id}")
+def tags_delete(tag_id: str):
+    try:
+        TAGS.delete(tag_id)
+    except KeyError:
+        raise HTTPException(404, "No such tag")
+    return {"ok": True}
+
+
+@app.get("/api/tags.csv")
+def tags_csv():
+    cols = peak_atlases(ATLASES)
+    def labels(mm):
+        return {ATLASES[r["atlas"]["id"]].manifest.role: best_guess(r) or ""
+                for r in query(ATLASES, mm, radius_mm=5, only=cols)}
+    return Response(to_csv(_tags_or_500(), labels), media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="atlas-lookup-tags.csv"'})
 
 
 @app.get("/")

@@ -9,6 +9,8 @@
   list                            show registered atlases and grids
   add ...                         register an atlas from a paper (NIfTI + labels)
   add-grid ID IMAGE               register a voxel grid from any NIfTI on that grid
+  add-cbp ZIP [ZIP ...]           Brodmann-style areas from the Oxford connectivity-based
+                                  parcellations (Neubert, Sallet, Mars zips as downloaded)
   set-results DIR                 where your spmT maps live (saved in your data folder)
   maps                            list the spmT maps in your results folder
   clusters MAP [--threshold 3]    labelled cluster/peak table for one map (--csv for a file)
@@ -26,7 +28,7 @@ from . import __version__
 from .atlas import add_atlas, load_atlases
 from .config import ATLASES_DIR, DATA_DIR, IMAGE_DIR, INFLATED_MORPH_FILE, TEMPLATE_FILE
 from .grids import grid_from_image, load_grids, save_grid
-from .query import best_guess, query, resolve_mm
+from .query import best_guess, peak_atlases, query, resolve_mm
 
 
 def main(argv=None):
@@ -92,6 +94,9 @@ def main(argv=None):
     g.add_argument("image")
     g.add_argument("--name", help="display name")
     g.add_argument("--space", default="MNI152NLin2009cAsym")
+
+    cb = sub.add_parser("add-cbp", help="Brodmann-style areas from the Oxford connectivity-based parcellations")
+    cb.add_argument("paths", nargs="+", help="the downloaded zips (or their unzipped folders), all at once")
 
     args = p.parse_args(argv)
     if args.cmd is None:  # plain `atlaslookup`: start and open the browser
@@ -201,6 +206,15 @@ def main(argv=None):
                            overwrite=args.overwrite, **fields)
         print(f"Registered {args.id} -> {folder}")
 
+    elif args.cmd == "add-cbp":
+        from .cbp import build
+        try:
+            r = build(args.paths)
+        except (ValueError, OSError) as e:
+            sys.exit(f"add-cbp: {e}")
+        print(f"Registered oxford-cbp: {r['areas']} areas from {', '.join(r['sources'])}. "
+              "Restart the app to use it.")
+
     elif args.cmd == "add-grid":
         gr = grid_from_image(args.image, args.id, args.name or args.id, args.space)
         print(f"Registered grid {gr.id}: {gr.shape} @ {gr.voxel_size} mm -> {save_grid(gr)}")
@@ -223,7 +237,7 @@ def _print_clusters(args) -> None:
     except FileNotFoundError:
         sys.exit(f"No spmT map {args.map!r}; see `atlaslookup maps`")
     atlases = load_atlases()
-    cols = [i for i in ("harvard-oxford-cort", "harvard-oxford-sub", "juelich", "talairach-ba") if i in atlases]
+    cols = peak_atlases(atlases)
     rows = []
     for n, cl in enumerate(table["clusters"], 1):
         labels = {r["atlas"]["id"]: best_guess(r) or "" for r in query(atlases, cl["peak_mm"], radius_mm=5, only=cols)}

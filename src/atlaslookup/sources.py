@@ -307,7 +307,7 @@ def import_talairach(overwrite=False):
         overwrite=overwrite,
     )
     for level, id, name, role, order, desc in [
-        ("ba", "talairach-ba", "Talairach Daemon: Brodmann areas", "Brodmann area", 6,
+        ("ba", "talairach-ba", "Talairach Daemon: Brodmann areas", "Brodmann area (Talairach)", 6,
          "Brodmann areas traced on the 1988 Talairach atlas (rule-based boundaries). "
          "Coordinates are converted from MNI first."),
         ("gyrus", "talairach-gyrus", "Talairach Daemon: gyri", "Gyrus (Talairach)", 7,

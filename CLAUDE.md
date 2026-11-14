@@ -53,7 +53,12 @@ src/atlaslookup/
                   table) are built from installed atlases and must run after their sources in setup
   labels.py       label-file readers (tsv/csv, LUT txt, FSL xml)
   grids.py        voxel grids (voxel index <-> mm)
-  query.py        input resolution (mm / voxel, 1-based default) + best_guess()
+  query.py        input resolution (mm / voxel, 1-based default) + best_guess(); peak_atlases() picks the cluster/tag label
+                  columns (oxford-cbp for Brodmann areas when installed, else talairach-ba)
+  cbp.py          `add-cbp`: Rushworth-lab FSL-format zips (XML + 4D 2 mm maps), read in memory,
+                  merged by max probability into one atlas "oxford-cbp" (role "Brodmann area")
+  tags.py         TagStore over DATA_DIR/tags.json (atomic writes); tags keyed by map path + sha256
+                  of the map file, so they survive a moved results folder; never written to results
   results.py      read-only access to the user's stat maps (any .nii; SPM T header gives df/p): list, value, clusters, cluster_at
                   (which cluster-table row a point falls in; clusters are cached per map +
                   threshold/sign/k in _clusters, keyed by file mtime)
@@ -94,6 +99,8 @@ src/atlaslookup/
                       coalesced to one draw per animation frame; use drawNow() when a synchronous
                       draw is needed (e.g. before copying the canvas)
   static/regionpicker.js  the Regions tab (search all atlases, colours, "results only inside")
+  static/tags.js      tags: bar under the coordinate, side panel Tags tab, markers on the slices
+                      (HTML over the canvas, placed with nv.frac2canvasPosWithTile; wraps nv.drawScene)
   static/browser.js   Finder-style column browser for the results folder's stat maps (side panel, Results tab)
                       "Change folder…" picks another results folder (/api/folders lists names only;
                       POST /api/results/folder saves it); maps are still opened only via Results.resolve()

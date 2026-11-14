@@ -483,6 +483,32 @@
   .ov-opacity { display: flex; gap: 6px; align-items: center; }
   .ov-opacity input { flex: 1; min-width: 60px; }
   .ov-info { margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .tag-bar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: -6px 0 12px; }
+  .tag-form { display: flex; gap: 6px; }
+  .tag-form input { width: 230px; }
+  .tag-here { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag-chip { border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); border-radius: 999px;
+    padding: 2px 10px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .tag-chip.other { border-color: var(--muted); background: none; color: var(--muted); }
+  .tag-marks { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .tag-mark { position: absolute; display: flex; align-items: center; gap: 4px; transform: translate(-4px, -50%);
+    color: #ffe14d; font: 600 12px system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; }
+  .tag-mark i { width: 8px; height: 8px; border-radius: 50%; background: #ffe14d; box-shadow: 0 0 0 1.5px #000; flex: none; }
+  .tag-mark.other { color: #c9c9c9; } .tag-mark.other i { background: #c9c9c9; }
+  .tags-tab { padding: 4px 2px; }
+  .tags-tab .linkish { border: 0; background: none; padding: 0; margin: 0; font: inherit; color: var(--accent); cursor: pointer; }
+  .tags-tab .tag-go { color: var(--ink); }
+  .tags-tab .linkish:hover { text-decoration: underline; }
+  .tags-head { margin-bottom: 8px; }
+  .tags-list { display: flex; flex-direction: column; }
+  .tag-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+  .tag-row .tag-go { font-weight: 600; text-align: left; }
+  .tag-row .tag-mm, .tag-row .tag-map { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+  .tag-row.other { opacity: .65; }
+  .tag-acts { display: flex; gap: 8px; font-size: 12px; }
+  .tags-sub { margin-top: 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .tags-others { display: flex; gap: 6px; align-items: center; margin: 12px 0 8px; }
+  .tags-foot { display: flex; gap: 8px; align-items: center; }
   .slice-labels span { position: absolute; transform: translateY(-100%); pointer-events: none;
     color: #fff; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; text-shadow: 0 0 3px #000; white-space: nowrap; }
   .cbars { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 12px; }
@@ -688,6 +714,7 @@
       <div class="ov-panel lookup-only" id="ovPanel" hidden></div>
     </div>
     <div id="where" class="lookup-only"></div>
+    <div id="tagBar" class="tag-bar lookup-only"></div>
     <div class="panel lookup-only" id="peaks" hidden></div>
     <div class="summary lookup-only" id="summary"></div>
     <div id="notes" class="lookup-only"></div>
@@ -711,6 +738,7 @@ import { createViewerTools } from "/static/viewertools.js";
 import { createViewer3D } from "/static/viewer3d.js";
 import { createFocusView } from "/static/focus3d.js";
 import { createResultsBrowser } from "/static/browser.js";
+import { createTags } from "/static/tags.js";
 import { createRegionPicker } from "/static/regionpicker.js";
 import { createTractPanel } from "/static/tracts.js";
 import { createSidePanel } from "/static/sidepanel.js";
@@ -821,6 +849,13 @@ $("verMenu").addEventListener("click", async (e) => {
 async function init() {
   const [atlases, grids] = await Promise.all([fetch("/api/atlases").then((r) => r.json()), fetch("/api/grids").then((r) => r.json())]);
   state.atlases = atlases; state.grids = grids;
+  // 0.22.0: once the Oxford connectivity-based areas are added they replace the Talairach
+  // Daemon's Brodmann areas in the lookup (tick it again in Atlases to bring it back).
+  if (atlases.some((a) => a.id === "oxford-cbp") && !store.get("cbpHidTal", false)) {
+    state.hidden.add("talairach-ba");
+    store.set("hidden", [...state.hidden]);
+    store.set("cbpHidTal", true);
+  }
   $("grid").innerHTML = `<option value="">None (mm only)</option>` +
     grids.map((g) => `<option value="${esc(g.id)}">${esc(g.name)} · ${esc(g.space)}</option>`).join("");
   $("grid").value = store.get("grid", "");
@@ -906,7 +941,7 @@ async function initViewer() {
   });
   // Results browser and Regions picker share a side panel docked on the right.
   sidePanel = createSidePanel({
-    store, tabs: [{ id: "results", label: "Results" }, { id: "regions", label: "Regions" }],
+    store, tabs: [{ id: "results", label: "Results" }, { id: "regions", label: "Regions" }, { id: "tags", label: "Tags" }],
     onLayout: relayoutViewers,  // the viewers got narrower or wider
   });
   let tractPanel = null;
@@ -925,6 +960,14 @@ async function initViewer() {
   resultsBrowser = createResultsBrowser({ select: $("statMap"), esc, panel: sidePanel, host: sidePanel.section("results"),
     // A new results folder: close the old folder's maps, then list the new one's.
     onFolder: async () => { state.stats = []; await activate(null); await initStats(); } });
+  // Tags, per active stat map (the side panel's Tags tab, the bar under the coordinate,
+  // markers on the slices).
+  tagsApi = createTags({
+    store, esc, host: sidePanel.section("tags"), bar: $("tagBar"), wrap: document.querySelector(".glwrap"),
+    getNv: () => nv, getMap: () => state.stat?.map || null, mapName: mapTail, goTo: (mm) => lookupAtMM(mm),
+  });
+  if (state.last) tagsApi.setPoint(state.last.mm);
+  tagsApi.refresh();
   initViewTabs();
   let t;
   nv.onLocationChange = (d) => {
@@ -947,7 +990,7 @@ function flashHint(text) {
   hintTimer = setTimeout(() => { if ($("viewerHint").textContent === text) $("viewerHint").textContent = prev; }, 8000);
 }
 // Slices / 3D tabs. The 3D view is lookup-only; entering the quiz goes back to slices.
-let view3d = null, resultsBrowser = null, sidePanel = null;
+let view3d = null, resultsBrowser = null, sidePanel = null, tagsApi = null;
 
 // Both sidebars change the viewers' width: resize their canvases and redraw.
 function relayoutViewers() {
@@ -1253,6 +1296,7 @@ function showActive(d) {
 
 async function activate(e) {
   state.stat = e;
+  tagsApi?.refresh();
   $("statMap").value = e?.map || "";
   resultsBrowser?.refresh();
   if (e) await refreshStat(e); else showActive();
@@ -1441,6 +1485,7 @@ function render({ coordinate: c, results, stat }) {
     ? `<span class="stat ${stat.t >= 0 ? "pos" : "neg"}" title="Value in the selected stat map at voxel (${stat.voxel.join(", ")}), 1-based">T = ${stat.t.toFixed(2)}${stat.p != null ? ` · p = ${fmtP(stat.p)} unc.` : ""}</span>`
     : stat ? `<span class="sub">outside the stat map</span>` : "";
   highlightCluster(stat?.cluster);
+  tagsApi?.setPoint(c.mm);
   $("where").innerHTML = `<div class="where"><span class="mm">MNI (${x}, ${y}, ${z})</span>${statHtml}` +
     (c.voxel ? `<span class="sub">voxel (${c.voxel.join(", ")}) · ${esc(g ? g.name : c.grid)} · ${c.base}-based</span>` : "") + `</div>`;
   const notes = [];

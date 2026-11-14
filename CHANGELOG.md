@@ -3,6 +3,22 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.22.0 (2026-11-14)
+- **Tags**: name the point at the crosshair (e.g. `dmFC`): type under the coordinate and
+  press Enter. Tags belong to the active stat map, show as yellow dots with their names on
+  the slices and as chips under the coordinate, and are listed in a new **Tags** tab in
+  the side panel (go to, rename, delete, show other maps' tags, export all as CSV with the
+  regions at each point). They are saved in `~/.atlaslookup/tags.json`, never in the
+  results folder, and follow a map by its contents, so moving or renaming the results
+  folder keeps them.
+- **Brodmann areas from the Oxford connectivity-based parcellations**: `atlaslookup
+  add-cbp ZIP ...` merges the Rushworth-lab zips (Neubert 2015 cingulate / orbitofrontal,
+  Neubert 2014 ventral frontal, Sallet 2013 dorsal frontal, Mars 2011 parietal, Mars 2012
+  TPJ) into one atlas, *Oxford connectivity-based areas*. Once added it is the
+  **Brodmann area** card and labels cluster peaks and tags; the Talairach Daemon's
+  Brodmann areas are unticked (and renamed *Brodmann area (Talairach)*). Sallet and Mars
+  cover the right hemisphere only.
+
 ## 0.21.1 (2026-11-04)
 - **One Focus for the whole brain**: the five separate foci (Focus ▾ menu) are now a
   single **Focus** view. Its legend lists the lobes: tick one to show it or switch it
