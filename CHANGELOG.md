@@ -3,6 +3,10 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.22.1 (2026-11-14)
+- The cluster table now sits at the bottom of the page, below the atlas readouts, so the
+  regions at the crosshair come first.
+
 ## 0.22.0 (2026-11-14)
 - **Tags**: name the point at the crosshair (e.g. `dmFC`): type under the coordinate and
   press Enter. Tags belong to the active stat map, show as yellow dots with their names on

@@ -455,7 +455,7 @@
   :root[data-theme="dark"] .where .stat.pos { background: #3d2616; color: #f3b98a; }
   :root[data-theme="dark"] .where .stat.neg { background: #182a40; color: #9cc3f2; }
   main > section { min-width: 0; }  /* let wide tables scroll instead of widening the page */
-  #peaks { margin-bottom: 14px; overflow-x: auto; }
+  #peaks { margin-top: 14px; overflow-x: auto; }
   #peaks[hidden] { display: none; }
   #peaks table { border-collapse: collapse; width: 100%; font-size: 13px; }
   #peaks th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 500; padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -715,10 +715,11 @@
     </div>
     <div id="where" class="lookup-only"></div>
     <div id="tagBar" class="tag-bar lookup-only"></div>
-    <div class="panel lookup-only" id="peaks" hidden></div>
     <div class="summary lookup-only" id="summary"></div>
     <div id="notes" class="lookup-only"></div>
     <div class="cards lookup-only" id="cards"><div class="empty">Loading atlases…</div></div>
+    <!-- 0.22.1: the cluster table sits below the atlas readouts. -->
+    <div class="panel lookup-only" id="peaks" hidden></div>
   </section>
 </main>
 <dialog id="progress" aria-labelledby="progTitle">
