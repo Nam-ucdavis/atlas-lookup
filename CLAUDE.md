@@ -99,7 +99,7 @@ src/atlaslookup/
                       coalesced to one draw per animation frame; use drawNow() when a synchronous
                       draw is needed (e.g. before copying the canvas)
   static/regionpicker.js  the Regions tab (search all atlases, colours, "results only inside")
-  static/tags.js      tags: bar under the coordinate, side panel Tags tab, markers on the slices
+  static/tags.js      tags: bar under the coordinate, side panel Tags tab, inline editor (name/note/move/delete), slice markers
                       (HTML over the canvas, placed with nv.frac2canvasPosWithTile; wraps nv.drawScene)
   static/browser.js   Finder-style column browser for the results folder's stat maps (side panel, Results tab)
                       "Change folder…" picks another results folder (/api/folders lists names only;

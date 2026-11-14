@@ -505,6 +505,19 @@
   .tag-row .tag-go { font-weight: 600; text-align: left; }
   .tag-row .tag-mm, .tag-row .tag-map { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
   .tag-row.other { opacity: .65; }
+  .tag-row.editing { display: block; opacity: 1; }
+  .tag-note { grid-column: 1 / -1; color: var(--muted); font-size: 12px; white-space: pre-wrap; margin-top: -2px; }
+  .tag-edit-host { flex-basis: 100%; }
+  .tag-edit-host:empty { display: none; }
+  .tag-edit { display: flex; flex-direction: column; gap: 6px; max-width: 520px; padding: 8px 10px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--panel, transparent); }
+  .tag-edit-row { display: flex; gap: 8px; align-items: center; }
+  .tag-edit-row input { flex: 1; min-width: 0; font-weight: 600; }
+  .tag-edit textarea { font: inherit; font-size: 13px; resize: vertical; }
+  .tag-move { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+  .tag-move input:disabled + span { color: var(--muted); }
+  .tag-edit-acts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .tag-edit .danger { margin-left: auto; color: #c0392b; border-color: currentColor; background: none; }
   .tag-acts { display: flex; gap: 8px; font-size: 12px; }
   .tags-sub { margin-top: 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
   .tags-others { display: flex; gap: 6px; align-items: center; margin: 12px 0 8px; }

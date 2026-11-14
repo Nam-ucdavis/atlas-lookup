@@ -3,6 +3,13 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.23.0 (2026-11-14)
+- **Edit or remove tags**: click a tag's chip under the coordinate (it goes to the tag and
+  opens an editor there) or **Edit** in the Tags tab. Rename it, add a note, or move it to
+  the crosshair (open the editor, click the new spot, tick *Move to the crosshair*, Save);
+  **Delete** removes it. Notes show in the Tags tab and the chip's tooltip, and were already
+  in the CSV export. This replaces the browser pop-up for renaming.
+
 ## 0.22.2 (2026-11-14)
 - **Regions** uses the Oxford connectivity-based areas for Brodmann areas once they are
   added: searching `brodmann 24` or `ba 24` finds *Right / Left Area 24* (an atlas's role

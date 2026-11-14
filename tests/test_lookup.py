@@ -402,6 +402,10 @@ def test_tags(results_dir, tmp_path_factory, monkeypatch):
     assert c.post("/api/tags", json={"label": "x", "mm": [1, 2]}).status_code == 400
     assert c.post("/api/tags", json={"label": "x", "mm": [1, 2, 3], "map": "../x.nii"}).status_code == 404
     assert c.patch(f"/api/tags/{t['id']}", json={"label": "dmPFC"}).json()["label"] == "dmPFC"
+    moved = c.patch(f"/api/tags/{t['id']}", json={"note": "value peak", "mm": [3, -26, 30]}).json()
+    assert moved["note"] == "value peak" and moved["mm"] == [3, -26, 30] and moved["label"] == "dmPFC"
+    assert c.patch(f"/api/tags/{t['id']}", json={"label": "  "}).status_code == 400
+    assert c.patch("/api/tags/nope", json={"label": "x"}).status_code == 404
     # The same map under another path (results folder reorganised) still has its tags.
     (results_dir / "moved").mkdir()
     shutil.copy(results_dir / A, results_dir / "moved" / "spmT_0001.nii")

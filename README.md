@@ -127,8 +127,13 @@ Name a point and keep it: under the coordinate, type a name (e.g. `dmFC`) and pr
 - **Where you see them:** as a yellow dot and name on any slice within 2.5 mm of the tag,
   and as a chip under the coordinate when the crosshair is within 3 mm (click it to go
   there).
-- **The Tags tab** (side panel) lists the active map's tags: click one to go there,
-  **Rename**, **Delete**. Tick **Show other maps' tags** to see the rest too (greyed).
+- **Edit or remove a tag:** click its chip under the coordinate (that takes you to its
+  exact point and opens an editor there), or click **Edit** in the Tags tab. Change the
+  name, add a **note**, or move it: with the editor open, click the new spot on the brain,
+  tick **Move to the crosshair**, and **Save**. **Delete** removes it (after a
+  confirmation); **Esc** or **Cancel** closes the editor without saving.
+- **The Tags tab** (side panel) lists the active map's tags with their notes: click one to
+  go there, **Edit**, **Delete**. Tick **Show other maps' tags** to see the rest too (greyed).
   **Export all as CSV** downloads every tag with its coordinate, map, and the cortical,
   subcortical, cytoarchitectonic and Brodmann-area labels at that point.
 - **Where they are saved:** in your data folder, `~/.atlaslookup/tags.json`. Your results
