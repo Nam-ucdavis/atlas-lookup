@@ -3,6 +3,12 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.22.2 (2026-11-14)
+- **Regions** uses the Oxford connectivity-based areas for Brodmann areas once they are
+  added: searching `brodmann 24` or `ba 24` finds *Right / Left Area 24* (an atlas's role
+  is now searched too), and the Talairach Daemon's Brodmann areas are left out of the
+  all-atlas search (pick *Talairach Daemon: Brodmann areas* in the atlas menu to list them).
+
 ## 0.22.1 (2026-11-14)
 - The cluster table now sits at the bottom of the page, below the atlas readouts, so the
   regions at the crosshair come first.

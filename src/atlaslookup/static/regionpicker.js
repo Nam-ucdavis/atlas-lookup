@@ -82,8 +82,12 @@ export function createRegionPicker({ button, store, esc, onChange, panel, host }
     let more = 0;
     for (const a of atlases) {
       if (only && a.atlas !== only) continue;
+      // With the Oxford connectivity-based areas added, they are the Brodmann areas; the
+      // Talairach Daemon's are listed only when chosen in the atlas list.
+      if (!only && a.atlas === "talairach-ba" && atlases.some((x) => x.atlas === "oxford-cbp")) continue;
       for (const r of a.regions) {
-        if (q && !matches(q, r.name, a.atlas_name)) continue;
+        // The atlas's role counts too, so "Brodmann 24" finds the Oxford "Right Area 24".
+        if (q && !matches(q, r.name, `${a.atlas_name} ${a.role || ""}`)) continue;
         if (rows.length >= MAX_SHOWN) { more++; continue; }
         rows.push({ ...r, atlas: a.atlas, atlasName: a.atlas_name });
       }

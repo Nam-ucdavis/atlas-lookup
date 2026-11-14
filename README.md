@@ -164,7 +164,9 @@ The Neubert 2014 ventral frontal parcellation (`NeubertVentralFrontalParcellatio
 FSL) is recognised too, if you add it. Once added, the Oxford areas replace the
 Talairach Daemon's in the lookup and in cluster and tag labels: the Talairach card is
 unticked under *Atlases* (tick it again to see both; it is now called *Brodmann area
-(Talairach)*). Points outside these maps, such as the left lateral frontal cortex or
+(Talairach)*). In **Regions**, searching for a Brodmann area (`brodmann 24`, `ba 24`) lists the
+Oxford areas; the Talairach ones are listed when you pick that atlas in the Regions atlas
+menu. Points outside these maps, such as the left lateral frontal cortex or
 anything temporal or occipital, get no Brodmann label. These areas come from diffusion
 tractography and are named after Brodmann / Petrides-Pandya areas; they are not
 cytoarchitectonic maps.

@@ -914,6 +914,9 @@ def test_js_region_search_browser_tree_and_projection():
         matches("medial orbitofrontal", "Left olfactory sulcus (medial orbital sulcus)"),
         matches("hippocampus", "Left Hippocampus"), matches("ifg", "Left Inferior Temporal Gyrus"),
         matches("ba 44", "Right Brodmann area 44"), matches("amygdala juelich", "Left Amygdala, laterobasal group", "Juelich Histological"),
+        // 0.22.1: the atlas's role is searched too (Oxford areas are "Area 24", role "Brodmann area").
+        matches("brodmann 24", "Right Area 24", "Oxford connectivity-based areas Brodmann area"),
+        matches("ba 24", "Right Area 24", "Oxford connectivity-based areas Brodmann area"),
       ];
       const tree = buildTree([{{ id: "S1/T1/a/spmT_0001.nii" }}, {{ id: "S1/T1/a/spmT_0002.nii" }},
                               {{ id: "S1/T1/b/spmT_0001.nii" }}, {{ id: "S2/spmT_0001.nii" }}]);
@@ -936,7 +939,7 @@ def test_js_region_search_browser_tree_and_projection():
         mo: [mo.nLeft, mo.n, Array.from(mo.shade)], mid: Array.from(mid), near: [near.index, near.distance], nearR: nearR.index }}));
     """)
     r = json.loads(out)
-    assert r["m"] == [True, True, False, True, True]
+    assert r["m"] == [True, True, False, True, True, True, True]
     assert r["top"] == ["S1", "S2"]
     assert r["t1"] == ["dir:a", "dir:b"]
     assert r["proj"] == [-7] and r["lab"] == [5] and r["out"] == 0

@@ -241,7 +241,7 @@ def inflated_morph():
 def regions_list():
     # Tracts have their own list (Connecting tracts); their label maps keep only the
     # most likely tract per voxel, which would misdraw overlapping tracts as regions.
-    return [{"atlas": a.id, "atlas_name": a.manifest.name, "regions": list(regions.regions(a))}
+    return [{"atlas": a.id, "atlas_name": a.manifest.name, "role": a.manifest.role, "regions": list(regions.regions(a))}
             for a in ATLASES.values() if a.info()["can_overlay"] and not tracts.is_tract_atlas(a)]
 
 
