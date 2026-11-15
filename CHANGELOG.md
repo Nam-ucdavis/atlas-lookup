@@ -3,6 +3,15 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.24.0 (2026-11-15)
+- **Region names for the Oxford connectivity-based areas**, taken from the source papers'
+  own text: *Left Area 14m — vmPFC*, *Left Area 47o — lateral OFC (47/12o)*, *Right Area
+  9/46D — dlPFC*, *Right IPL D — anterior angular gyrus (PGa)*, and so on (35 areas). They
+  show on the card, in clusters and tag exports, and are searchable in Regions. The quote
+  and section behind each name are in `cbp_aliases.json`; areas the paper does not place in
+  a named region get none. Re-run `atlaslookup add-cbp` with the zips to update an
+  installed atlas.
+
 ## 0.23.0 (2026-11-14)
 - **Edit or remove tags**: click a tag's chip under the coordinate (it goes to the tag and
   opens an editor there) or **Edit** in the Tags tab. Rename it, add a note, or move it to

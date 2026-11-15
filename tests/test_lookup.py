@@ -435,6 +435,16 @@ def test_oxford_cbp(tmp_path):
     assert area_name("Cluster3 (Area 9)", True) == "Right Area 9"
     assert area_name("Cluster9 (Ant PMd)", True) == "Right Anterior PMd (dorsal premotor cortex)"
     assert area_name("SPLA", True) == "Right SPL A" and area_name("TPJp", True) == "Right TPJp (TPJ, posterior)"
+    # Region names from the papers (cbp_aliases.json), only where the paper gives one.
+    assert area_name("Right 14m", True, "Neubert") == "Right Area 14m — vmPFC"
+    assert area_name("Left 47o", False, "Neubert") == "Left Area 47o — lateral OFC (47/12o)"
+    assert area_name("Cluster5 (Area 9/46D)", True, "Sallet") == "Right Area 9/46D — dlPFC"
+    assert area_name("IPLD", True, "Mars") == "Right IPL D — anterior angular gyrus (PGa)"
+    assert area_name("Right 8m", True, "Neubert") == "Right Area 8m"  # the paper names no larger region
+    from atlaslookup.cbp import aliases
+    for src, areas in aliases().items():
+        assert src in {"Neubert", "Sallet", "Mars"}
+        assert all(v["aka"] and v["quote"] and v["where"] for v in areas.values())
     aff = np.array([[-2, 0, 0, 90], [0, 2, 0, -126], [0, 0, 2, -72], [0, 0, 0, 1]], float)  # FSL MNI 2 mm
     def fsl_zip(name, img_stem, labels, vols):
         data = np.zeros((91, 109, 91, len(vols)), np.float32)
@@ -461,7 +471,7 @@ def test_oxford_cbp(tmp_path):
     assert r["sources"] == ["NeubertCingulateOrbitoFrontalParcellation", "SalletDorsalFrontalParcellation"]
     a = Atlas(tmp_path / "atlases" / "oxford-cbp")
     assert a.manifest.role == "Brodmann area"
-    assert list(a.labels.values()) == ["Right SMA", "Left SMA", "Right SMA (Sallet)", "Right Area 9"]
+    assert list(a.labels.values()) == ["Right SMA", "Left SMA", "Right SMA (Sallet) — dorsomedial frontal", "Right Area 9 — dmPFC"]
     lab = np.asarray(nib.load(str(tmp_path / "atlases" / "oxford-cbp" / "label_map.nii.gz")).dataobj)
     assert lab[31, 51, 51] == 4 and lab[33, 51, 51] == 1 and lab[57, 51, 51] == 2 and lab[10, 10, 10] == 0
 

@@ -176,6 +176,27 @@ anything temporal or occipital, get no Brodmann label. These areas come from dif
 tractography and are named after Brodmann / Petrides-Pandya areas; they are not
 cytoarchitectonic maps.
 
+**Region names.** Where the source paper itself places an area in a named region, that
+name is added after a dash, e.g. *Left Area 14m — vmPFC*, *Right Area 9/46D — dlPFC*. These
+names show on the card, in the cluster table and in tag exports, and are searchable in
+**Regions** (`vmPFC`, `OFC`, `dlPFC`, `angular`). Each one rests on a sentence in the paper;
+the quote and section are in
+[`src/atlaslookup/cbp_aliases.json`](src/atlaslookup/cbp_aliases.json). Rebuild with
+`add-cbp` after editing it.
+
+| Source | Area: region name from the paper |
+|---|---|
+| Neubert 2015 | 11m, 14m: vmPFC · 25: subgenual · 9m, 32d: dmPFC · 32pl: area p32 · 11: anterior central OFC · 13: posterior central OFC · 47o: lateral OFC (47/12o) · 47m: area 47/12m · 23ab, 24: ACC · RCZa, RCZp, CCZ: dorsal ACC, cingulate motor area |
+| Sallet 2013 | SMA, pre-SMA: dorsomedial frontal · 9, 10: dmPFC · 9/46D, 9/46V: dlPFC · 46: anterior dorsolateral PFC (often reported as frontal pole / rostral PFC) · 8A: FEF · anterior PMd: rostral PMd · 8B: dorsolateral frontal |
+| Mars 2011 | IPL A: parietal operculum (PFop) · IPL B: anterior supramarginal gyrus (PF/PFt) · IPL C: posterior supramarginal gyrus (PFm) · IPL D: anterior angular gyrus (PGa) · IPL E: posterior angular gyrus (PGp) · SPL A: anterior medial bank of the IPS (7PC/VIP) · SPL B: area 5L · SPL C: posterior medial bank of the IPS (hIP3) · SPL D: area 7A · SPL E: posterior IPS (POIPS) |
+
+No name is added where the paper gives none (Neubert's 8m) or where the area's name
+already is one (FPl, FPm, SMA, M1, TPJa, TPJp). Neubert's paper does not use "rlPFC" or
+"FPC". The cytoarchitectonic correspondences for the parietal clusters (PFop, PGa, ...) are
+the authors' "resembles" / "overlaps with" judgments, not cytoarchitecture. The SPL and
+IPL letters A–E follow the paper's colours red, blue, green, magenta, yellow (matched by
+the clusters' centres of gravity).
+
 ## 3D view
 
 Switch the viewer from **Slices** to **3D**. It shows whatever is on the slices:

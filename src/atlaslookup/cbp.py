@@ -18,6 +18,7 @@ cytoarchitecture.
 """
 from __future__ import annotations
 
+import functools
 import gzip
 import re
 import xml.etree.ElementTree as ET
@@ -52,10 +53,9 @@ SPELLED = {
 }
 
 
-def area_name(raw: str, right: bool) -> str:
-    """'Right 8m' -> 'Right Area 8m'; 'Cluster3 (Area 9)' -> 'Right Area 9'; 'SPLA' -> 'Right SPL A'."""
-    text = raw.strip()
-    side = "Right" if right else "Left"
+def area_key(raw: str) -> tuple[str | None, str]:
+    """('Right', 'Area 8m') for 'Right 8m'; (None, 'Area 9') for 'Cluster3 (Area 9)'; (None, 'SPL A') for 'SPLA'."""
+    text, side = raw.strip(), None
     m = re.match(r"(Left|Right)\s+(.*)", text)
     if m:
         side, text = m.group(1), m.group(2)
@@ -68,8 +68,25 @@ def area_name(raw: str, right: bool) -> str:
         text = "Area " + text
     elif re.fullmatch(r"(SPL|IPL)[A-E]", text):
         text = f"{text[:3]} {text[3]}"
-    text = SPELLED.get(text, text)
-    return f"{side} {text}"
+    return side, {"PreSMA": "Pre-SMA"}.get(text, text)
+
+
+def area_name(raw: str, right: bool, source: str | None = None) -> str:
+    """'Right 8m' -> 'Right Area 8m'; with its source ('Neubert'), the paper's region name is
+    added from cbp_aliases.json: 'Right Area 14m — vmPFC'."""
+    side, key = area_key(raw)
+    name = f"{side or ('Right' if right else 'Left')} {SPELLED.get(key, key)}"
+    aka = aliases().get(source or "", {}).get(key, {}).get("aka")
+    return f"{name} — {aka}" if aka else name
+
+
+@functools.cache
+def aliases() -> dict:
+    """{source: {area key: {aka, quote, where}}} from cbp_aliases.json (region names quoted from the papers)."""
+    import json
+
+    data = json.loads((Path(__file__).with_name("cbp_aliases.json")).read_text(encoding="utf-8"))
+    return {k: v for k, v in data.items() if not k.startswith("_")}
 
 
 def _reader(path: Path):
@@ -129,10 +146,10 @@ def build(paths, atlases_dir=None, overwrite=True) -> dict:
         for index, raw, x in sorted(s["labels"]):
             # The XML gives each area's centre in voxels; FSL's 2 mm grid runs right to left.
             right = (affine[0, 0] * x + affine[0, 3]) > 0
-            name = area_name(raw, right)
-            if name in used:  # the same area in two sources (SMA in Neubert and Sallet)
-                name = f"{name} ({short})"
-            used.add(name)
+            base, name = area_name(raw, right), area_name(raw, right, short)
+            if base in used:  # the same area in two sources (SMA in Neubert and Sallet)
+                name = name.replace(base, f"{base} ({short})", 1)
+            used.add(base)
             vols.append(s["prob"][..., index])
             names[len(vols)] = name
     prob = np.stack(vols, axis=-1)
@@ -149,7 +166,9 @@ def build(paths, atlases_dir=None, overwrite=True) -> dict:
         doi=SOURCES[order[0]][2], url="https://www.rushworthlab.co.uk",
         description="Areas from diffusion-tractography parcellations, named after Brodmann / Petrides-Pandya "
                     "areas: " + ", ".join(f"{SOURCES[k][0]} ({k.replace('Parcellation', '')})" for k in order)
-                    + ". Sallet and Mars cover the right hemisphere only. Label = highest-probability area (each map thr 25%).",
+                    + ". Sallet and Mars cover the right hemisphere only. Label = highest-probability area (each map thr 25%). "
+                    "Names after the dash (e.g. vmPFC, lateral OFC, dlPFC) are the source papers' own descriptions "
+                    "of each area (see cbp_aliases.json for the quote and section).",
         extra={"sources": order}, overwrite=overwrite, **kw,
     )
     _retitle_talairach(atlases_dir)

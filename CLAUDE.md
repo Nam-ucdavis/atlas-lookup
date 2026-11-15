@@ -57,6 +57,8 @@ src/atlaslookup/
                   columns (oxford-cbp for Brodmann areas when installed, else talairach-ba)
   cbp.py          `add-cbp`: Rushworth-lab FSL-format zips (XML + 4D 2 mm maps), read in memory,
                   merged by max probability into one atlas "oxford-cbp" (role "Brodmann area")
+  cbp_aliases.json region names per area quoted from the source papers (aka/quote/where); only names the
+                  paper itself states - never add one without a quote; applied at add-cbp build time
   tags.py         TagStore over DATA_DIR/tags.json (atomic writes); tags keyed by map path + sha256
                   of the map file, so they survive a moved results folder; never written to results
   results.py      read-only access to the user's stat maps (any .nii; SPM T header gives df/p): list, value, clusters, cluster_at
