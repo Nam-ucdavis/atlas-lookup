@@ -308,7 +308,42 @@ def test_results_list_value_clusters(results_dir):
     single_mm = [3 * 40 - 78, 3 * 40 - 114, 3 * 40 - 78]  # dropped by k, so not a row
     assert r.cluster_at("modelA/spmT_0001.nii", single_mm, 3.0, "both", 5) is None
     assert r.cluster_at("modelA/spmT_0001.nii", single_mm, 3.0, "both", 1) == 1
+
     assert r.cluster_at("modelA/spmT_0001.nii", edge_mm, 5.0, "both", 1) is None  # below 5
+
+
+def test_peak_near(results_dir):
+    """Searchlight: the strongest voxel in a sphere, or in a disc in one slice plane."""
+    from fastapi.testclient import TestClient
+
+    from atlaslookup import server
+    from atlaslookup.results import Results
+
+    r, m = Results(results_dir), "modelA/spmT_0001.nii"
+    mm = lambda i, j, k: [3 * i - 78, 3 * j - 114, 3 * k - 78]
+    peak, edge = mm(11, 31, 31), mm(13, 33, 30)          # edge is 9 mm from the peak
+    p = r.peak_near(m, edge, 10)
+    assert p["found"] and p["t"] == 6.0 and p["mm"] == peak and p["distance"] == 9.0 and p["voxel"] == [12, 32, 32]
+    assert r.peak_near(m, edge, 6)["t"] == 4.0            # the peak is out of reach
+    ax = r.peak_near(m, edge, 10, "axial")                # the peak is one slice up
+    assert ax["t"] == 4.0 and ax["mm"][2] == edge[2]
+    assert r.peak_near(m, mm(13, 31, 30), 8, "coronal")["t"] == 6.0
+    assert r.peak_near(m, mm(13, 31, 30), 8, "sagittal")["t"] == 4.0
+    assert r.peak_near(m, edge, 10, sign="neg") == {"found": False, "searched": r.peak_near(m, edge, 10)["searched"]}
+    assert r.peak_near("modelB/sub/spmT_0001.nii", edge, 10, sign="neg")["t"] == -6.0
+    assert not r.peak_near(m, [500, 500, 500], 5)["found"]  # outside the volume
+
+    old = server.RESULTS
+    server.RESULTS = r
+    try:
+        c = TestClient(server.app)
+        q = dict(map=m, x=edge[0], y=edge[1], z=edge[2], radius=10)
+        assert c.get("/api/results/peak", params=q).json()["mm"] == peak
+        assert c.get("/api/results/peak", params={**q, "radius": 50}).status_code == 422
+        assert c.get("/api/results/peak", params={**q, "within": "diagonal"}).status_code == 422
+        assert c.get("/api/results/peak", params={**q, "map": "../x.nii"}).status_code == 404
+    finally:
+        server.RESULTS = old
 
 
 def test_results_lists_any_nifti(tmp_path):

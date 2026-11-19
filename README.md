@@ -391,6 +391,13 @@ page switches to one column with the viewer on top.
   and applied in the 3D view too). The equivalent p is shown, using the df from the SPM
   header.
 - **Readout:** T and p at whatever point you click.
+- **Find peak** (under the coordinate, when a map is active): a searchlight around the
+  crosshair. Set a radius (1–30 mm, default 6) and search **in 3D** (a sphere) or **in
+  this axial / coronal / sagittal slice** (a disc in the slice through the crosshair),
+  then **Go to peak**: the crosshair moves to the strongest voxel of the active map
+  there: the highest T for **+ only**, the lowest for **− only**, the largest |T| for
+  **± both**. Any T counts, not only voxels above the threshold. The message gives the T,
+  p and distance; **Back** returns to where you were.
 - **Clusters:** clusters use 18-connectivity, as in SPM, with a minimum size
   **k**. The table lists each peak with Harvard-Oxford, Juelich and Brodmann
   labels (the Oxford areas once added with `add-cbp`, else Talairach); click a row to

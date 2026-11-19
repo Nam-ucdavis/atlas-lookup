@@ -22,6 +22,7 @@ GET /api/atlases/{id}/label_map.nii.gz   parcellation in MNI space, for the view
 GET /api/atlases/{id}/colormap           NiiVue label colormap for that overlay
 GET /api/results                         your stat maps (from the local results folder)
 GET /api/results/file/{id}               one map, for the viewer
+GET /api/results/peak?map=&x=&y=&z=&radius=&within=&sign=  strongest voxel near a point (sphere, or a disc in one slice plane)
 GET /api/folders?path=                   subfolder names of a folder (for choosing the results folder)
 POST /api/results/folder                 body: {"path": ...}; makes it the results folder (saved in settings.json)
 GET /api/results/clusters?map=&threshold=&sign=pos|neg|both&min_voxels=
@@ -405,6 +406,19 @@ def results_file(rel: str):
         return FileResponse(RESULTS.resolve(rel), media_type="application/octet-stream")
     except FileNotFoundError:
         raise HTTPException(404, "No such stat map")
+
+
+@app.get("/api/results/peak")
+def results_peak(
+    map: str, x: float, y: float, z: float,
+    radius: float = Query(6.0, gt=0, le=30),
+    within: str = Query("sphere", pattern="^(sphere|axial|coronal|sagittal)$"),
+    sign: str = Query("both", pattern="^(pos|neg|both)$"),
+):
+    try:
+        return RESULTS.peak_near(map, [x, y, z], radius, within, sign)
+    except FileNotFoundError:
+        raise HTTPException(404, f"No stat map {map!r}")
 
 
 @app.get("/api/results/clusters")

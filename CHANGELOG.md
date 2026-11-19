@@ -3,6 +3,13 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.25.1 (2026-11-18)
+- **Find peak**: under the coordinate, a searchlight around the crosshair on the active
+  stat map. Choose a radius and search in 3D (a sphere) or in the axial, coronal or
+  sagittal slice through the crosshair; **Go to peak** moves the crosshair to the
+  strongest voxel (following the map's +/−/± setting) and says how far it moved, with
+  **Back** to return. New route `GET /api/results/peak`.
+
 ## 0.25.0 (2026-11-18)
 - **Save image dialog**: the camera button now opens a dialog with a preview instead of
   saving straight away. Choose which views to save (axial, coronal, sagittal, any

@@ -514,6 +514,14 @@
   .ov-opacity { display: flex; gap: 6px; align-items: center; }
   .ov-opacity input { flex: 1; min-width: 60px; }
   .ov-info { margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .peak-bar { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin: -6px 0 10px; font-size: 13px; }
+  .peak-bar[hidden] { display: none; }
+  .peak-bar .pk-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+  .peak-bar input { width: 52px; padding: 3px 6px; }
+  .peak-bar select { width: auto; padding: 3px 4px; }
+  .peak-bar input[type=number] { flex: none; }
+  .peak-bar .hint { margin: 0; }
+  .peak-bar .linkish { border: 0; background: none; padding: 0; font: inherit; color: var(--accent); cursor: pointer; }
   .tag-bar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: -6px 0 12px; }
   .tag-form { display: flex; gap: 6px; }
   .tag-form input { width: 230px; }
@@ -758,6 +766,18 @@
       <div class="ov-panel lookup-only" id="ovPanel" hidden></div>
     </div>
     <div id="where" class="lookup-only"></div>
+    <div id="peakBar" class="peak-bar lookup-only" hidden>
+      <span class="pk-title">Find peak</span>
+      within <input type="number" id="pkRadius" min="1" max="30" step="1" value="6" aria-label="Search radius in mm"> mm
+      <select id="pkWithin" aria-label="Search shape">
+        <option value="sphere">in 3D (sphere)</option>
+        <option value="axial">in this axial slice</option>
+        <option value="coronal">in this coronal slice</option>
+        <option value="sagittal">in this sagittal slice</option>
+      </select>
+      <button type="button" class="btn small" id="pkGo" title="Move the crosshair to the strongest voxel of the active stat map near it (uses the map's +/− setting)">Go to peak</button>
+      <span id="pkMsg" class="hint"></span>
+    </div>
     <div id="tagBar" class="tag-bar lookup-only"></div>
     <div class="summary lookup-only" id="summary"></div>
     <div id="notes" class="lookup-only"></div>
@@ -1020,6 +1040,7 @@ async function initViewer() {
   if (state.last) tagsApi.setPoint(state.last.mm);
   tagsApi.refresh();
   initViewTabs();
+  initPeakFinder();
   let t;
   nv.onLocationChange = (d) => {
     if (Date.now() < suppressClick) return;
@@ -1540,6 +1561,42 @@ async function lookup({ fromViewer = false } = {}) {
   pushHistory(data.coordinate);
 }
 
+// --- Find peak: a searchlight around the crosshair on the active stat map -------------
+let peakJump = null;  // { from, to } after a jump, so "back" can undo it
+const samePoint = (a, b) => a && b && a.every((v, i) => Math.abs(v - b[i]) < 0.6);
+async function goToMM(mm) {
+  await lookupAtMM(mm);
+  moveCrosshair(mm);
+}
+function initPeakFinder() {
+  $("pkRadius").value = store.get("pkRadius", 6);
+  $("pkWithin").value = store.get("pkWithin", "sphere");
+  $("pkRadius").addEventListener("change", () => store.set("pkRadius", +$("pkRadius").value || 6));
+  $("pkWithin").addEventListener("change", () => store.set("pkWithin", $("pkWithin").value));
+  $("pkRadius").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); findPeak(); } });
+  $("pkGo").addEventListener("click", findPeak);
+  $("pkMsg").addEventListener("click", (e) => {
+    if (e.target.dataset.act === "back" && peakJump) { const to = peakJump.from; peakJump = null; goToMM(to); }
+  });
+}
+async function findPeak() {
+  const e = state.stat, from = state.last?.mm;
+  if (!e?.map || !from) return;
+  const radius = Math.min(30, Math.max(1, +$("pkRadius").value || 6)), within = $("pkWithin").value;
+  const q = new URLSearchParams({ map: e.map, x: from[0], y: from[1], z: from[2], radius, within, sign: e.sign || "both" });
+  const r = await fetch("/api/results/peak?" + q).catch(() => null);
+  const d = r?.ok ? await r.json() : null;
+  const where = within === "sphere" ? `within ${radius} mm` : `within ${radius} mm in this ${within} slice`;
+  const want = e.sign === "pos" ? "positive " : e.sign === "neg" ? "negative " : "";
+  if (!d) { $("pkMsg").textContent = "Could not search the map."; return; }
+  if (!d.found) { $("pkMsg").textContent = `No ${want}values ${where}.`; return; }
+  const what = `T = ${d.t.toFixed(2)}${d.p != null ? ` (p = ${fmtP(d.p)} unc.)` : ""}`;
+  if (d.distance < 0.6) { $("pkMsg").textContent = `Already at the peak ${where}: ${what}.`; return; }
+  peakJump = { from: from.slice(0, 3), to: d.mm };
+  await goToMM(d.mm);
+  $("pkMsg").innerHTML = `Peak ${where}: ${what}, ${d.distance} mm away. <button type="button" class="linkish" data-act="back">Back</button>`;
+}
+
 function render({ coordinate: c, results, stat }) {
   const [x, y, z] = c.mm;
   const g = state.grids.find((g) => g.id === c.grid);
@@ -1548,6 +1605,8 @@ function render({ coordinate: c, results, stat }) {
     : stat ? `<span class="sub">outside the stat map</span>` : "";
   highlightCluster(stat?.cluster);
   tagsApi?.setPoint(c.mm);
+  $("peakBar").hidden = !state.stat?.map;
+  if (!peakJump || !samePoint(peakJump.to, c.mm)) { peakJump = null; $("pkMsg").innerHTML = ""; }
   $("where").innerHTML = `<div class="where"><span class="mm">MNI (${x}, ${y}, ${z})</span>${statHtml}` +
     (c.voxel ? `<span class="sub">voxel (${c.voxel.join(", ")}) · ${esc(g ? g.name : c.grid)} · ${c.base}-based</span>` : "") + `</div>`;
   const notes = [];

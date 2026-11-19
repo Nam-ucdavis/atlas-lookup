@@ -202,6 +202,40 @@ class Results:
         return {"map": rel, "t": None if t is None else round(t, 3), "df": df,
                 "p": p_one_sided(t, df), "voxel": (ijk + 1).tolist(), "in_bounds": inside}
 
+    def peak_near(self, rel: str, mm, radius: float, within: str = "sphere", sign: str = "both") -> dict:
+        """Searchlight: the strongest voxel within `radius` mm of mm, in a sphere or in
+        the slice through mm ("axial", "coronal", "sagittal": a disc in that plane).
+        sign "pos" finds the highest T, "neg" the lowest, "both" the largest |T|."""
+        data, affine, (df, _) = self.load(rel)
+        c = np.asarray(mm, float)[:3]
+        inv = np.linalg.inv(affine)
+        centre = inv[:3, :3] @ c + inv[:3, 3]
+        # Voxel index box that holds the sphere, clipped to the volume.
+        reach = radius * np.sqrt((inv[:3, :3] ** 2).sum(axis=1)) + 1
+        lo = np.maximum(np.floor(centre - reach), 0).astype(int)
+        hi = np.minimum(np.ceil(centre + reach), np.array(data.shape[:3]) - 1).astype(int)
+        if np.any(lo > hi):
+            return {"found": False}
+        grid = np.stack(np.meshgrid(*[np.arange(a, b + 1) for a, b in zip(lo, hi)], indexing="ij"), -1).reshape(-1, 3)
+        world = grid @ affine[:3, :3].T + affine[:3, 3]
+        keep = np.linalg.norm(world - c, axis=1) <= radius + 1e-6
+        if within != "sphere":
+            axis = {"sagittal": 0, "coronal": 1, "axial": 2}[within]
+            half = np.abs(affine[axis, :3]).max() / 2  # half a voxel along that world axis
+            keep &= np.abs(world[:, axis] - c[axis]) <= half + 1e-6
+        grid, world = grid[keep], world[keep]
+        if not len(grid):
+            return {"found": False}
+        vals = data[tuple(grid.T)]
+        score = vals if sign == "pos" else -vals if sign == "neg" else np.abs(vals)
+        k = int(np.argmax(score))
+        if score[k] <= 0:
+            return {"found": False, "searched": int(len(grid))}
+        t = float(vals[k])
+        return {"found": True, "mm": world[k].round(1).tolist(), "t": round(t, 3), "p": p_one_sided(t, df),
+                "voxel": (grid[k] + 1).tolist(), "distance": round(float(np.linalg.norm(world[k] - c)), 1),
+                "searched": int(len(grid))}
+
     def _found(self, rel, threshold, sign, min_voxels):
         p = self.resolve(rel)
         return _clusters(str(p), p.stat().st_mtime, float(threshold), sign, int(min_voxels))

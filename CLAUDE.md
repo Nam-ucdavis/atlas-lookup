@@ -61,7 +61,8 @@ src/atlaslookup/
                   paper itself states - never add one without a quote; applied at add-cbp build time
   tags.py         TagStore over DATA_DIR/tags.json (atomic writes); tags keyed by map path + sha256
                   of the map file, so they survive a moved results folder; never written to results
-  results.py      read-only access to the user's stat maps (any .nii; SPM T header gives df/p): list, value, clusters, cluster_at
+  results.py      read-only access to the user's stat maps (any .nii; SPM T header gives df/p): list, value, clusters, cluster_at,
+                  peak_near (searchlight: sphere or a disc in one slice plane)
                   (which cluster-table row a point falls in; clusters are cached per map +
                   threshold/sign/k in _clusters, keyed by file mtime)
   server.py       FastAPI routes (docstring lists them all)
