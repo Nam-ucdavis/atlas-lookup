@@ -12,7 +12,8 @@ labelled cluster table. A quiz mode helps you learn the regions, on the slices a
   probabilities and a "what's within N mm" readout for borderline points.
 - **Viewer:** axial, coronal and sagittal slices of the MNI template. Click to
   look up a point, and overlay any atlas (Atlas overlay, in the left sidebar). Each slice shows its coordinate, the
-  crosshair can be hidden, and the **camera** button saves the slices as a PNG.
+  crosshair can be hidden, and the **camera** button saves any of the slices as a PNG, on a
+  black, white or transparent background, with the name and folder you choose.
 - **3D:** a second tab renders the brain in 3D (solid surface, see-through
   **glass brain**, or **mesh brain** with your results painted on the cortex),
   showing the same overlays and results as the slices. A **Regions** window
@@ -106,11 +107,22 @@ for axial, y for coronal, x for sagittal; k, j, i in voxel mode). Untick
 the slices, from the threshold to its strongest value, in T or in p (one-sided,
 uncorrected) as you thresholded it, with separate + and − bars. Type into the
 boxes at either end to set the minimum (the threshold) or the maximum of the
-colour range; **auto** resets the maximum to the strongest value in the map. The **camera** button saves
-the three slices and the colour bars as one PNG, always 2400 × 960 px, in
-`~/.atlaslookup/image/`, named by the date and time (e.g.
-`2026-10-28_09-19-20.png`), and opens that folder in Finder (Explorer on
-Windows) with the new image selected.
+colour range; **auto** resets the maximum to the strongest value in the map.
+
+The **camera** button opens **Save image**, with a preview of the PNG as it will be saved:
+
+- **Views:** tick any of Axial, Coronal and Sagittal; they are placed side by side in that
+  order, 800 px each, with the colour bars underneath (all three: always 2400 × 960 px).
+- **Background:** black, white or transparent. On white or transparent the black around
+  the brain is removed (with its soft edge, so there is no dark outline) and the
+  coordinate and colour-bar text turns black.
+- **Name:** a suggested name from the stat map (its folder and file), the point and the
+  views, e.g. `First_spmT_0001_x-9_y23_z-18_axial`; type your own. `.png` is added.
+- **Folder:** the last one you used; the first time, `~/.atlaslookup/image/`. Type a
+  path or **Browse…**; **Default folder** goes back to the image folder. The results
+  folder is refused (it stays read-only).
+- An existing file is never replaced without asking (**Replace it**). **Show in Finder
+  after saving** (Explorer on Windows) can be turned off. Your choices are remembered.
 
 Each atlas card shows the label at that voxel, the probabilities (for
 probabilistic atlases), the share of each region within the chosen radius, and
@@ -324,7 +336,8 @@ straight away.
   left, right, front, back, top and bottom views.
 - **Crosshair and capture:** the slice crosshair is shown in 3D too (the
   Crosshair checkbox applies to both). The **camera** button saves the 3D view with its
-  colour bars, at the same size as slice captures.
+  colour bars, at the same size as a three-slice capture, on the background you choose
+  (the views choice does not apply).
 
 To look up a point, click on the slices; clicks in 3D only rotate. The app
 remembers which tab and style you used last. The quiz has its own 3D view next to

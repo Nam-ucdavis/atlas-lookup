@@ -27,7 +27,10 @@ POST /api/results/folder                 body: {"path": ...}; makes it the resul
 GET /api/results/clusters?map=&threshold=&sign=pos|neg|both&min_voxels=
                                          clusters + peaks, labelled by atlas
 GET /api/lookup?...&map={id}             adds the T / p value at the point
-POST /api/screenshot                     body: a PNG of the viewer; saved as image/<date_time>.png and shown in Finder/Explorer
+POST /api/screenshot?name=&folder=&overwrite=&show=  body: a PNG of the viewer; saved as folder/name.png
+                                         (409 if it exists and overwrite is off; never inside the results folder),
+                                         or with no name as image/<date_time>.png; shown in Finder/Explorer
+GET  /api/screenshot/folder              the default folder for saved images
 GET /api/tags?map={id}                   every tag; "mine" marks those of that map (none = tags made with no map)
 POST /api/tags  {"label", "mm", "map", "note"}   tag a point (JSON only); saved in DATA_DIR/tags.json
 PATCH /api/tags/{id}  {"label"?, "note"?, "mm"?}   rename / annotate / move a tag (JSON only)
@@ -48,7 +51,7 @@ from fastapi.staticfiles import StaticFiles
 from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
 from .config import TAGS_FILE, IMAGE_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FILE, STATIC_DIR, TEMPLATE_FILE
 from .grids import load_grids
-from .screenshots import MAX_BYTES, reveal, save_png
+from .screenshots import MAX_BYTES, Exists, reveal, save_named_png, save_png
 from . import regions, tracts
 from .results import Results, configured_dir, list_folders, repo_warning, save_results_dir
 from .tags import TagStore, belongs, file_key, to_csv
@@ -147,8 +150,14 @@ def grids():
     return [g.to_dict() for g in GRIDS.values()]
 
 
+@app.get("/api/screenshot/folder")
+def screenshot_folder():
+    return {"default": str(IMAGE_DIR)}
+
+
 @app.post("/api/screenshot")
-async def screenshot(request: Request):
+async def screenshot(request: Request, name: str | None = None, folder: str | None = None,
+                     overwrite: bool = False, show: bool = True):
     # Requiring image/png also keeps other websites out: a cross-site request with
     # that type needs a CORS preflight, which this server never grants.
     if request.headers.get("content-type") != "image/png":
@@ -161,10 +170,19 @@ async def screenshot(request: Request):
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "Image too large")
     try:
-        path = save_png(data, IMAGE_DIR)
-    except ValueError as e:
+        if name is None:
+            path = save_png(data, IMAGE_DIR)
+        else:
+            if folder is None or str(folder) == str(IMAGE_DIR):
+                IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+            path = save_named_png(data, folder or str(IMAGE_DIR), name, overwrite,
+                                  keep_out=RESULTS.root if RESULTS.available else None)
+    except Exists as e:
+        raise HTTPException(409, f"{e.args[0].name} already exists")
+    except (ValueError, OSError) as e:
         raise HTTPException(400, str(e))
-    reveal(path)
+    if show:
+        reveal(path)
     return {"file": path.name, "folder": str(path.parent)}
 
 

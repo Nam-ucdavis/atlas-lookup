@@ -555,6 +555,25 @@ def test_screenshot_route(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "MAX_BYTES", 4)
     assert c.post("/api/screenshot", content=PNG_MAGIC, headers={"Content-Type": "image/png"}).status_code == 413
     assert len(shown) == 1
+    monkeypatch.setattr(server, "MAX_BYTES", 10**6)
+    # Named saves (the Save image dialog): chosen folder and name, no silent overwrite.
+    out = tmp_path / "figs"
+    out.mkdir()
+    post = lambda **q: c.post("/api/screenshot", params=q, content=PNG_MAGIC + b"y", headers={"Content-Type": "image/png"})
+    r = post(name="dmFC axial", folder=str(out), show="false")
+    assert r.status_code == 200 and (out / "dmFC axial.png").read_bytes() == PNG_MAGIC + b"y" and len(shown) == 1
+    assert post(name="dmFC axial.png", folder=str(out)).status_code == 409
+    assert post(name="dmFC axial", folder=str(out), overwrite="true").status_code == 200
+    for bad in ["../x", "a/b", ".hidden", "", "c:d"]:
+        assert post(name=bad, folder=str(out)).status_code == 400, bad
+    assert post(name="x", folder=str(out / "missing")).status_code == 400
+    assert post(name="x", folder="relative/path").status_code == 400
+    # The results folder stays read-only.
+    res = tmp_path / "results"
+    (res / "sub").mkdir(parents=True)
+    monkeypatch.setattr(server, "RESULTS", server.Results(res))
+    assert post(name="x", folder=str(res / "sub")).status_code == 400
+    assert c.get("/api/screenshot/folder").json()["default"] == str(tmp_path / "image")
 
 
 def test_slice_labels():

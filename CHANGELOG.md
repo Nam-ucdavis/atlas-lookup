@@ -3,6 +3,15 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.25.0 (2026-11-18)
+- **Save image dialog**: the camera button now opens a dialog with a preview instead of
+  saving straight away. Choose which views to save (axial, coronal, sagittal, any
+  combination), the background (black, white or transparent: the black around the brain
+  is removed cleanly and the text turns black), the file name (a suggested one from the
+  map, the point and the views) and the folder (browse or type; remembered; the results
+  folder is refused). An existing file is only replaced if you say so. In the 3D tab the
+  dialog saves the 3D view with the chosen background.
+
 ## 0.24.0 (2026-11-15)
 - **Region names for the Oxford connectivity-based areas**, taken from the source papers'
   own text: *Left Area 14m — vmPFC*, *Left Area 47o — lateral OFC (47/12o)*, *Right Area

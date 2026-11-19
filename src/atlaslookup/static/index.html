@@ -371,6 +371,37 @@
   dialog#progress { width: min(760px, calc(100% - 32px)); max-height: 86vh; border: 1px solid var(--line); border-radius: 12px;
     background: var(--panel); color: var(--ink); padding: 18px 20px; }
   dialog#progress::backdrop { background: rgb(0 0 0 / .45); }
+  dialog#shotDlg { width: min(940px, calc(100% - 32px)); max-height: 90vh; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--panel); color: var(--ink); padding: 16px 18px; }
+  dialog#shotDlg::backdrop { background: rgb(0 0 0 / .45); }
+  .shot-head, .shot-foot { display: flex; align-items: center; gap: 8px; }
+  .shot-head h2 { font-size: 17px; margin: 0; }
+  .shot-head .grow, .shot-foot .grow { flex: 1; }
+  .shot-body { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, 1fr); gap: 18px; margin: 12px 0; }
+  .shot-preview { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    min-height: 220px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--bg); }
+  .shot-preview img { max-width: 100%; max-height: 52vh; display: block; }
+  .shot-preview.checker img { background: repeating-conic-gradient(#ccc 0 25%, #fff 0 50%) 0 0 / 16px 16px; }
+  .shot-size { font-size: 12px; }
+  .shot-form { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .shot-form fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .shot-form legend, .shot-field > span:first-child { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin-bottom: 4px; padding: 0; width: 100%; }
+  .shot-form .seg { margin: 0; width: 100%; }
+  .shot-field { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+  .shot-name, .shot-folder { display: flex; align-items: center; gap: 6px; width: 100%; }
+  .shot-name input, .shot-folder input { flex: 1; min-width: 0; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding: 5px 7px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; }
+  .shot-name i { font-style: normal; color: var(--muted); font-size: 13px; }
+  .shot-field .linkish, .shot-foot .linkish { border: 0; background: none; padding: 0; font: inherit; font-size: 12px;
+    color: var(--accent); cursor: pointer; }
+  .shot-pick { width: 100%; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .shot-pick .fp-bar { align-items: center; padding: 6px 8px; }
+  .shot-pick .shot-at { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .shot-pick .fp-list { min-height: 0; max-height: 180px; }
+  .shot-check { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+  .shot-msg { font-size: 13px; } .shot-msg.bad { color: #c0392b; }
+  @media (max-width: 760px) { .shot-body { grid-template-columns: 1fr; } }
   .prog-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
   .prog-head h2 { font-size: 17px; margin: 0; }
   .prog-head .grow { flex: 1; }
@@ -633,7 +664,7 @@
           <button type="button" data-view="3d" role="tab">3D</button>
         </div>
         <label class="lookup-only"><input type="checkbox" id="crosshairOn" checked> Crosshair</label>
-        <button type="button" class="btn small icon-btn" id="scrBtn" title="Save the view as a PNG (same size every time) in the image folder" aria-label="Save image"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+        <button type="button" class="btn small icon-btn" id="scrBtn" title="Save image… (choose views, background, name and folder)" aria-label="Save image"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
         <div class="ttable lookup-only" id="tTable" title="Critical T (uncorrected) for p with these degrees of freedom: one-tailed and two-tailed.">
           <label>df <input type="number" id="tDf" min="1" step="1" placeholder="df" aria-label="Degrees of freedom for the t-table"></label>
           <table><tr><th>p</th><td>.05</td><td>.01</td><td>.005</td><td>.001</td></tr>
@@ -753,6 +784,7 @@ import { createViewer3D } from "/static/viewer3d.js";
 import { createFocusView } from "/static/focus3d.js";
 import { createResultsBrowser } from "/static/browser.js";
 import { createTags } from "/static/tags.js";
+import { createShotDialog } from "/static/shotdialog.js";
 import { createRegionPicker } from "/static/regionpicker.js";
 import { createTractPanel } from "/static/tracts.js";
 import { createSidePanel } from "/static/sidepanel.js";
@@ -934,10 +966,15 @@ async function initViewer() {
     getNv: () => nv, store, isQuiz: () => !!quizApi?.active,
     getCoords: () => ({ mode: state.mode, base: state.base, grid: state.grids.find((g) => g.id === $("grid").value) }),
     getLegend: () => (quizApi?.active ? [] : [...overlaysApi.legend(), ...statLegend()]),
-    wrap: document.querySelector(".glwrap"), toggle: $("crosshairOn"), button: $("scrBtn"), setHint: flashHint,
-    altCapture: (drawBars) => view3d?.capture(drawBars), barsHost: $("statRange"),
+    wrap: document.querySelector(".glwrap"), toggle: $("crosshairOn"),
+    altCapture: (drawBars, opts) => view3d?.capture(drawBars, opts), barsHost: $("statRange"),
     // Each results-folder map's bars sit in its row of the Stat maps list.
     barHost: (e) => e.key.startsWith("stat:") ? [...$("statList").querySelectorAll(".sl-bars")].find((el) => el.dataset.map === e.key.slice(5)) : null,
+  });
+  // The camera button: the Save image dialog (views, background, name, folder).
+  createShotDialog({
+    button: $("scrBtn"), capture: (opts) => viewerTools.captureView(opts), is3D: () => !!view3d?.active,
+    suggestName, store, esc, setHint: flashHint,
   });
   initDrop();
   // Focus, a second 3D scene in the same panel (switched by the 3D view).
@@ -1239,6 +1276,17 @@ const mapTail = (id) => {
   const parts = id.split("/");
   return (parts.length > 3 ? "… / " : "") + parts.slice(-3).join(" / ");
 };
+// A file name for a saved image: the stat map (its folder and file), the point, and the
+// views if not all three, e.g. "con_value_spmT_0001_x-9_y23_z-18_axial".
+function suggestName(views = "") {
+  const parts = [];
+  if (state.stat?.map) parts.push(state.stat.map.split("/").slice(-2).join("_").replace(/\.nii(\.gz)?$/i, ""));
+  else parts.push("MNI");
+  const mm = state.last?.mm;
+  if (mm) parts.push(mm.slice(0, 3).map((v, i) => "xyz"[i] + Math.round(+v)).join("_"));
+  if (views) parts.push(views);
+  return parts.join("_").replace(/[^\w.+()=-]+/g, "_").replace(/_+/g, "_").replace(/^[._]+/, "").slice(0, 110) || "image";
+}
 const mapLabel = (id) => {
   const m = state.statMaps?.find((m) => m.id === id);
   return mapTail(id) + (m ? ` · ${m.contrast}` : "");

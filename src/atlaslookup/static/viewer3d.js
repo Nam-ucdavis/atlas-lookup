@@ -24,6 +24,7 @@
 // look up a point stay on the slices (except on the inflated brain); the slice crosshair is shown here too.
 
 import { NVMesh, NVMeshLayerDefaults, NVMeshUtilities } from "./vendor/niivue-0.69.0.js";
+import { BACKGROUNDS, knockOut } from "./viewertools.js";
 
 const VIEWS = {  // NiiVue azimuth / elevation for each named camera position
   L: [90, 0], R: [270, 0], A: [180, 0], P: [0, 0], S: [0, 90], I: [0, -90],
@@ -581,18 +582,26 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     onPick?.(Array.from(infl.pial.slice(3 * index, 3 * index + 3), Math.round));
   });
 
-  // "scr" while the 3D tab is open: the render plus the colour bars, same size as the
-  // slice captures. Copy right after a redraw (the WebGL canvas is not preserved).
-  function capture(drawBars) {
+  // The camera button while the 3D tab is open: the render plus the colour bars, the same
+  // size as a three-slice capture. Copy right after a redraw (the WebGL canvas is not
+  // preserved). A white or transparent background replaces the black around the brain.
+  function capture(drawBars, { background = "black" } = {}) {
+    const bg = BACKGROUNDS[background] || BACKGROUNDS.black;
     // must be synchronous: the WebGL canvas is copied right after
     if (focused) focus.redraw(); else drawNow();
     const src = focused ? focus.canvas : nv3.canvas, out = document.createElement("canvas");
     out.width = W; out.height = H + BAND;
     const ctx = out.getContext("2d");
-    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, out.width, out.height);
+    const pic = document.createElement("canvas");
+    pic.width = W; pic.height = H;
+    const pctx = pic.getContext("2d");
+    pctx.fillStyle = "#000"; pctx.fillRect(0, 0, W, H);
     const k = Math.min(W / src.width, H / src.height);
-    ctx.drawImage(src, (W - src.width * k) / 2, (H - src.height * k) / 2, src.width * k, src.height * k);
-    drawBars(ctx, H);
+    pctx.drawImage(src, (W - src.width * k) / 2, (H - src.height * k) / 2, src.width * k, src.height * k);
+    if (background !== "black") knockOut(pic);
+    if (bg.fill) { ctx.fillStyle = bg.fill; ctx.fillRect(0, 0, out.width, out.height); }
+    ctx.drawImage(pic, 0, 0);
+    drawBars(ctx, H, { width: W, height: BAND, ink: bg.ink });
     return new Promise((resolve) => out.toBlob(resolve, "image/png"));
   }
 
@@ -603,6 +612,6 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     get active() { return active; },
     get nv() { return nv3; },
     follow: () => active && sync(),
-    capture: (drawBars) => (active && (focused || nv3) ? capture(drawBars) : null),
+    capture: (drawBars, opts) => (active && (focused || nv3) ? capture(drawBars, opts) : null),
   };
 }

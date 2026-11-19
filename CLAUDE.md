@@ -79,8 +79,11 @@ src/atlaslookup/
   static/quiz.js      quiz + progress UI over the focus structures (FOCI), one lobe per question, with a second Focus
                       view (createFocusView quiz: true) beside the slices; exports matchName()
                       and quizItems() for tests
-  screenshots.py  saves camera-button ("scr") captures as DATA_DIR/image/<date_time>.png
-  static/viewertools.js  crosshair toggle, slice coordinate labels, "scr" capture; exports sliceLabel() for tests
+  screenshots.py  saves camera-button captures: named into a chosen existing folder (never the results
+                  folder; 409 instead of overwriting), or DATA_DIR/image/<date_time>.png with no name
+  static/viewertools.js  crosshair toggle, slice coordinate labels, capture({views, background}), knockOut();
+                         exports sliceLabel() for tests
+  static/shotdialog.js   Save image dialog behind the camera button (views, background, name, folder)
   static/overlays.js  local NIfTI overlays read in the browser (never uploaded); exports tSf/tFromP/dfFromHeader for tests
                       dropSmallClusters() applies k to the displayed stat maps (same clusters as results._clusters)
   static/viewer3d.js  3D tab: a second NiiVue instance that mirrors the slice viewer's overlays;
