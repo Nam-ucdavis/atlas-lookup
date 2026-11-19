@@ -124,7 +124,7 @@ export function barEnds({ sign, from, to, mode, df }, minus = "−") {
   return { unit: "T", lo: s + from.toFixed(2), hi: s + to.toFixed(2) };
 }
 
-export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, wrap, toggle, altCapture, barsHost, barHost }) {
+export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, wrap, toggle, altCapture, barsHost, barHost, getMarks = () => [] }) {
   const nv = getNv();
   const box = document.createElement("div");
   box.className = "slice-labels";
@@ -267,7 +267,31 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
   // The canvas is WebGL without preserveDrawingBuffer, so copy it right after a redraw,
   // in the same task, before the browser clears it. views: NiiVue axCorSag numbers
   // (0 axial, 1 coronal, 2 sagittal), drawn left to right in that order.
-  function capture({ views = [0, 1, 2], background = "black" } = {}) {
+  // Tag markers as on screen: a yellow dot (grey for other maps' tags) and the name,
+  // outlined so it reads on any background. Drawn after the background is cleared.
+  function drawMarks(ctx, list, place, ink) {
+    const r = TILE * 0.009, font = Math.round(TILE * 0.026);
+    ctx.font = `600 ${font}px -apple-system, "Segoe UI", sans-serif`;
+    ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.lineJoin = "round";
+    for (const m of list) {
+      const [x, y] = place(m), colour = m.mine ? "#ffe14d" : "#c9c9c9";
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = colour; ctx.fill();
+      ctx.lineWidth = r * 0.4; ctx.strokeStyle = "#000"; ctx.stroke();
+      // The name goes right of the dot, or left of it if it would run off the tile.
+      const tw = ctx.measureText(m.label).width, left = x + r * 1.8 + tw > TILE - r;
+      const tx = left ? x - r * 1.8 - tw : x + r * 1.8;
+      // On black: the label in the marker colour with a black outline, as on screen.
+      // On white/transparent: the text colour, outlined in white.
+      ctx.lineWidth = font * 0.22;
+      ctx.strokeStyle = ink === "#fff" ? "#000" : "#fff";
+      ctx.strokeText(m.label, tx, y);
+      ctx.fillStyle = ink === "#fff" ? colour : ink;
+      ctx.fillText(m.label, tx, y);
+    }
+  }
+
+  function capture({ views = [0, 1, 2], background = "black", tags = false } = {}) {
     const bg = BACKGROUNDS[background] || BACKGROUNDS.black;
     const order = [0, 1, 2].filter((v) => views.includes(v));
     if (!order.length) return Promise.resolve(null);
@@ -281,13 +305,17 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
     tile.width = tile.height = TILE;
     const tctx = tile.getContext("2d");
     const opts = getCoords(), p = mm(), have = new Map(slices().map((s) => [s.axCorSag, s]));
+    const marks = tags ? getMarks() : [];
     for (const [n, v] of order.entries()) {
       const s = have.get(v);
       if (!s) continue;
       const [l, t, w, h] = s.leftTopWidthHeight, k = Math.min(TILE / w, TILE / h);
+      const ox = (TILE - w * k) / 2, oy = (TILE - h * k) / 2;
       tctx.fillStyle = "#000"; tctx.fillRect(0, 0, TILE, TILE);
-      tctx.drawImage(src, l, t, w, h, (TILE - w * k) / 2, (TILE - h * k) / 2, w * k, h * k);
+      tctx.drawImage(src, l, t, w, h, ox, oy, w * k, h * k);
       if (background !== "black") knockOut(tile);
+      const mine = marks.filter((m) => m.view === v);
+      if (mine.length) drawMarks(tctx, mine, (m) => [ox + (m.x - l) * k, oy + (m.y - t) * k], bg.ink);
       ctx.drawImage(tile, n * TILE, 0);
     }
     ctx.font = `${Math.round(TILE * 0.035)}px -apple-system, "Segoe UI", sans-serif`;

@@ -2,6 +2,7 @@
 //
 //  - Views: which of the axial, coronal and sagittal slices go in the image (side by side,
 //    in that order). In the 3D tab the image is the 3D render, so there is no choice.
+//  - Tags: draw the tags shown on the slices (dot and name) into the image.
 //  - Background: black, white or transparent (the black around the brain is replaced;
 //    text and colour-bar labels turn black on white or transparent).
 //  - Name: a suggested name from the stat map, the point and the views; type your own.
@@ -13,7 +14,7 @@
 const VIEWS = [{ v: 0, name: "Axial" }, { v: 1, name: "Coronal" }, { v: 2, name: "Sagittal" }];
 const BGS = [["black", "Black"], ["white", "White"], ["transparent", "Transparent"]];
 
-export function createShotDialog({ button, capture, is3D, suggestName, store, esc, setHint }) {
+export function createShotDialog({ button, capture, is3D, tagMarks = () => [], suggestName, store, esc, setHint }) {
   const dlg = document.createElement("dialog");
   dlg.id = "shotDlg";
   dlg.setAttribute("aria-labelledby", "shotTitle");
@@ -26,6 +27,9 @@ export function createShotDialog({ button, capture, is3D, suggestName, store, es
           <fieldset class="shot-views"><legend>Views</legend>
             ${VIEWS.map(({ v, name }) => `<label><input type="checkbox" value="${v}"> ${name}</label>`).join("")}
             <span class="shot-3d muted" hidden>The 3D view, as shown</span>
+          </fieldset>
+          <fieldset class="shot-tags"><legend>Tags</legend>
+            <label><input type="checkbox" name="tags"> Include tags <span class="shot-tagn muted"></span></label>
           </fieldset>
           <fieldset><legend>Background</legend>
             <div class="seg shot-bg" role="group" aria-label="Background">
@@ -58,16 +62,22 @@ export function createShotDialog({ button, capture, is3D, suggestName, store, es
   const boxes = [...dlg.querySelectorAll(".shot-views input")];
   form.elements.reveal.checked = store.get("shotReveal", true);
 
+  form.elements.tags.checked = store.get("shotTags", true);
   let views = store.get("shotViews", [0, 1, 2]), background = store.get("shotBg", "black");
   let defaultFolder = "", named = false, url = null, blob = null, pickAt = null, busy = false;
 
-  const opts = () => ({ views: [...views], background });
+  const opts = () => ({ views: [...views], background, tags: form.elements.tags.checked });
   const say = (html, bad = false) => { msg.innerHTML = html; msg.classList.toggle("bad", bad); };
 
   function syncControls() {
     const three = is3D();
     boxes.forEach((b) => { b.checked = views.includes(+b.value); b.parentElement.hidden = three; });
     dlg.querySelector(".shot-3d").hidden = !three;
+    // Tags: slices only; the count is of tags on the slices as they are now.
+    const n = three ? 0 : new Set(tagMarks().filter((m) => views.includes(m.view)).map((m) => m.id)).size;
+    dlg.querySelector(".shot-tags").hidden = three;
+    form.elements.tags.disabled = !n;
+    dlg.querySelector(".shot-tagn").textContent = n ? `(${n} tag${n > 1 ? "s" : ""} on these slices)` : "(none on these slices)";
     dlg.querySelectorAll("[data-bg]").forEach((b) => b.classList.toggle("on", b.dataset.bg === background));
     img.parentElement.classList.toggle("checker", background === "transparent");
   }
@@ -154,6 +164,7 @@ export function createShotDialog({ button, capture, is3D, suggestName, store, es
       store.set("shotFolder", d.folder);
       store.set("shotViews", views);
       store.set("shotBg", background);
+      store.set("shotTags", form.elements.tags.checked);
       store.set("shotReveal", form.elements.reveal.checked);
       dlg.close();
       setHint(`Saved ${d.file} in ${d.folder}`);
@@ -187,9 +198,11 @@ export function createShotDialog({ button, capture, is3D, suggestName, store, es
   });
   dlg.querySelector(".shot-views").addEventListener("change", () => {
     views = boxes.filter((b) => b.checked).map((b) => +b.value);
+    syncControls();
     if (!named) nameIn.value = suggested();
     preview();
   });
+  form.elements.tags.addEventListener("change", preview);
   nameIn.addEventListener("input", () => { named = true; });
   folderIn.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !pick.hidden) { e.preventDefault(); browse(folderIn.value.trim()); }

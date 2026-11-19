@@ -3,6 +3,12 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.26.0 (2026-11-19)
+- **Save image with tags**: the Save image dialog has an **Include tags** option (on by
+  default) that draws the tags on the chosen slices into the image: the dot and the name,
+  outlined so they read on black, white or transparent backgrounds. Names near a slice's
+  right edge go left of the dot. The dialog shows how many tags are on the chosen slices.
+
 ## 0.25.2 (2026-11-18)
 - **Find peak shortcuts**: press **P** to search around the crosshair (ignored while
   typing, in a dialog or in the quiz), or **right-click** a point on a slice to search

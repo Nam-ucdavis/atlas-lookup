@@ -222,12 +222,12 @@ export function createTags({ store, esc, host, bar, wrap, getNv, getMap, mapName
   const marks = document.createElement("div");
   marks.className = "tag-marks lookup-only";
   wrap.append(marks);
-  function drawMarks() {
+  // The tags drawn on the slices now: canvas pixel position, the slice (axCorSag) and label.
+  function markList() {
     const nv = getNv();
-    if (!nv?.volumes?.length || !nv.screenSlices) { marks.innerHTML = ""; return; }
-    const c = nv.canvas, scale = c.width / (c.clientWidth || c.width);
+    if (!nv?.volumes?.length || !nv.screenSlices) return [];
     const at = Array.from(nv.frac2mm(nv.scene.crosshairPos)).slice(0, 3);
-    let html = "";
+    const out = [];
     for (const s of nv.screenSlices) {
       if (!(s.axCorSag in AXIS)) continue;
       const ax = AXIS[s.axCorSag], [l, t, w, h] = s.leftTopWidthHeight;
@@ -237,9 +237,15 @@ export function createTags({ store, esc, host, bar, wrap, getNv, getMap, mapName
         if (!p) continue;
         const [x, y] = p.pos;
         if (x < l || x > l + w || y < t || y > t + h) continue;
-        html += `<span class="tag-mark${tag.mine ? "" : " other"}" style="left:${x / scale}px;top:${y / scale}px"><i></i>${esc(tag.label)}</span>`;
+        out.push({ id: tag.id, view: s.axCorSag, x, y, label: tag.label, mine: !!tag.mine });
       }
     }
+    return out;
+  }
+  function drawMarks() {
+    const nv = getNv(), list = markList();
+    const c = nv?.canvas, scale = c ? c.width / (c.clientWidth || c.width) : 1;
+    const html = list.map((m) => `<span class="tag-mark${m.mine ? "" : " other"}" style="left:${m.x / scale}px;top:${m.y / scale}px"><i></i>${esc(m.label)}</span>`).join("");
     if (marks.innerHTML !== html) marks.innerHTML = html;
   }
   const nv = getNv();
@@ -255,6 +261,8 @@ export function createTags({ store, esc, host, bar, wrap, getNv, getMap, mapName
   }
 
   return {
+    /** Tags drawn on the slices now (for image captures): {id, view, x, y, label, mine}, canvas px. */
+    marks: markList,
     /** The point at the crosshair (after each lookup). */
     setPoint(mm) { point = mm.slice(0, 3).map(Number); renderBar(); syncMove(); },
     /** The active stat map changed (getMap() has the new one). */

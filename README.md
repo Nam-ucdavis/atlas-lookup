@@ -113,6 +113,10 @@ The **camera** button opens **Save image**, with a preview of the PNG as it will
 
 - **Views:** tick any of Axial, Coronal and Sagittal; they are placed side by side in that
   order, 800 px each, with the colour bars underneath (all three: always 2400 × 960 px).
+- **Include tags:** draws the tags shown on the slices into the image, as on screen
+  (a yellow dot and the name; grey for other maps' tags when those are shown). The
+  dialog says how many tags are on the chosen slices; with none it is greyed out. Not
+  in the 3D tab.
 - **Background:** black, white or transparent. On white or transparent the black around
   the brain is removed (with its soft edge, so there is no dark outline) and the
   coordinate and colour-bar text turns black.
