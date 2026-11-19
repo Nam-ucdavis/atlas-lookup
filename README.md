@@ -397,7 +397,12 @@ page switches to one column with the viewer on top.
   then **Go to peak**: the crosshair moves to the strongest voxel of the active map
   there: the highest T for **+ only**, the lowest for **− only**, the largest |T| for
   **± both**. Any T counts, not only voxels above the threshold. The message gives the T,
-  p and distance; **Back** returns to where you were.
+  p and distance; **Back** returns to where you were. Shortcuts: press **P** to search
+  around the crosshair (not while typing in a box), or **right-click** a point on a
+  slice to search around that point; with a slice option chosen, a right-click searches
+  the slice you clicked in.
+- **Right-drag** on the slices changes the template's brightness and contrast (a NiiVue
+  default); a right-click without dragging is the peak search above.
 - **Clusters:** clusters use 18-connectivity, as in SPM, with a minimum size
   **k**. The table lists each peak with Harvard-Oxford, Juelich and Brodmann
   labels (the Oxford areas once added with `add-cbp`, else Talairach); click a row to

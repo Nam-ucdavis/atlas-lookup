@@ -3,6 +3,12 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.25.2 (2026-11-18)
+- **Find peak shortcuts**: press **P** to search around the crosshair (ignored while
+  typing, in a dialog or in the quiz), or **right-click** a point on a slice to search
+  around that point (in a slice mode, the clicked slice). Right-drag still sets the
+  template's brightness/contrast; **Back** returns to where the crosshair was.
+
 ## 0.25.1 (2026-11-18)
 - **Find peak**: under the coordinate, a searchlight around the crosshair on the active
   stat map. Choose a radius and search in 3D (a sphere) or in the axial, coronal or

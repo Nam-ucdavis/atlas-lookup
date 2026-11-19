@@ -775,7 +775,7 @@
         <option value="coronal">in this coronal slice</option>
         <option value="sagittal">in this sagittal slice</option>
       </select>
-      <button type="button" class="btn small" id="pkGo" title="Move the crosshair to the strongest voxel of the active stat map near it (uses the map's +/− setting)">Go to peak</button>
+      <button type="button" class="btn small" id="pkGo" title="Move the crosshair to the strongest voxel of the active stat map near it (uses the map's +/− setting). Shortcut: P. Right-click a slice to search around that point.">Go to peak</button>
       <span id="pkMsg" class="hint"></span>
     </div>
     <div id="tagBar" class="tag-bar lookup-only"></div>
@@ -1574,25 +1574,61 @@ function initPeakFinder() {
   $("pkRadius").addEventListener("change", () => store.set("pkRadius", +$("pkRadius").value || 6));
   $("pkWithin").addEventListener("change", () => store.set("pkWithin", $("pkWithin").value));
   $("pkRadius").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); findPeak(); } });
-  $("pkGo").addEventListener("click", findPeak);
+  $("pkGo").addEventListener("click", () => findPeak());
+  // P: find the peak around the crosshair (not while typing, in a dialog or in the quiz).
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "p" && e.key !== "P") return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+    const t = e.target;
+    if (t.closest?.("input, textarea, select, [contenteditable]") || document.querySelector("dialog[open]")) return;
+    if (quizApi?.active || $("peakBar").hidden) return;
+    e.preventDefault();
+    findPeak();
+  });
+  // Right-click on a slice: find the peak around the clicked point. In a slice mode the
+  // search uses the slice that was clicked. Only a click counts: right-drag still sets
+  // the template's brightness/contrast.
+  const canvas = nv.gl.canvas;
+  let down = null;
+  canvas.addEventListener("mousedown", (e) => { if (e.button === 2) down = [e.clientX, e.clientY]; });
+  canvas.addEventListener("mouseup", (e) => {
+    if (e.button !== 2 || !down) return;
+    const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]);
+    down = null;
+    if (moved > 4 || quizApi?.active || !state.stat?.map) return;
+    const r = canvas.getBoundingClientRect(), dpr = nv.uiData.dpr || window.devicePixelRatio || 1;
+    const px = (e.clientX - r.left) * dpr, py = (e.clientY - r.top) * dpr;
+    const tile = nv.screenSlices?.[nv.tileIndex(px, py)];
+    if (!tile || ![0, 1, 2].includes(tile.axCorSag)) return;
+    const frac = nv.canvasPos2frac([px, py]);
+    if (!frac || frac[0] < 0) return;
+    const mm = Array.from(nv.frac2mm(frac).slice(0, 3), Math.round);
+    const within = $("pkWithin").value === "sphere" ? "sphere" : ["axial", "coronal", "sagittal"][tile.axCorSag];
+    findPeak({ from: mm, within });
+  });
   $("pkMsg").addEventListener("click", (e) => {
     if (e.target.dataset.act === "back" && peakJump) { const to = peakJump.from; peakJump = null; goToMM(to); }
   });
 }
-async function findPeak() {
-  const e = state.stat, from = state.last?.mm;
+// from: the search centre (default: the crosshair); within: the shape (default: the menu).
+// "Back" returns to where the crosshair was before, even when the search was centred on a
+// right-clicked point.
+async function findPeak({ from: centre, within: shape } = {}) {
+  const e = state.stat, here = state.last?.mm, from = centre || here;
   if (!e?.map || !from) return;
-  const radius = Math.min(30, Math.max(1, +$("pkRadius").value || 6)), within = $("pkWithin").value;
+  const radius = Math.min(30, Math.max(1, +$("pkRadius").value || 6)), within = shape || $("pkWithin").value;
   const q = new URLSearchParams({ map: e.map, x: from[0], y: from[1], z: from[2], radius, within, sign: e.sign || "both" });
   const r = await fetch("/api/results/peak?" + q).catch(() => null);
   const d = r?.ok ? await r.json() : null;
-  const where = within === "sphere" ? `within ${radius} mm` : `within ${radius} mm in this ${within} slice`;
+  const around = centre ? ` of (${from.join(", ")})` : "";
+  const where = within === "sphere" ? `within ${radius} mm${around}` : `within ${radius} mm${around} in this ${within} slice`;
   const want = e.sign === "pos" ? "positive " : e.sign === "neg" ? "negative " : "";
   if (!d) { $("pkMsg").textContent = "Could not search the map."; return; }
   if (!d.found) { $("pkMsg").textContent = `No ${want}values ${where}.`; return; }
   const what = `T = ${d.t.toFixed(2)}${d.p != null ? ` (p = ${fmtP(d.p)} unc.)` : ""}`;
-  if (d.distance < 0.6) { $("pkMsg").textContent = `Already at the peak ${where}: ${what}.`; return; }
-  peakJump = { from: from.slice(0, 3), to: d.mm };
+  const back = (here || from).slice(0, 3);
+  if (samePoint(back, d.mm)) { $("pkMsg").textContent = `Already at the peak ${where}: ${what}.`; return; }
+  peakJump = { from: back, to: d.mm };
   await goToMM(d.mm);
   $("pkMsg").innerHTML = `Peak ${where}: ${what}, ${d.distance} mm away. <button type="button" class="linkish" data-act="back">Back</button>`;
 }
