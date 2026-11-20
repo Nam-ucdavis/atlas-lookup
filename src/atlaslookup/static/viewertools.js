@@ -236,7 +236,7 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
     return n ? BAND * Math.ceil(n / perRow(width)) : 0;
   }
 
-  function drawBars(ctx, y0, { width = TILE * 3, height = BAND, ink = "#fff" } = {}) {
+  function drawBars(ctx, y0, { width = TILE * 3, height = BAND, ink = "#fff", x0 = 0 } = {}) {
     const list = getLegend();
     if (!list.length || !height) return;
     const per = perRow(width);
@@ -245,7 +245,7 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
     const font = Math.round(Math.min(ch * 0.2, 28));
     ctx.font = `${font}px -apple-system, "Segoe UI", sans-serif`;
     list.forEach((e, n) => {
-      const x = (n % cols) * cw + pad, y = y0 + Math.floor(n / cols) * ch, w = cw - 2 * pad;
+      const x = x0 + (n % cols) * cw + pad, y = y0 + Math.floor(n / cols) * ch, w = cw - 2 * pad;
       const { unit, lo, hi } = barEnds(e);
       let name = `${e.name} (${e.sign})`;
       while (name.length > 4 && ctx.measureText(name).width > w) name = name.slice(0, -2) + "…";
@@ -291,14 +291,21 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
     }
   }
 
-  function capture({ views = [0, 1, 2], background = "black", tags = false, bars = true } = {}) {
+  // views: in the order to draw them. layout: "row" (side by side), "column" (stacked)
+  // or "grid" (two per row). The colour bars go underneath, or in the grid's empty cell.
+  function capture({ views = [0, 1, 2], background = "black", tags = false, bars = true, layout = "row" } = {}) {
     const bg = BACKGROUNDS[background] || BACKGROUNDS.black;
-    const order = [0, 1, 2].filter((v) => views.includes(v));
+    const order = [...new Set(views)].filter((v) => [0, 1, 2].includes(v));
     if (!order.length) return Promise.resolve(null);
+    const cols = layout === "column" ? 1 : layout === "grid" ? Math.min(2, order.length) : order.length;
+    const rows = Math.ceil(order.length / cols);
+    const at = (n) => [(n % cols) * TILE, Math.floor(n / cols) * TILE];  // a view's top-left
     nv.drawScene();
     const src = nv.canvas, out = document.createElement("canvas");
-    const width = TILE * order.length, band = bars ? bandHeight(width) : 0;
-    out.width = width; out.height = TILE + band;
+    // A grid with an odd number of views has an empty last cell: the bars go there.
+    const inCell = bars && cols > 1 && order.length % cols !== 0 && getLegend().length > 0;
+    const width = TILE * cols, band = bars && !inCell ? bandHeight(width) : 0, top = TILE * rows;
+    out.width = width; out.height = top + band;
     const ctx = out.getContext("2d");
     if (bg.fill) { ctx.fillStyle = bg.fill; ctx.fillRect(0, 0, out.width, out.height); }
     const tile = document.createElement("canvas");
@@ -316,12 +323,19 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
       if (background !== "black") knockOut(tile);
       const mine = marks.filter((m) => m.view === v);
       if (mine.length) drawMarks(tctx, mine, (m) => [ox + (m.x - l) * k, oy + (m.y - t) * k], bg.ink);
-      ctx.drawImage(tile, n * TILE, 0);
+      ctx.drawImage(tile, ...at(n));
     }
     ctx.font = `${Math.round(TILE * 0.035)}px -apple-system, "Segoe UI", sans-serif`;
     ctx.fillStyle = bg.ink; ctx.textBaseline = "bottom";
-    for (const [n, v] of order.entries()) ctx.fillText(sliceLabel(v, p, opts), n * TILE + TILE * 0.03, TILE * 0.97);
-    drawBars(ctx, TILE, { width, height: band, ink: bg.ink });
+    for (const [n, v] of order.entries()) {
+      const [x, y] = at(n);
+      ctx.fillText(sliceLabel(v, p, opts), x + TILE * 0.03, y + TILE * 0.97);
+    }
+    if (inCell) {
+      // Centred in the cell, a band per bar (as tall as a full-width band at most).
+      const n = getLegend().length, h = Math.min(TILE, BAND * 1.6 * n), [x, y] = at(order.length);
+      drawBars(ctx, y + (TILE - h) / 2, { width: TILE, height: h, ink: bg.ink, x0: x });
+    } else drawBars(ctx, top, { width, height: band, ink: bg.ink });
     return new Promise((resolve) => out.toBlob(resolve, "image/png"));
   }
 

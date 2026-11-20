@@ -3,6 +3,12 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.26.2 (2026-11-19)
+- **Save image layout**: put the views in any order (drag them in the dialog, or Alt+arrow
+  on a view's checkbox) and choose a **Layout**: in a row, in a column, or a grid of two
+  per row (with three views, the colour bars fill the grid's empty cell). Remembered with
+  the other choices; the suggested name notes a changed order or layout.
+
 ## 0.26.1 (2026-11-19)
 - **Save image**: a **Colour bars** option (under Include, next to Tags) to leave the
   colour bars out of the image, in the slices and the 3D tab. Remembered with the other

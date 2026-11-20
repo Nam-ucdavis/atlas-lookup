@@ -400,6 +400,14 @@
   .shot-pick .shot-at { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .shot-pick .fp-list { min-height: 0; max-height: 180px; }
   .shot-check { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+  .shot-order { display: flex; flex-wrap: wrap; gap: 6px; }
+  .shot-order[hidden], .shot-hint[hidden], .shot-layout[hidden] { display: none; }
+  .shot-chip { display: flex; align-items: center; gap: 4px; padding: 3px 9px 3px 5px; border: 1px solid var(--line);
+    border-radius: 7px; cursor: grab; user-select: none; font-size: 13px; }
+  .shot-chip .grip { color: var(--muted); font-size: 11px; letter-spacing: -2px; margin-right: 2px; }
+  .shot-chip.dragging { opacity: .45; }
+  .shot-chip.over { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .shot-hint { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 6px; opacity: .8; }
   .shot-msg { font-size: 13px; } .shot-msg.bad { color: #c0392b; }
   @media (max-width: 760px) { .shot-body { grid-template-columns: 1fr; } }
   .prog-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }

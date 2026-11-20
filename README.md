@@ -111,8 +111,12 @@ colour range; **auto** resets the maximum to the strongest value in the map.
 
 The **camera** button opens **Save image**, with a preview of the PNG as it will be saved:
 
-- **Views:** tick any of Axial, Coronal and Sagittal; they are placed side by side in that
-  order, 800 px each, with the colour bars underneath (all three: always 2400 × 960 px).
+- **Views:** tick any of Axial, Coronal and Sagittal, 800 px each. They are drawn in the
+  order shown: drag a view to move it (or Alt + ←/→ on its checkbox).
+- **Layout:** **In a row** (side by side, colour bars underneath; all three: always
+  2400 × 960 px), **In a column** (stacked, bars underneath) or **Grid** (two per row;
+  with three views the colour bars fill the empty fourth cell: 1600 × 1600 px). The
+  suggested name notes a changed order or layout.
 - **Include:**
   - **Tags:** draws the tags shown on the slices into the image, as on screen (a yellow
     dot and the name; grey for other maps' tags when those are shown). The dialog says
