@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.26.1 (2026-11-19)
+- **Save image**: a **Colour bars** option (under Include, next to Tags) to leave the
+  colour bars out of the image, in the slices and the 3D tab. Remembered with the other
+  choices.
+
 ## 0.26.0 (2026-11-19)
 - **Save image with tags**: the Save image dialog has an **Include tags** option (on by
   default) that draws the tags on the chosen slices into the image: the dot and the name,

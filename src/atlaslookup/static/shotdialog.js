@@ -2,7 +2,7 @@
 //
 //  - Views: which of the axial, coronal and sagittal slices go in the image (side by side,
 //    in that order). In the 3D tab the image is the 3D render, so there is no choice.
-//  - Tags: draw the tags shown on the slices (dot and name) into the image.
+//  - Include: the tags shown on the slices (dot and name), and the colour bars.
 //  - Background: black, white or transparent (the black around the brain is replaced;
 //    text and colour-bar labels turn black on white or transparent).
 //  - Name: a suggested name from the stat map, the point and the views; type your own.
@@ -28,8 +28,9 @@ export function createShotDialog({ button, capture, is3D, tagMarks = () => [], s
             ${VIEWS.map(({ v, name }) => `<label><input type="checkbox" value="${v}"> ${name}</label>`).join("")}
             <span class="shot-3d muted" hidden>The 3D view, as shown</span>
           </fieldset>
-          <fieldset class="shot-tags"><legend>Tags</legend>
-            <label><input type="checkbox" name="tags"> Include tags <span class="shot-tagn muted"></span></label>
+          <fieldset class="shot-incl"><legend>Include</legend>
+            <label class="shot-tags"><input type="checkbox" name="tags"> Tags <span class="shot-tagn muted"></span></label>
+            <label><input type="checkbox" name="bars"> Colour bars</label>
           </fieldset>
           <fieldset><legend>Background</legend>
             <div class="seg shot-bg" role="group" aria-label="Background">
@@ -63,10 +64,11 @@ export function createShotDialog({ button, capture, is3D, tagMarks = () => [], s
   form.elements.reveal.checked = store.get("shotReveal", true);
 
   form.elements.tags.checked = store.get("shotTags", true);
+  form.elements.bars.checked = store.get("shotBars", true);
   let views = store.get("shotViews", [0, 1, 2]), background = store.get("shotBg", "black");
   let defaultFolder = "", named = false, url = null, blob = null, pickAt = null, busy = false;
 
-  const opts = () => ({ views: [...views], background, tags: form.elements.tags.checked });
+  const opts = () => ({ views: [...views], background, tags: form.elements.tags.checked, bars: form.elements.bars.checked });
   const say = (html, bad = false) => { msg.innerHTML = html; msg.classList.toggle("bad", bad); };
 
   function syncControls() {
@@ -165,6 +167,7 @@ export function createShotDialog({ button, capture, is3D, tagMarks = () => [], s
       store.set("shotViews", views);
       store.set("shotBg", background);
       store.set("shotTags", form.elements.tags.checked);
+      store.set("shotBars", form.elements.bars.checked);
       store.set("shotReveal", form.elements.reveal.checked);
       dlg.close();
       setHint(`Saved ${d.file} in ${d.folder}`);
@@ -203,6 +206,7 @@ export function createShotDialog({ button, capture, is3D, tagMarks = () => [], s
     preview();
   });
   form.elements.tags.addEventListener("change", preview);
+  form.elements.bars.addEventListener("change", preview);
   nameIn.addEventListener("input", () => { named = true; });
   folderIn.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !pick.hidden) { e.preventDefault(); browse(folderIn.value.trim()); }

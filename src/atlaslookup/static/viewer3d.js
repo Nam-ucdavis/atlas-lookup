@@ -582,15 +582,16 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     onPick?.(Array.from(infl.pial.slice(3 * index, 3 * index + 3), Math.round));
   });
 
-  // The camera button while the 3D tab is open: the render plus the colour bars, the same
+  // The camera button while the 3D tab is open: the render plus the colour bars (unless
+  // bars is false), the same
   // size as a three-slice capture. Copy right after a redraw (the WebGL canvas is not
   // preserved). A white or transparent background replaces the black around the brain.
-  function capture(drawBars, { background = "black" } = {}) {
+  function capture(drawBars, { background = "black", bars = true } = {}) {
     const bg = BACKGROUNDS[background] || BACKGROUNDS.black;
     // must be synchronous: the WebGL canvas is copied right after
     if (focused) focus.redraw(); else drawNow();
     const src = focused ? focus.canvas : nv3.canvas, out = document.createElement("canvas");
-    out.width = W; out.height = H + BAND;
+    out.width = W; out.height = H + (bars ? BAND : 0);
     const ctx = out.getContext("2d");
     const pic = document.createElement("canvas");
     pic.width = W; pic.height = H;
@@ -601,7 +602,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     if (background !== "black") knockOut(pic);
     if (bg.fill) { ctx.fillStyle = bg.fill; ctx.fillRect(0, 0, out.width, out.height); }
     ctx.drawImage(pic, 0, 0);
-    drawBars(ctx, H, { width: W, height: BAND, ink: bg.ink });
+    if (bars) drawBars(ctx, H, { width: W, height: BAND, ink: bg.ink });
     return new Promise((resolve) => out.toBlob(resolve, "image/png"));
   }
 

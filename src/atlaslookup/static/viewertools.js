@@ -291,13 +291,13 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
     }
   }
 
-  function capture({ views = [0, 1, 2], background = "black", tags = false } = {}) {
+  function capture({ views = [0, 1, 2], background = "black", tags = false, bars = true } = {}) {
     const bg = BACKGROUNDS[background] || BACKGROUNDS.black;
     const order = [0, 1, 2].filter((v) => views.includes(v));
     if (!order.length) return Promise.resolve(null);
     nv.drawScene();
     const src = nv.canvas, out = document.createElement("canvas");
-    const width = TILE * order.length, band = bandHeight(width);
+    const width = TILE * order.length, band = bars ? bandHeight(width) : 0;
     out.width = width; out.height = TILE + band;
     const ctx = out.getContext("2d");
     if (bg.fill) { ctx.fillStyle = bg.fill; ctx.fillRect(0, 0, out.width, out.height); }
