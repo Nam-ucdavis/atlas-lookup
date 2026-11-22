@@ -24,6 +24,10 @@ MESH_FILE = DATA_DIR / "templates" / "fsaverage5_pial.gii"
 # Inflated brain (3D view): fsaverage6 pial surface + where each vertex goes when inflated.
 INFLATED_MESH_FILE = DATA_DIR / "templates" / "fsaverage6_pial.gii"
 INFLATED_MORPH_FILE = DATA_DIR / "templates" / "fsaverage6_inflated.bin"
+# fsLR 32k surfaces for CIFTI maps (3D view), registered from the user's own files with
+# `atlaslookup add-fslr`: midthickness of both hemispheres + inflated positions (same format).
+FSLR_MESH_FILE = DATA_DIR / "templates" / "fslr_midthickness.gii"
+FSLR_MORPH_FILE = DATA_DIR / "templates" / "fslr_inflated.bin"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 TAGS_FILE = DATA_DIR / "tags.json"
 IMAGE_DIR = DATA_DIR / "image"

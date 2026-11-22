@@ -11,6 +11,8 @@
   add-grid ID IMAGE               register a voxel grid from any NIfTI on that grid
   add-cbp ZIP [ZIP ...]           Brodmann-style areas from the Oxford connectivity-based
                                   parcellations (Neubert, Sallet, Mars zips as downloaded)
+  add-fslr FOLDER                 your fsLR 32k midthickness + inflated surfaces, so CIFTI
+                                  maps (.dscalar.nii) show their cortex in the 3D view
   set-results DIR                 where your spmT maps live (saved in your data folder)
   maps                            list the spmT maps in your results folder
   clusters MAP [--threshold 3]    labelled cluster/peak table for one map (--csv for a file)
@@ -97,6 +99,10 @@ def main(argv=None):
 
     cb = sub.add_parser("add-cbp", help="Brodmann-style areas from the Oxford connectivity-based parcellations")
     cb.add_argument("paths", nargs="+", help="the downloaded zips (or their unzipped folders), all at once")
+
+    fl = sub.add_parser("add-fslr", help="register your fsLR 32k surfaces, for CIFTI maps in the 3D view")
+    fl.add_argument("folder", help="folder with the midthickness and inflated .surf.gii of both hemispheres "
+                                   "(e.g. TemplateFlow's tpl-fsLR_den-32k_hemi-{L,R}_{midthickness,inflated})")
 
     args = p.parse_args(argv)
     if args.cmd is None:  # plain `atlaslookup`: start and open the browser
@@ -205,6 +211,17 @@ def main(argv=None):
                            label_map=args.label_map, prob_map=args.prob_map,
                            overwrite=args.overwrite, **fields)
         print(f"Registered {args.id} -> {folder}")
+
+    elif args.cmd == "add-fslr":
+        from .cifti import add_fslr
+        try:
+            r = add_fslr(args.folder)
+        except (ValueError, OSError) as e:
+            sys.exit(f"add-fslr: {e}")
+        print(f"Registered fsLR surfaces: {r['left']} + {r['right']} vertices.")
+        for k, name in r["files"].items():
+            print(f"  {k}: {name}")
+        print("CIFTI maps (.dscalar.nii) in your results folder now show their cortex on the inflated brain.")
 
     elif args.cmd == "add-cbp":
         from .cbp import build

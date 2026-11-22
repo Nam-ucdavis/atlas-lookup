@@ -1211,6 +1211,8 @@ async function rebuildOverlays() {
       ...statDisplay(e), opacity: e.opacity,
     });
     if (superseded(vol)) return;
+    // A CIFTI map: the slices show its voxels; the 3D inflated brain paints its cortex.
+    if (state.statMaps?.find((m) => m.id === e.map)?.cifti) vol.cifti = e.map;
     zeroNaN(vol);  // SPM's NaN outside the mask would otherwise be painted in full colour
     // k applies to the picture too, not only to the cluster table.
     dropSmallClusters(vol.img, vol.hdr.dims.slice(1, 4), e.threshold, e.sign, e.k, vol.hdr.scl_slope || 1, vol.hdr.scl_inter || 0);
@@ -1505,7 +1507,7 @@ function renderPeaks(d) {
     <td class="num">(${c.peak_mm.map((v) => Math.round(v)).join(", ")})</td>
     ${cols.map((a) => `<td>${esc(c.labels[a.id] || "—")}</td>`).join("")}</tr>`).join("");
   $("peaks").innerHTML = `<div class="head"><span class="section-title" style="margin:0">Clusters</span>
-      <span>${d.n_clusters} at T ${d.sign === "neg" ? "≤ −" : d.sign === "pos" ? "≥ " : "≥ ±"}${d.threshold}, k ≥ ${d.min_voxels}${d.n_clusters > d.clusters.length ? ` (top ${d.clusters.length} shown)` : ""}</span>
+      <span>${d.n_clusters} at T ${d.sign === "neg" ? "≤ −" : d.sign === "pos" ? "≥ " : "≥ ±"}${d.threshold}, k ≥ ${d.min_voxels}${d.n_clusters > d.clusters.length ? ` (top ${d.clusters.length} shown)` : ""}${d.voxels_only ? " · CIFTI: voxels only (subcortex, cerebellum); the cortex is on the 3D inflated brain" : ""}</span>
       <span class="hint" style="margin:0">${esc(d.contrast)} · click a row to go to its peak · p values are uncorrected</span></div>` +
     (d.clusters.length ? `<table><thead><tr><th>#</th><th></th><th>Size</th><th>Peak T</th><th>p</th><th>MNI peak</th>
       ${cols.map((a) => `<th title="${esc(a.name)}">${esc(a.role)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>`
@@ -1646,8 +1648,14 @@ async function findPeak({ from: centre, within: shape } = {}) {
 function render({ coordinate: c, results, stat }) {
   const [x, y, z] = c.mm;
   const g = state.grids.find((g) => g.id === c.grid);
+  // A CIFTI map's -log10 p maps are labelled as such (not T); a point near the cortex
+  // reads the nearest vertex of the fsLR midthickness (the cortex has no voxels).
+  const what = /log10/i.test(state.statMaps?.find((m) => m.id === stat?.map)?.contrast || "") ? "−log10 p" : "T";
+  const where = stat?.vertex
+    ? `the nearest cortical vertex (fsLR vertex ${stat.vertex.index}, ${stat.vertex.distance} mm away on the midthickness surface)`
+    : `voxel (${stat?.voxel?.join(", ")}), 1-based`;
   const statHtml = stat?.in_bounds && stat.t != null
-    ? `<span class="stat ${stat.t >= 0 ? "pos" : "neg"}" title="Value in the selected stat map at voxel (${stat.voxel.join(", ")}), 1-based">T = ${stat.t.toFixed(2)}${stat.p != null ? ` · p = ${fmtP(stat.p)} unc.` : ""}</span>`
+    ? `<span class="stat ${stat.t >= 0 ? "pos" : "neg"}" title="Value in the selected stat map at ${where}">${what} = ${stat.t.toFixed(2)}${stat.p != null ? ` · p = ${fmtP(stat.p)} unc.` : ""}${stat.vertex ? " · cortex" : ""}</span>`
     : stat ? `<span class="sub">outside the stat map</span>` : "";
   highlightCluster(stat?.cluster);
   tagsApi?.setPoint(c.mm);

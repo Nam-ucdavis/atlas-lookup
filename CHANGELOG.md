@@ -3,6 +3,18 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.27.0 (2026-11-21)
+- **CIFTI maps**: `.dscalar.nii` files in the results folder are read directly, each map
+  listed on its own (`file · map k`). Their voxels (subcortex, cerebellum) show on the
+  slices on the file's own grid, unresampled; clusters use the voxels. Their cortex is
+  painted, vertex by vertex, on the 3D **Inflated** brain, which switches to fsLR 32k
+  while a CIFTI map is open. A point near the cortex reads the nearest vertex, and Find
+  peak searches vertices too. −log10 p maps are labelled as such; a df in the map's name
+  gives p values. Nothing is converted or written.
+- **`atlaslookup add-fslr FOLDER`** registers your own fsLR 32k midthickness and inflated
+  surfaces (not bundled or downloaded: their licence is not stated). New routes
+  `/api/results/surface/{id}`, `/api/fslr_mesh.gii`, `/api/fslr_morph.bin`.
+
 ## 0.26.2 (2026-11-19)
 - **Save image layout**: put the views in any order (drag them in the dialog, or Alt+arrow
   on a view's checkbox) and choose a **Layout**: in a row, in a column, or a grid of two

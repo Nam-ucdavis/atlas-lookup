@@ -15,6 +15,10 @@
 //            the vertex is now. Clicking it looks up the vertex's pial position; the slice
 //            crosshair is shown at the nearest vertex. Tracts and region shapes are hidden
 //            (they have no place on an inflated surface).
+//            With a CIFTI map shown (and fsLR surfaces registered with `add-fslr`), the
+//            inflated brain is fsLR 32k instead (midthickness to inflated), and the map's
+//            cortex is painted from its own vertex values, with no projection. Other
+//            overlays are sampled at the midthickness positions as usual.
 // Projection runs here in the browser, so local overlays still never leave it.
 //
 // Regions chosen in the Regions window are drawn as solid surfaces in their own
@@ -168,8 +172,16 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   // the store held which focus; any of them now means Focus.)
   let focused = !!store.get("view3dFocus", "") && !!focus;
   let nv3 = null, ready = null, mesh = null, normals = null, active = false;
-  // Inflated brain: { mesh, pial, normals, target, shade, nLeft, allTris }, loaded on first use.
-  let infl = null, inflError = null;
+  // Inflated brains, loaded on first use: { mesh, pial, normals, target, shade, nLeft, allTris }.
+  // "fsaverage6" is the usual one; "fslr" (the user's fsLR 32k surfaces) when a CIFTI map
+  // is shown. `infl` is the one in use. (For fsLR, "pial" holds the midthickness.)
+  const INFL_FILES = {
+    fsaverage6: ["/api/inflated_mesh.gii", "/api/inflated_morph.bin"],
+    fslr: ["/api/fslr_mesh.gii", "/api/fslr_morph.bin"],
+  };
+  const inflSets = {}, inflErrors = {};
+  let infl = null, inflError = null, inflKind = "fsaverage6";
+  const surfaceCache = new Map();  // CIFTI map id -> Float32Array per fsLR vertex (0 = none), or a pending promise
   let inflation = store.get("view3dInflation", 100), hemi = store.get("view3dHemi", "both");
   let drawNow = null;  // NiiVue's own, immediate drawScene
   let clones = [];  // [{ src, copy }] in slice-viewer order
@@ -226,24 +238,64 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     return mesh;
   }
 
-  async function ensureInflated() {
-    if (infl || inflError) return infl;
-    const [g, b] = await Promise.all([fetch("/api/inflated_mesh.gii"), fetch("/api/inflated_morph.bin")]);
+  // Each brain loads once, even when several redraws ask for it at the same time.
+  const inflLoading = {};
+  function loadInflated(kind) {
+    if (inflSets[kind] || inflErrors[kind]) return Promise.resolve(inflSets[kind] || null);
+    return (inflLoading[kind] ||= fetchInflated(kind).finally(() => { delete inflLoading[kind]; }));
+  }
+  async function fetchInflated(kind) {
+    const [g, b] = await Promise.all(INFL_FILES[kind].map((u) => fetch(u)));
     if (!g.ok || !b.ok) {
-      inflError = (await (g.ok ? b : g).json().catch(() => ({}))).detail || "Inflated brain unavailable.";
+      inflErrors[kind] = (await (g.ok ? b : g).json().catch(() => ({}))).detail || "Inflated brain unavailable.";
       return null;
     }
-    const m = await NVMesh.readMesh(await g.arrayBuffer(), "inflated.gii", nv3.gl, brainOpacity(), new Uint8Array(MESH_RGBA), true);
+    const m = await NVMesh.readMesh(await g.arrayBuffer(), `${kind}.gii`, nv3.gl, brainOpacity(), new Uint8Array(MESH_RGBA), true);
     const { nLeft, target, shade } = parseMorph(await b.arrayBuffer());
     const pial = Float32Array.from(m.pts);
-    infl = { mesh: m, pial, normals: outwardNormals(pial, m.tris), target, shade, nLeft, allTris: Uint32Array.from(m.tris) };
-    applyHemi(false);
-    applyInflation(false);
+    const set = { kind, mesh: m, pial, normals: outwardNormals(pial, m.tris), target, shade, nLeft, allTris: Uint32Array.from(m.tris) };
+    inflSets[kind] = set;
     m.updateMesh(nv3.gl);
     nv3.addMesh(m);
     nv3.meshes.splice(nv3.meshes.indexOf(m), 1);  // brains first (see ensureMesh)
     nv3.meshes.unshift(m);
+    nv3.setMeshProperty(m.id, "visible", false);
+    return set;
+  }
+  // The CIFTI maps among the overlays (their slice volumes carry .cifti = map id).
+  const ciftiMaps = () => clones.map(({ src }) => src.cifti).filter(Boolean);
+  // Which inflated brain to show: fsLR when a CIFTI map is shown and the surfaces load.
+  async function ensureInflated() {
+    let kind = "fsaverage6";
+    if (ciftiMaps().length && (await loadInflated("fslr"))) kind = "fslr";
+    const set = await loadInflated(kind) || (kind === "fslr" ? null : await loadInflated("fsaverage6"));
+    for (const k of Object.keys(inflSets)) if (inflSets[k] !== set) nv3.setMeshProperty(inflSets[k].mesh.id, "visible", false);
+    if (set !== infl) layersDirty = true;
+    infl = set;
+    inflKind = set?.kind || kind;
+    inflError = set ? null : inflErrors[kind];
+    if (infl) { applyHemi(false); applyInflation(false); infl.mesh.updateMesh(nv3.gl); }
     return infl;
+  }
+  // A CIFTI map's values per fsLR vertex (NaN -> 0, so they are transparent like 0).
+  function surfaceValues(id) {
+    const c = surfaceCache.get(id);
+    if (c instanceof Float32Array) return c;
+    if (!c) {
+      surfaceCache.set(id, fetch(`/api/results/surface/${id.split("/").map(encodeURIComponent).join("/")}`).then(async (r) => {
+        if (!r.ok) {
+          surfaceCache.delete(id);
+          setHint((await r.json().catch(() => ({}))).detail || "Could not read the map's cortex.");
+          return;
+        }
+        const buf = await r.arrayBuffer();
+        const v = Float32Array.from(new Float32Array(buf, 8), (x) => (Number.isFinite(x) ? x : 0));
+        surfaceCache.set(id, v);
+        layersDirty = true;
+        sync();
+      }));
+    }
+    return null;
   }
   // Move every vertex `inflation` % of the way from its pial to its inflated position.
   function applyInflation(redraw = true) {
@@ -279,7 +331,10 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
       if (mesh) nv3.setMeshProperty(mesh.id, "visible", false);
       await ensureInflated();
       if (!infl) { setHint(inflError); }
-      else {
+      else if (ciftiMaps().length && inflKind !== "fslr") {
+        setHint(`This CIFTI map's cortex needs the fsLR surfaces: ${inflErrors.fslr || "they could not be loaded."}`);
+      }
+      if (infl) {
         nv3.setMeshProperty(infl.mesh.id, "visible", true);
         nv3.setMeshShader(infl.mesh.id, MESH_SHADER);
         nv3.setMeshProperty(infl.mesh.id, "opacity", meshOpacity());
@@ -297,7 +352,8 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
       nv3.setMeshProperty(mesh.id, "rgba255", glass ? GLASS_RGBA : MESH_RGBA);
       nv3.setMeshProperty(mesh.id, "opacity", meshOpacity());
     }
-    if (infl && style !== "inflated") nv3.setMeshProperty(infl.mesh.id, "visible", false);
+    if (style !== "inflated") for (const k of Object.keys(inflSets)) nv3.setMeshProperty(inflSets[k].mesh.id, "visible", false);
+    if (style !== "inflated" && ciftiMaps().length) setHint("This CIFTI map shows only its voxels here; its cortex is on the Inflated brain.");
     showShapes();
     layersDirty = true;
     sync(true);
@@ -324,7 +380,8 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   function updateLayers() {
     // The painted surface (pial positions and normals to sample at), if this style has one.
     const surfaces = [mesh && { m: mesh, pts: mesh.pts, normals, on: style === "mesh" },
-      infl && { m: infl.mesh, pts: infl.pial, normals: infl.normals, on: style === "inflated", shade: infl.shade }].filter(Boolean);
+      ...Object.values(inflSets).map((I) => ({ m: I.mesh, pts: I.pial, normals: I.normals, on: style === "inflated" && I === infl,
+        shade: I.shade, fslr: I.kind === "fslr" }))].filter(Boolean);
     for (const S of surfaces) if (!S.on && S.m.layers.length) { S.m.layers = []; S.m.updateMesh(nv3.gl); }
     const S = surfaces.find((x) => x.on);
     if (!S) return;
@@ -335,9 +392,19 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     const sources = clones.map(({ src, copy }) => ({ src, vol: copy, label: !!src.colormapLabel }));
     if (regionVol) sources.push({ src: regionVol, vol: regionVol, label: true });
     if (layersDirty || target.layers.length !== base.length + sources.length) {
-      target.layers = [...base, ...sources.map(({ vol, label }) => ({
-        ...NVMeshLayerDefaults, name: vol.name, frame4D: 0, nFrame4D: 1,
-        values: projectToVertices(samplerOf(vol), S.pts, S.normals, label ? [1, 2] : DEPTHS, label),
+      // A CIFTI map on fsLR: its own vertex values (once fetched); everything else is
+      // projected from its volume. (On other surfaces a CIFTI map shows its voxels only.)
+      const valuesFor = ({ src, vol, label }) => {
+        if (S.fslr && src.cifti) {
+          const v = surfaceValues(src.cifti);
+          if (v && v.length === S.pts.length / 3) return v;
+          if (v) setHint("The CIFTI map's cortex does not match the registered fsLR surfaces.");
+          return new Float32Array(S.pts.length / 3);
+        }
+        return projectToVertices(samplerOf(vol), S.pts, S.normals, label ? [1, 2] : DEPTHS, label);
+      };
+      target.layers = [...base, ...sources.map((x) => ({
+        ...NVMeshLayerDefaults, name: x.vol.name, frame4D: 0, nFrame4D: 1, values: valuesFor(x),
       }))];
       layersDirty = false;
     }
@@ -370,6 +437,12 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
         nv3.addVolume(copy);
       }
       layersDirty = true;
+    }
+    // Inflated: switch between fsaverage6 and fsLR when a CIFTI map comes or goes.
+    const wantFslr = ciftiMaps().length > 0;
+    if (style === "inflated" && infl && wantFslr !== (inflKind === "fslr") && !(wantFslr && inflErrors.fslr)) {
+      applyStyle();  // reloads the right brain, then syncs again
+      return;
     }
     const onMesh = PAINTED.has(style);  // overlays are painted on the surface instead
     for (const { src: v, copy } of clones) {

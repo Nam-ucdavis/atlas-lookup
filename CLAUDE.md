@@ -64,7 +64,13 @@ src/atlaslookup/
   results.py      read-only access to the user's stat maps (any .nii; SPM T header gives df/p): list, value, clusters, cluster_at,
                   peak_near (searchlight: sphere or a disc in one slice plane)
                   (which cluster-table row a point falls in; clusters are cached per map +
-                  threshold/sign/k in _clusters, keyed by file mtime)
+                  threshold/sign/k in _clusters, keyed by file mtime); CIFTI maps have virtual ids
+                  `x.dscalar.nii/map<k>.nii` (source() gives file + index); value/peak_near also reach
+                  cortical vertices via the registered fsLR midthickness
+  cifti.py        CIFTI-2 .dscalar.nii: read() maps x grayordinates; volume() = voxels on the file's own
+                  grid (unresampled); surface() = per fsLR vertex, left first, NaN = none; add_fslr()
+                  registers the USER's fsLR surfaces (never bundle or download them: Conte69, licence
+                  not stated) into DATA_DIR/templates/fslr_*
   server.py       FastAPI routes (docstring lists them all)
   __main__.py     CLI (`atlaslookup ...`)
   version.py      version + git commit badge
@@ -89,7 +95,9 @@ src/atlaslookup/
                       dropSmallClusters() applies k to the displayed stat maps (same clusters as results._clusters)
   static/viewer3d.js  3D tab: a second NiiVue instance that mirrors the slice viewer's overlays;
                       the inflated style morphs fsaverage6 pial -> inflated (sources.export_inflated
-                      writes the morph file) and samples overlays at the pial positions
+                      writes the morph file) and samples overlays at the pial positions; with a CIFTI
+                      map open (slice volume has .cifti = id) it swaps to the fsLR brain and paints the
+                      map's own vertex values (/api/results/surface/{id}), no projection
   static/focus3d.js   3D "Focus": its own NiiVue instance (meshes only, so the camera frames the
                       structures), structure meshes from /api/regions/mesh.gii smoothed client-side,
                       continuous slice overlays painted on, per-structure peaks; FOCI lists each

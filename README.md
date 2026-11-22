@@ -250,6 +250,8 @@ straight away.
   - Tracts and region shapes are hidden here; chosen cortical regions are painted on.
   - Needs `atlaslookup setup` once (installs from before 0.18 just run it again): it
     downloads fsaverage6 from OSF through nilearn (~8 MB).
+  - With a CIFTI map open, it shows fsLR 32k instead, painted from the map's own vertex
+    values (see [CIFTI maps](#cifti-maps-dscalarnii)).
   - fsaverage lines up with MNI152 only to within a few mm, and values come from the
     volume: this is for looking, not a surface-based analysis.
 - **Focus:** the brain lobe by lobe, as see-through structures (each a faint tint with
@@ -417,6 +419,43 @@ page switches to one column with the viewer on top.
   **k**. The table lists each peak with Harvard-Oxford, Juelich and Brodmann
   labels (the Oxford areas once added with `add-cbp`, else Talairach); click a row to
   jump to it.
+
+### CIFTI maps (.dscalar.nii)
+
+CIFTI-2 dense scalar files in the results folder are read directly; nothing is converted
+or written. Each map in a file (e.g. t, −log10 p uncorrected, −log10 p FWE) is listed as
+its own stat map, named `file.dscalar.nii · map k` with the map's own name.
+
+- **Voxels** (subcortex, cerebellum, brainstem in the HCP 91k layout) are shown on the
+  slices on the file's own grid and affine, exactly as stored: no resampling. Clusters,
+  the cluster table and the colour range use them (the table says "voxels only").
+- **Cortex** (fsLR vertices) has no voxels, so it is not on the slices. In the 3D view's
+  **Inflated** style the brain becomes fsLR 32k and each vertex is painted with its own
+  value: no projection. **Inflation** morphs from the midthickness to the inflated
+  surface; **Left / Right**, clicking a point, and the crosshair work as for fsaverage6.
+  Other overlays shown at the same time are sampled at the midthickness positions.
+- **Readout and peaks:** a point within 3 mm of a cortical vertex reads that vertex's
+  value (the readout says "cortex"; hover it for the vertex and distance). **Find peak**
+  searches cortical vertices as well as voxels.
+- **Labels:** a map whose name mentions log10 reads "−log10 p" instead of T. A df written
+  in a map's name ("t (df 25)") gives p values; otherwise p is left out.
+- **Positions are approximate for the cortex:** a vertex's position is its place on the
+  group-average midthickness surface, which is close to, but not exactly, MNI space. The
+  atlas labels for a cortical point are as good as that position.
+
+The fsLR surfaces are not included or downloaded. Register your own copies once:
+
+```bash
+atlaslookup add-fslr /path/to/templates_fsLR
+```
+
+The folder needs the midthickness and inflated surfaces of both hemispheres, e.g.
+TemplateFlow's `tpl-fsLR_den-32k_hemi-{L,R}_{midthickness,inflated}.surf.gii` (HCP-style
+names like `*.L.midthickness.32k_fs_LR.surf.gii` work too). The app checks that left is
+left and that a map's vertices match before painting it. These TemplateFlow surfaces are
+the Conte69 atlas: cite Van Essen, Glasser, Dierker, Harwell & Coalson (2012) *Cereb
+Cortex* 22:2241-2262, doi:10.1093/cercor/bhr291. They carry no sulcal-depth map, so the
+inflated brain's shading is estimated from how far each point moves when inflated.
 
 ### Local overlays
 

@@ -10,6 +10,8 @@ GET /api/template.nii.gz                 MNI152 T1 background for the viewer
 GET /api/brain_mesh.gii                  cortical surface (fsaverage5 pial) for the 3D glass/mesh brain
 GET /api/inflated_mesh.gii               fsaverage6 pial surface for the 3D inflated brain
 GET /api/inflated_morph.bin              its inflated vertex positions + sulcal shading (see sources.export_inflated)
+GET /api/fslr_mesh.gii                   fsLR midthickness (registered with `add-fslr`), for CIFTI maps in 3D
+GET /api/fslr_morph.bin                  its inflated positions + shading (same format)
 GET /api/regions                         every region of every atlas (per side), for the Regions window
 GET /api/regions/mask.nii.gz?sel=atlas|value|side[|clip],...   chosen regions as one 1 mm label volume
 GET /api/regions/mesh.gii?sel=atlas|value|side[|clip]          one region as a smooth surface mesh
@@ -21,7 +23,8 @@ GET /api/tracts/mesh.gii?atlas=&value=&threshold=   one tract's core as a smooth
 GET /api/atlases/{id}/label_map.nii.gz   parcellation in MNI space, for the viewer overlay
 GET /api/atlases/{id}/colormap           NiiVue label colormap for that overlay
 GET /api/results                         your stat maps (from the local results folder)
-GET /api/results/file/{id}               one map, for the viewer
+GET /api/results/file/{id}               one map, for the viewer (a CIFTI map: its voxels, as NIfTI)
+GET /api/results/surface/{id}            a CIFTI map per fsLR vertex: uint32 nLeft, uint32 n, float32 values (NaN = none)
 GET /api/results/peak?map=&x=&y=&z=&radius=&within=&sign=  strongest voxel near a point (sphere, or a disc in one slice plane)
 GET /api/folders?path=                   subfolder names of a folder (for choosing the results folder)
 POST /api/results/folder                 body: {"path": ...}; makes it the results folder (saved in settings.json)
@@ -50,7 +53,9 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
-from .config import TAGS_FILE, IMAGE_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FILE, STATIC_DIR, TEMPLATE_FILE
+from .config import (TAGS_FILE, IMAGE_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FILE, STATIC_DIR, TEMPLATE_FILE,
+                     FSLR_MESH_FILE, FSLR_MORPH_FILE)
+from . import cifti
 from .grids import load_grids
 from .screenshots import MAX_BYTES, Exists, reveal, save_named_png, save_png
 from . import regions, tracts
@@ -256,6 +261,23 @@ def inflated_morph():
     return _inflated(INFLATED_MORPH_FILE)
 
 
+def _fslr(path):
+    if not (FSLR_MESH_FILE.exists() and FSLR_MORPH_FILE.exists()):
+        raise HTTPException(404, "No fsLR surfaces yet: register your own with `atlaslookup add-fslr <folder>` "
+                                 "(fsLR 32k midthickness and inflated, both hemispheres).")
+    return FileResponse(path, media_type="application/octet-stream")
+
+
+@app.get("/api/fslr_mesh.gii")
+def fslr_mesh():
+    return _fslr(FSLR_MESH_FILE)
+
+
+@app.get("/api/fslr_morph.bin")
+def fslr_morph():
+    return _fslr(FSLR_MORPH_FILE)
+
+
 @app.get("/api/regions")
 def regions_list():
     # Tracts have their own list (Connecting tracts); their label maps keep only the
@@ -375,7 +397,12 @@ def results_list():
     root = RESULTS.root
     return {"folder": str(root) if root else None, "available": RESULTS.available,
             "warning": repo_warning(root) if RESULTS.available else None,
-            "maps": RESULTS.list()}
+            "maps": RESULTS.list(), "fslr": _fslr_info()}
+
+
+def _fslr_info():
+    m = cifti.fslr_midthickness()
+    return {"left": m[1], "right": len(m[0]) - m[1]} if m else None
 
 
 @app.get("/api/folders")
@@ -403,9 +430,30 @@ async def set_results_folder(request: Request):
 @app.get("/api/results/file/{rel:path}")
 def results_file(rel: str):
     try:
+        if RESULTS.is_cifti(rel):  # built in memory from the CIFTI file; nothing is written
+            return Response(RESULTS.volume_image(rel), media_type="application/octet-stream")
         return FileResponse(RESULTS.resolve(rel), media_type="application/octet-stream")
     except FileNotFoundError:
         raise HTTPException(404, "No such stat map")
+
+
+@app.get("/api/results/surface/{rel:path}")
+def results_surface(rel: str):
+    try:
+        s = RESULTS.surface_values(rel)
+    except FileNotFoundError:
+        raise HTTPException(404, "No such stat map")
+    if s is None:
+        raise HTTPException(404, "Not a CIFTI map with cortex")
+    vals, n_left = s
+    if not cifti.surface_matches(vals, n_left):
+        m = cifti.fslr_midthickness()
+        have = f"{m[1]} + {len(m[0]) - m[1]}" if m else "none registered"
+        raise HTTPException(409, f"The map's cortex has {n_left} + {len(vals) - n_left} vertices; "
+                                 f"the fsLR surfaces: {have}.")
+    import numpy as np
+    head = np.array([n_left, len(vals)], "<u4").tobytes()
+    return Response(head + vals.astype("<f4").tobytes(), media_type="application/octet-stream")
 
 
 @app.get("/api/results/peak")
@@ -446,7 +494,9 @@ def _map_key(map_id: str | None) -> str | None:
     if not map_id:
         return None
     try:
-        return file_key(RESULTS.resolve(map_id))
+        f, i = RESULTS.source(map_id)
+        k = file_key(f)
+        return k if i is None else f"{k}#map{i + 1}"  # a CIFTI file holds several maps
     except FileNotFoundError:
         return None
 

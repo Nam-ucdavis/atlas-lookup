@@ -518,7 +518,8 @@ def test_no_results_folder(monkeypatch):
 
     monkeypatch.setattr(server, "RESULTS", Results(None))
     r = TestClient(server.app).get("/api/results").json()
-    assert r == {"folder": None, "available": False, "warning": None, "maps": []}
+    assert {k: r[k] for k in ("folder", "available", "warning", "maps")} == {"folder": None, "available": False, "warning": None, "maps": []}
+    assert "fslr" in r  # registered fsLR surfaces, or None
 
 
 def test_user_data_lives_outside_the_package(tmp_path):
