@@ -153,6 +153,23 @@ def _clusters(path: str, mtime: float, index: int, threshold: float, sign: str, 
     return found, labs
 
 
+@lru_cache(maxsize=4096)
+def _header(path: str, mtime: float) -> dict | None:
+    """What list() needs from one file, read once per file version (listing a large
+    results folder would otherwise re-read every header each time)."""
+    if cifti.CIFTI_PATTERN.search(path):
+        return cifti.header_info(Path(path))
+    try:
+        img = nib.load(path)  # header only
+    except Exception:  # not a readable NIfTI after all
+        return None
+    if len(img.shape) < 3 or int(np.prod(img.shape[3:])) > 1:  # 2D, or several volumes
+        return None
+    df, contrast = _df_and_contrast(img)
+    return {"df": df, "contrast": contrast, "shape": list(img.shape[:3]),
+            "voxel_size": [float(z) for z in img.header.get_zooms()[:3]]}
+
+
 class Results:
     def __init__(self, root: Path | None):
         self.root = root.resolve() if root else None
@@ -222,25 +239,19 @@ class Results:
             return []
         found = []
         for p in sorted(self._files()):
-            if cifti.CIFTI_PATTERN.search(p.name):
-                info = cifti.header_info(p)
-                if info:
-                    found.append((p, info))
-                continue
             try:
-                img = nib.load(str(p))  # header only
-            except Exception:  # not a readable NIfTI after all
+                info = _header(str(p), p.stat().st_mtime)
+            except OSError:
                 continue
-            if len(img.shape) < 3 or int(np.prod(img.shape[3:])) > 1:  # 2D, or several volumes
-                continue
-            found.append((p, img))
+            if info is not None:
+                found.append((p, info))
         rels = [p.relative_to(self.root) for p, _ in found]
         prefix = os.path.commonpath([str(r.parent) for r in rels]) if len(rels) > 1 else ""
         out = []
         for (p, img), rel in zip(found, rels):
             folder = str(rel.parent)
             short = folder[len(prefix):].lstrip(os.sep) if prefix else folder
-            if isinstance(img, dict):  # CIFTI: one entry per map
+            if "names" in img:  # CIFTI: one entry per map
                 for k, name in enumerate(img["names"]):
                     out.append({
                         "id": f"{rel.as_posix()}/map{k + 1}.nii",
@@ -252,13 +263,13 @@ class Results:
                                   "vertices_used": img["n_vertices_used"], "voxels": img["n_voxels"]},
                     })
                 continue
-            df, contrast = _df_and_contrast(img)
+            df, contrast = img["df"], img["contrast"]
             out.append({
                 "id": rel.as_posix(),
                 "label": f"{short or '.'} · {rel.name}".replace(os.sep, " / "),
                 "group": prefix.replace(os.sep, " / "),
                 "contrast": contrast, "df": df,
-                "shape": list(img.shape[:3]), "voxel_size": [float(z) for z in img.header.get_zooms()[:3]],
+                "shape": img["shape"], "voxel_size": img["voxel_size"],
             })
         return out
 

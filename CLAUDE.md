@@ -67,6 +67,8 @@ src/atlaslookup/
                   threshold/sign/k in _clusters, keyed by file mtime); CIFTI maps have virtual ids
                   `x.dscalar.nii/map<k>.nii` (source() gives file + index); value/peak_near also reach
                   cortical vertices via the registered fsLR midthickness
+  links.py        LinkStore over DATA_DIR/links.json: user-set pairs {volume: NIfTI map id, surface: CIFTI map
+                  id}; a CIFTI map links its whole file; suggest() only orders the picker (never auto-link)
   cifti.py        CIFTI-2 .dscalar.nii: read() maps x grayordinates; volume() = voxels on the file's own
                   grid (unresampled); surface() = per fsLR vertex, left first, NaN = none; add_fslr()
                   registers the USER's fsLR surfaces (never bundle or download them: Conte69, licence

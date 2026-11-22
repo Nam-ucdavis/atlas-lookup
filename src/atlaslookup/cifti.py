@@ -203,14 +203,24 @@ def add_fslr(folder: str | Path) -> dict:
     return {"left": counts[0], "right": counts[1], "files": {f"{s} {k}": p.name for (s, k), p in files.items()}}
 
 
-@lru_cache(maxsize=1)
 def fslr_midthickness() -> tuple[np.ndarray, int] | None:
-    """Registered fsLR midthickness vertices (left then right, mm) and the left count."""
-    if not (FSLR_MESH_FILE.exists() and FSLR_MORPH_FILE.exists()):
+    """Registered fsLR midthickness vertices (left then right, mm) and the left count.
+    Re-read when the files change, so `add-fslr` takes effect without a restart."""
+    try:
+        key = (FSLR_MESH_FILE.stat().st_mtime, FSLR_MORPH_FILE.stat().st_mtime, str(FSLR_MESH_FILE))
+    except OSError:
         return None
-    pts = nib.load(str(FSLR_MESH_FILE)).agg_data("pointset").astype(np.float32)
+    return _fslr_load(*key)
+
+
+@lru_cache(maxsize=2)
+def _fslr_load(mesh_mtime: float, morph_mtime: float, mesh_path: str) -> tuple[np.ndarray, int]:
+    pts = nib.load(mesh_path).agg_data("pointset").astype(np.float32)
     n_left = int(np.frombuffer(FSLR_MORPH_FILE.read_bytes()[:4], "<u4")[0])
     return pts, n_left
+
+
+fslr_midthickness.cache_clear = _fslr_load.cache_clear  # (tests and add_fslr call this)
 
 
 def surface_matches(values: np.ndarray, n_left: int) -> bool:

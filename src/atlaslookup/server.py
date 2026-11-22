@@ -31,6 +31,9 @@ POST /api/results/folder                 body: {"path": ...}; makes it the resul
 GET /api/results/clusters?map=&threshold=&sign=pos|neg|both&min_voxels=
                                          clusters + peaks, labelled by atlas
 GET /api/lookup?...&map={id}             adds the T / p value at the point
+GET /api/links?map={id}                  that map's volumetric <-> fsLR partners, and suggestions for linking
+POST /api/links  {"volume","surface"}    link a volumetric map and a CIFTI map (JSON only)
+POST /api/links/remove {"volume","surface"}  unlink them
 POST /api/screenshot?name=&folder=&overwrite=&show=  body: a PNG of the viewer; saved as folder/name.png
                                          (409 if it exists and overwrite is off; never inside the results folder),
                                          or with no name as image/<date_time>.png; shown in Finder/Explorer
@@ -54,7 +57,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
 from .config import (TAGS_FILE, IMAGE_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FILE, STATIC_DIR, TEMPLATE_FILE,
-                     FSLR_MESH_FILE, FSLR_MORPH_FILE)
+                     FSLR_MESH_FILE, FSLR_MORPH_FILE, LINKS_FILE)
+from .links import LinkStore, suggest as suggest_links
 from . import cifti
 from .grids import load_grids
 from .screenshots import MAX_BYTES, Exists, reveal, save_named_png, save_png
@@ -487,6 +491,57 @@ def results_clusters(
     res["label_atlases"] = [{"id": i, "role": ATLASES[i].manifest.role, "name": ATLASES[i].manifest.name}
                             for i in labelled]
     return res
+
+
+# --- links: volumetric map <-> its fsLR version ---------------------------------------
+LINKS = LinkStore(LINKS_FILE)
+
+
+@app.get("/api/links")
+def links_get(map: str):
+    try:
+        RESULTS.resolve(map)
+    except FileNotFoundError:
+        raise HTTPException(404, f"No stat map {map!r}")
+    try:
+        partners = LINKS.partners(map)
+    except ValueError as e:
+        raise HTTPException(500, str(e))
+    maps = RESULTS.list()
+    known = {m["id"] for m in maps}
+    is_cifti = RESULTS.is_cifti(map)
+    return {"map": map, "kind": "surface" if is_cifti else "volume",
+            "partners": [{"id": p, "missing": p not in known} for p in partners],
+            "suggestions": [] if partners else suggest_links(map, maps),
+            "candidates": [m["id"] for m in maps if bool(m.get("cifti")) != is_cifti]}
+
+
+async def _link_pair(request: Request) -> tuple[str, str]:
+    b = await _json_body(request)
+    vol, surf = b.get("volume"), b.get("surface")
+    if not isinstance(vol, str) or not isinstance(surf, str):
+        raise HTTPException(400, "Send volume and surface map ids")
+    return vol, surf
+
+
+@app.post("/api/links")
+async def links_add(request: Request):
+    vol, surf = await _link_pair(request)
+    for m in (vol, surf):
+        try:
+            RESULTS.resolve(m)
+        except FileNotFoundError:
+            raise HTTPException(404, f"No stat map {m!r}")
+    try:
+        return LINKS.add(vol, surf)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/links/remove")
+async def links_remove(request: Request):
+    vol, surf = await _link_pair(request)
+    return {"removed": LINKS.remove(vol, surf)}
 
 
 # --- tags ----------------------------------------------------------------------------

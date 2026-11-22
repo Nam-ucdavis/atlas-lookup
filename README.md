@@ -443,6 +443,15 @@ its own stat map, named `file.dscalar.nii · map k` with the map's own name.
   group-average midthickness surface, which is close to, but not exactly, MNI space. The
   atlas labels for a cortical point are as good as that position.
 
+**Volumetric and fsLR versions.** When the same analysis exists as an SPM volume and as a
+CIFTI file, link the two once: under the stat maps, the active map shows **fsLR version**
+(or **Volumetric version** for a CIFTI map). Unlinked, it says so, with **Link…**: pick
+the other version from the list (likely partners, by shared name parts, come first; you
+can search all maps). Once linked, **Switch to fsLR ▸** / **Switch to volumetric ▸** swaps
+the map in place, keeping the threshold, sign and k. Any map of a CIFTI file (t or a
+−log10 p map) leads back to its volume. **unlink** removes a pair. Links are never
+guessed and are kept in `~/.atlaslookup/links.json`, not in the results folder.
+
 The fsLR surfaces are not included or downloaded. Register your own copies once:
 
 ```bash

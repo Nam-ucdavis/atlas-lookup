@@ -217,3 +217,51 @@ def test_cifti_api_and_tags(tmp_path, fslr, monkeypatch):
     assert t["mine"]
     other = c.get("/api/tags", params={"map": "g/a.dscalar.nii/map2.nii"}).json()["tags"]
     assert [x["mine"] for x in other] == [False]
+
+
+def test_links_between_volume_and_cifti(tmp_path, monkeypatch):
+    """A volumetric map and its fsLR version: linked by the user, found from either side
+    (any map of the CIFTI file), suggested by name, kept outside the results folder."""
+    from fastapi.testclient import TestClient
+
+    from atlaslookup import server
+    from atlaslookup.links import LinkStore, suggest
+
+    res = tmp_path / "results"
+    make_cifti(res / "cifti" / "f2" / "permA_RegX.dscalar.nii")
+    make_cifti(res / "cifti" / "f2" / "permB_RegX.dscalar.nii")
+    make_cifti(res / "cifti" / "f1" / "permA_RegY.dscalar.nii")
+    vol_dir = res / "rsa" / "study_f2_RegXRegY_permA1000" / "RegX"
+    vol_dir.mkdir(parents=True)
+    nib.save(nib.Nifti1Image(np.zeros((4, 4, 4), np.float32), np.eye(4)), str(vol_dir / "spmT_0001.nii"))
+    nib.save(nib.Nifti1Image(np.zeros((4, 4, 4), np.float32), np.eye(4)), str(vol_dir / "ResMS.nii"))
+    vol = "rsa/study_f2_RegXRegY_permA1000/RegX/spmT_0001.nii"
+    surf1, surf4 = "cifti/f2/permA_RegX.dscalar.nii/map1.nii", "cifti/f2/permA_RegX.dscalar.nii/map2.nii"
+
+    maps = Results(res).list()
+    s = suggest(vol, maps)
+    assert s[0] == surf1 and len(set(x.rsplit("/", 1)[0] for x in s)) == len(s)  # one per file, best first
+    assert suggest(surf4, maps)[0] == vol and all("ResMS" not in x for x in suggest(surf4, maps))
+
+    store = LinkStore(tmp_path / "data" / "links.json")
+    monkeypatch.setattr(server, "RESULTS", Results(res))
+    monkeypatch.setattr(server, "LINKS", store)
+    c = TestClient(server.app)
+    j = c.get("/api/links", params={"map": vol}).json()
+    assert j["kind"] == "volume" and j["partners"] == [] and j["suggestions"][0] == surf1
+    assert all(x.endswith(".nii") and ".dscalar.nii/" in x for x in j["candidates"])
+    assert c.post("/api/links", json={"volume": vol, "surface": surf1}).status_code == 200
+    assert c.get("/api/links", params={"map": vol}).json()["partners"] == [{"id": surf1, "missing": False}]
+    # Any map of the CIFTI file leads back to the volume.
+    back = c.get("/api/links", params={"map": surf4}).json()
+    assert back["kind"] == "surface" and back["partners"] == [{"id": vol, "missing": False}] and back["suggestions"] == []
+    # Wrong kinds, unknown maps and non-JSON are refused.
+    assert c.post("/api/links", json={"volume": surf1, "surface": vol}).status_code == 400
+    assert c.post("/api/links", json={"volume": vol, "surface": "cifti/nope.dscalar.nii/map1.nii"}).status_code == 404
+    assert c.post("/api/links", content="volume=x", headers={"content-type": "text/plain"}).status_code == 415
+    # Relinking the same pair replaces it; unlinking removes it.
+    c.post("/api/links", json={"volume": vol, "surface": surf4})
+    assert store.all() == [{"volume": vol, "surface": surf4}]
+    assert c.post("/api/links/remove", json={"volume": vol, "surface": surf1}).json() == {"removed": True}
+    assert store.all() == [] and c.get("/api/links", params={"map": surf1}).json()["partners"] == []
+    assert not any(p.name == "links.json" for p in res.rglob("*"))  # never in the results folder

@@ -400,6 +400,22 @@
   .shot-pick .shot-at { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .shot-pick .fp-list { min-height: 0; max-height: 180px; }
   .shot-check { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+  /* Volumetric <-> fsLR version of the active map. */
+  .pair-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0 2px; font-size: 13px; }
+  .pair-bar[hidden] { display: none; }
+  .pair-bar .pair-kind { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .pair-bar .pair-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; max-width: 60ch; direction: rtl; text-align: left; }
+  .pair-bar .linkish { border: 0; background: none; padding: 0; font: inherit; font-size: 12px; color: var(--accent); cursor: pointer; text-decoration: underline; }
+  .pair-pick { flex-basis: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  .pair-pick input { width: 100%; font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--bg); color: var(--ink); box-sizing: border-box; }
+  .pair-pick .pp-list { max-height: 220px; overflow: auto; margin-top: 6px; }
+  .pair-pick .pp-head { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 6px 0 2px; }
+  .pair-pick button.pp-item { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--ink);
+    padding: 4px 6px; border-radius: 5px; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer;
+    overflow-wrap: anywhere; }
+  .pair-pick button.pp-item:hover, .pair-pick button.pp-item:focus { background: var(--line); }
   .shot-order { display: flex; flex-wrap: wrap; gap: 6px; }
   .shot-order[hidden], .shot-hint[hidden], .shot-layout[hidden] { display: none; }
   .shot-chip { display: flex; align-items: center; gap: 4px; padding: 3px 9px 3px 5px; border: 1px solid var(--line);
@@ -760,6 +776,7 @@
       </div>
       <div class="stat-range lookup-only" id="statRange">
         <div class="stat-list" id="statList" hidden></div>
+        <div class="pair-bar" id="pairBar" hidden></div>
         <div class="viewer-bar stat-ctl" id="statCtl" hidden>
           <span class="sr-title">T-value range</span><span class="sr-for" id="statFor"></span>
           <label>T ≥ <input type="number" id="statThr" min="0.1" step="0.1" value="3"></label>
@@ -1391,6 +1408,7 @@ function showActive(d) {
 
 async function activate(e) {
   state.stat = e;
+  renderPair();
   tagsApi?.refresh();
   $("statMap").value = e?.map || "";
   resultsBrowser?.refresh();
@@ -1412,6 +1430,103 @@ async function openStat(map) {
   e.visible = true;
   await activate(e);
 }
+
+// --- the active map's other version: volumetric <-> fsLR (CIFTI) ----------------------
+// Pairs are set by the user (Link…) and kept in the data folder (links.json), never
+// guessed: names rarely say which volume goes with which CIFTI map. Switching swaps
+// the map in place, keeping its threshold, sign and k.
+let pairInfo = null, pairToken = 0;
+// Longer names than mapTail: the path after the part every map shares, so sessions
+// (e.g. f1 / f2) and analyses stay apart; plus the map's contrast name.
+function pairLabel(id) {
+  const all = state.statMaps?.map((m) => m.id) || [id];
+  let pre = all[0].split("/").slice(0, -1);
+  for (const x of all) { const p = x.split("/"); let i = 0; while (i < pre.length && p[i] === pre[i]) i++; pre = pre.slice(0, i); }
+  const m = state.statMaps?.find((m) => m.id === id);
+  return id.split("/").slice(pre.length).join(" / ") + (m ? ` · ${m.contrast}` : "");
+}
+async function renderPair() {
+  const bar = $("pairBar"), e = state.stat, mine = ++pairToken;
+  if (!e) { bar.hidden = true; pairInfo = null; return; }
+  const r = await fetch("/api/links?" + new URLSearchParams({ map: e.map })).catch(() => null);
+  if (mine !== pairToken) return;
+  pairInfo = r?.ok ? await r.json() : null;
+  if (!pairInfo) { bar.hidden = true; return; }
+  const toSurf = pairInfo.kind === "volume";
+  const other = toSurf ? "fsLR" : "volumetric";
+  const parts = [`<span class="pair-kind">${toSurf ? "fsLR version" : "Volumetric version"}</span>`];
+  if (pairInfo.partners.length) {
+    for (const p of pairInfo.partners) {
+      parts.push(`<span class="pair-name" title="${esc(p.id)}">${esc(pairLabel(p.id))}</span>`,
+        p.missing ? `<span class="err">not found in the results folder</span>`
+          : `<button type="button" class="btn small" data-act="switch" data-id="${esc(p.id)}">Switch to ${other} ▸</button>`,
+        `<button type="button" class="linkish" data-act="unlink" data-id="${esc(p.id)}" title="Remove this link">unlink</button>`);
+    }
+  } else {
+    parts.push(`<span class="muted">No ${other} results linked yet.</span>`,
+      `<button type="button" class="linkish" data-act="link">Link…</button>`);
+  }
+  bar.innerHTML = parts.join("");
+  bar.hidden = false;
+}
+function openPairPicker() {
+  const bar = $("pairBar");
+  if (!pairInfo || bar.querySelector(".pair-pick")) return;
+  const toSurf = pairInfo.kind === "volume";
+  const box = document.createElement("div");
+  box.className = "pair-pick";
+  box.innerHTML = `<input type="search" placeholder="Search ${toSurf ? "CIFTI (.dscalar.nii)" : "volumetric"} maps…" aria-label="Search maps to link">
+    <div class="pp-list" role="listbox"></div>
+    <div class="hint">${toSurf ? "Pick the fsLR (CIFTI) version of this map." : "Pick the volumetric version of this map."}
+      Suggestions share parts of the name; check before linking. <button type="button" class="linkish" data-act="cancel">Cancel</button></div>`;
+  bar.append(box);
+  const input = box.querySelector("input"), list = box.querySelector(".pp-list");
+  const item = (id) => `<button type="button" class="pp-item" role="option" data-act="pick" data-id="${esc(id)}" title="${esc(id)}">${esc(pairLabel(id))}</button>`;
+  const show = () => {
+    const q = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!q.length) {
+      list.innerHTML = (pairInfo.suggestions.length ? `<div class="pp-head">Suggested</div>${pairInfo.suggestions.map(item).join("")}` : "")
+        + `<div class="pp-head">All (${pairInfo.candidates.length})</div>` + pairInfo.candidates.slice(0, 40).map(item).join("");
+      return;
+    }
+    const hits = pairInfo.candidates.filter((id) => { const l = (id + " " + pairLabel(id)).toLowerCase(); return q.every((w) => l.includes(w)); });
+    list.innerHTML = hits.slice(0, 60).map(item).join("") || `<div class="muted">No match.</div>`;
+  };
+  input.addEventListener("input", show);
+  show();
+  input.focus();
+}
+async function postLink(path, other) {
+  const e = state.stat, volume = pairInfo.kind === "volume" ? e.map : other, surface = pairInfo.kind === "volume" ? other : e.map;
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ volume, surface }) });
+  if (!r.ok) flashHint((await r.json().catch(() => ({}))).detail || "Could not change the link.");
+  renderPair();
+}
+async function switchTo(id) {
+  const cur = state.stat;
+  await openStat(id);  // opens it with the current map's threshold, sign and k
+  const i = state.stats.indexOf(cur);
+  if (cur && i >= 0 && cur !== state.stat) {
+    state.stats.splice(i, 1);
+    renderStatList(); saveStats(); await rebuildOverlays();
+  }
+  if (state.statMaps?.find((m) => m.id === id)?.cifti) {
+    flashHint("fsLR version: the slices show its voxels (subcortex, cerebellum); its cortex is on the 3D tab's Inflated brain.");
+  }
+}
+$("pairBar").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-act]");
+  if (!b) return;
+  const act = b.dataset.act, id = b.dataset.id;
+  if (act === "switch") switchTo(id);
+  else if (act === "link") openPairPicker();
+  else if (act === "cancel") b.closest(".pair-pick")?.remove();
+  else if (act === "pick") postLink("/api/links", id);
+  else if (act === "unlink") postLink("/api/links/remove", id);
+});
+$("pairBar").addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && ev.target.closest(".pair-pick")) { ev.preventDefault(); ev.stopPropagation(); ev.target.closest(".pair-pick").remove(); }
+});
 
 async function closeStat(e) {
   state.stats.splice(state.stats.indexOf(e), 1);

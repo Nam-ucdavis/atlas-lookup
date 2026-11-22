@@ -3,6 +3,17 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.28.0 (2026-11-21)
+- **Volumetric ↔ fsLR versions**: link a volumetric map to its CIFTI (fsLR) version once,
+  then switch between them in place from the bar under the stat maps (threshold, sign and
+  k kept). Unlinked maps say "No fsLR results linked yet" (or volumetric) with **Link…**,
+  a searchable picker that lists likely partners first. Links live in
+  `~/.atlaslookup/links.json`, never in the results folder. New routes `GET/POST
+  /api/links`, `POST /api/links/remove`.
+- fsLR surfaces registered with `add-fslr` are picked up by a running app (no restart).
+- Listing the results folder reads each file's header once per file version, so later
+  listings are fast (~0.5 s instead of ~4 s on a large folder).
+
 ## 0.27.0 (2026-11-21)
 - **CIFTI maps**: `.dscalar.nii` files in the results folder are read directly, each map
   listed on its own (`file · map k`). Their voxels (subcortex, cerebellum) show on the

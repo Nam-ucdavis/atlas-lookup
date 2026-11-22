@@ -9,6 +9,7 @@ in a data folder (default ~/.atlaslookup, or $ATLASLOOKUP_HOME):
   image/          viewer captures saved with the "scr" button
   settings.json   machine-specific settings, e.g. where your results live
   tags.json       your tags (named points, e.g. "dmFC" at a peak), per stat map
+  links.json      which volumetric map goes with which fsLR (CIFTI) map
 """
 import os
 from pathlib import Path
@@ -30,5 +31,6 @@ FSLR_MESH_FILE = DATA_DIR / "templates" / "fslr_midthickness.gii"
 FSLR_MORPH_FILE = DATA_DIR / "templates" / "fslr_inflated.bin"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 TAGS_FILE = DATA_DIR / "tags.json"
+LINKS_FILE = DATA_DIR / "links.json"  # volumetric map <-> its fsLR (CIFTI) version, set by the user
 IMAGE_DIR = DATA_DIR / "image"
 DOWNLOADS_DIR = DATA_DIR / "downloads"  # packages fetched by `setup` (kept so re-runs skip the download)
