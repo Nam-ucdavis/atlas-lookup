@@ -712,7 +712,8 @@
           <button type="button" data-style="surface" class="on">Surface</button>
           <button type="button" data-style="glass">Glass brain</button>
           <button type="button" data-style="mesh">Mesh brain</button>
-          <button type="button" data-style="inflated" title="fsaverage6 cortex, inflated so the results inside sulci show">Inflated</button>
+          <button type="button" data-style="inflated" title="fsaverage6 cortex, inflated so results inside sulci show; every overlay is projected from its volume">Inflated (projection)</button>
+          <button type="button" data-style="inflatedFslr" title="Your fsLR 32k surfaces (atlaslookup add-fslr): CIFTI maps painted from their own vertex values; volumetric overlays projected around the midthickness">Inflated (fsLR)</button>
           <button type="button" data-style="focus" id="v3FocusBtn"
             title="The brain lobe by lobe, as see-through structures you switch on and off, with the results inside them">Focus</button>
         </div>
@@ -1511,7 +1512,7 @@ async function switchTo(id) {
     renderStatList(); saveStats(); await rebuildOverlays();
   }
   if (state.statMaps?.find((m) => m.id === id)?.cifti) {
-    flashHint("fsLR version: the slices show its voxels (subcortex, cerebellum); its cortex is on the 3D tab's Inflated brain.");
+    flashHint("fsLR version: the slices show its voxels (subcortex, cerebellum); its cortex is on the 3D tab's Inflated (fsLR) brain.");
   }
 }
 $("pairBar").addEventListener("click", (ev) => {

@@ -3,6 +3,14 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.29.0 (2026-11-21)
+- **Two inflated brains** in the 3D view, chosen by you instead of switched
+  automatically: **Inflated (projection)** (fsaverage6, every overlay projected from its
+  volume, as before) and **Inflated (fsLR)** (your fsLR 32k surfaces: CIFTI maps painted
+  from their own vertex values; volumetric maps projected within 2 mm of the
+  midthickness, so both versions of a result can be compared on one brain). A CIFTI map
+  on the projection brain shows its voxels only, with a hint pointing to Inflated (fsLR).
+
 ## 0.28.0 (2026-11-21)
 - **Volumetric ↔ fsLR versions**: link a volumetric map to its CIFTI (fsLR) version once,
   then switch between them in place from the bar under the stat maps (threshold, sign and

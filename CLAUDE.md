@@ -98,8 +98,9 @@ src/atlaslookup/
   static/viewer3d.js  3D tab: a second NiiVue instance that mirrors the slice viewer's overlays;
                       the inflated style morphs fsaverage6 pial -> inflated (sources.export_inflated
                       writes the morph file) and samples overlays at the pial positions; with a CIFTI
-                      map open (slice volume has .cifti = id) it swaps to the fsLR brain and paints the
-                      map's own vertex values (/api/results/surface/{id}), no projection
+                      map: two inflated styles - "inflated" (fsaverage6, all overlays projected) and
+                      "inflatedFslr" (user's fsLR; CIFTI maps (slice volume .cifti = id) painted from
+                      /api/results/surface/{id}, volumetric ones projected +-2 mm around midthickness)
   static/focus3d.js   3D "Focus": its own NiiVue instance (meshes only, so the camera frames the
                       structures), structure meshes from /api/regions/mesh.gii smoothed client-side,
                       continuous slice overlays painted on, per-structure peaks; FOCI lists each

@@ -15,10 +15,12 @@
 //            the vertex is now. Clicking it looks up the vertex's pial position; the slice
 //            crosshair is shown at the nearest vertex. Tracts and region shapes are hidden
 //            (they have no place on an inflated surface).
-//            With a CIFTI map shown (and fsLR surfaces registered with `add-fslr`), the
-//            inflated brain is fsLR 32k instead (midthickness to inflated), and the map's
-//            cortex is painted from its own vertex values, with no projection. Other
-//            overlays are sampled at the midthickness positions as usual.
+//            This is "Inflated (projection)": every overlay is projected from its volume.
+//   inflatedFslr  "Inflated (fsLR)": the user's fsLR 32k surfaces (registered with
+//            `add-fslr`), midthickness to inflated. CIFTI maps are painted from their own
+//            vertex values, with no projection; volumetric overlays are sampled around the
+//            midthickness (2 mm either side), so the two versions of a result can be compared
+//            on one brain.
 // Projection runs here in the browser, so local overlays still never leave it.
 //
 // Regions chosen in the Regions window are drawn as solid surfaces in their own
@@ -62,8 +64,10 @@ void main() {
   color = vec4(min(vClr.rgb * shade, vec3(1.0)), mix(opacity, 1.0, coloured));
 }`;
 // Brain transparency (%) per style until the user changes it: glass starts see-through.
-const DEFAULT_TRANSPARENCY = { surface: 0, glass: 75, mesh: 0, inflated: 0 };
-const PAINTED = new Set(["mesh", "inflated"]);  // styles that paint the overlays onto a surface
+const DEFAULT_TRANSPARENCY = { surface: 0, glass: 75, mesh: 0, inflated: 0, inflatedFslr: 0 };
+const PAINTED = new Set(["mesh", "inflated", "inflatedFslr"]);  // styles that paint the overlays onto a surface
+const INFLATED = new Set(["inflated", "inflatedFslr"]);  // the two inflated brains
+const MID_DEPTHS = [-2, -1, 0, 1, 2];  // mm around the fsLR midthickness sampled for volumetric overlays
 const CROSSHAIR_NEAR_MM = 8;  // on the inflated brain, show the crosshair only this close to the cortex
 const DEPTHS = [0, 1, 2, 3, 4];  // mm beneath the pial surface sampled for the mesh style
 const REGION_SEE_THROUGH = 0.35;
@@ -265,10 +269,10 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   // The CIFTI maps among the overlays (their slice volumes carry .cifti = map id).
   const ciftiMaps = () => clones.map(({ src }) => src.cifti).filter(Boolean);
   // Which inflated brain to show: fsLR when a CIFTI map is shown and the surfaces load.
+  // The brain for the current style: fsaverage6 (projection) or fsLR.
   async function ensureInflated() {
-    let kind = "fsaverage6";
-    if (ciftiMaps().length && (await loadInflated("fslr"))) kind = "fslr";
-    const set = await loadInflated(kind) || (kind === "fslr" ? null : await loadInflated("fsaverage6"));
+    const kind = style === "inflatedFslr" ? "fslr" : "fsaverage6";
+    const set = await loadInflated(kind);
     for (const k of Object.keys(inflSets)) if (inflSets[k] !== set) nv3.setMeshProperty(inflSets[k].mesh.id, "visible", false);
     if (set !== infl) layersDirty = true;
     infl = set;
@@ -314,7 +318,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   const hemiRange = () => (hemi === "left" ? [0, infl.nLeft] : hemi === "right" ? [infl.nLeft, infl.pial.length / 3] : [0, infl.pial.length / 3]);
   // The slice crosshair on the inflated brain: at the vertex nearest to it, if any is close.
   function placeCrosshair() {
-    if (style !== "inflated" || !infl) return;
+    if (!INFLATED.has(style) || !infl) return;
     const nv = getNv(), mm = nv.frac2mm(nv.scene.crosshairPos);
     const { index, distance } = nearestVertex(infl.pial, mm, ...hemiRange());
     const near = index >= 0 && distance <= CROSSHAIR_NEAR_MM;
@@ -325,14 +329,14 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   async function applyStyle() {
     showFocusMode();
     showTransparency();
-    controls.inflBar.hidden = style !== "inflated";
+    controls.inflBar.hidden = !INFLATED.has(style);
     nv3.setOpacity(0, style === "surface" ? brainOpacity() : 0);
-    if (style === "inflated") {
+    if (INFLATED.has(style)) {
       if (mesh) nv3.setMeshProperty(mesh.id, "visible", false);
       await ensureInflated();
       if (!infl) { setHint(inflError); }
-      else if (ciftiMaps().length && inflKind !== "fslr") {
-        setHint(`This CIFTI map's cortex needs the fsLR surfaces: ${inflErrors.fslr || "they could not be loaded."}`);
+      else if (style === "inflated" && ciftiMaps().length) {
+        setHint("Projection shows a CIFTI map's voxels only; its cortex is on Inflated (fsLR).");
       }
       if (infl) {
         nv3.setMeshProperty(infl.mesh.id, "visible", true);
@@ -352,15 +356,15 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
       nv3.setMeshProperty(mesh.id, "rgba255", glass ? GLASS_RGBA : MESH_RGBA);
       nv3.setMeshProperty(mesh.id, "opacity", meshOpacity());
     }
-    if (style !== "inflated") for (const k of Object.keys(inflSets)) nv3.setMeshProperty(inflSets[k].mesh.id, "visible", false);
-    if (style !== "inflated" && ciftiMaps().length) setHint("This CIFTI map shows only its voxels here; its cortex is on the Inflated brain.");
+    if (!INFLATED.has(style)) for (const k of Object.keys(inflSets)) nv3.setMeshProperty(inflSets[k].mesh.id, "visible", false);
+    if (!INFLATED.has(style) && ciftiMaps().length) setHint("This CIFTI map shows only its voxels here; its cortex is on Inflated (fsLR).");
     showShapes();
     layersDirty = true;
     sync(true);
   }
   // Region and tract surfaces: hidden on the inflated brain.
   function showShapes() {
-    for (const m of [...regionMeshes, ...tractMeshes]) nv3.setMeshProperty(m.id, "visible", style !== "inflated");
+    for (const m of [...regionMeshes, ...tractMeshes]) nv3.setMeshProperty(m.id, "visible", !INFLATED.has(style));
   }
 
   // Zero the voxels of a cloned overlay that fall outside the chosen regions.
@@ -380,7 +384,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   function updateLayers() {
     // The painted surface (pial positions and normals to sample at), if this style has one.
     const surfaces = [mesh && { m: mesh, pts: mesh.pts, normals, on: style === "mesh" },
-      ...Object.values(inflSets).map((I) => ({ m: I.mesh, pts: I.pial, normals: I.normals, on: style === "inflated" && I === infl,
+      ...Object.values(inflSets).map((I) => ({ m: I.mesh, pts: I.pial, normals: I.normals, on: INFLATED.has(style) && I === infl,
         shade: I.shade, fslr: I.kind === "fslr" }))].filter(Boolean);
     for (const S of surfaces) if (!S.on && S.m.layers.length) { S.m.layers = []; S.m.updateMesh(nv3.gl); }
     const S = surfaces.find((x) => x.on);
@@ -401,7 +405,8 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
           if (v) setHint("The CIFTI map's cortex does not match the registered fsLR surfaces.");
           return new Float32Array(S.pts.length / 3);
         }
-        return projectToVertices(samplerOf(vol), S.pts, S.normals, label ? [1, 2] : DEPTHS, label);
+        // pial surfaces: inwards 0-4 mm; the fsLR midthickness: 2 mm either side.
+        return projectToVertices(samplerOf(vol), S.pts, S.normals, label ? [1, 2] : S.fslr ? MID_DEPTHS : DEPTHS, label);
       };
       target.layers = [...base, ...sources.map((x) => ({
         ...NVMeshLayerDefaults, name: x.vol.name, frame4D: 0, nFrame4D: 1, values: valuesFor(x),
@@ -437,12 +442,6 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
         nv3.addVolume(copy);
       }
       layersDirty = true;
-    }
-    // Inflated: switch between fsaverage6 and fsLR when a CIFTI map comes or goes.
-    const wantFslr = ciftiMaps().length > 0;
-    if (style === "inflated" && infl && wantFslr !== (inflKind === "fslr") && !(wantFslr && inflErrors.fslr)) {
-      applyStyle();  // reloads the right brain, then syncs again
-      return;
     }
     const onMesh = PAINTED.has(style);  // overlays are painted on the surface instead
     for (const { src: v, copy } of clones) {
@@ -501,8 +500,8 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     await applyStyle();
     nv3.resizeListener?.();
     nv3.drawScene();
-    setHint(style === "inflated" && infl ? "3D: drag to rotate, scroll to zoom. Click the inflated brain (or the slices) to look up a point."
-      : style === "inflated" ? inflError : "3D: drag to rotate, scroll to zoom. Click on the slices to look up a point.");
+    setHint(INFLATED.has(style) && infl ? "3D: drag to rotate, scroll to zoom. Click the inflated brain (or the slices) to look up a point."
+      : INFLATED.has(style) ? inflError : "3D: drag to rotate, scroll to zoom. Click on the slices to look up a point.");
   }
 
   // Tracts from the Regions tab's "Connecting tracts": [{ atlas, value, threshold, color }].
@@ -599,7 +598,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     controls.brainOut.textContent = `${transparency[style]}%`;
     if (!nv3) return;
     if (style === "surface") nv3.setOpacity(0, brainOpacity());
-    else if (style === "inflated") { if (infl) nv3.setMeshProperty(infl.mesh.id, "opacity", meshOpacity()); }
+    else if (INFLATED.has(style)) { if (infl) nv3.setMeshProperty(infl.mesh.id, "opacity", meshOpacity()); }
     else if (mesh) nv3.setMeshProperty(mesh.id, "opacity", meshOpacity());
     nv3.drawScene();
   });
@@ -637,7 +636,7 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   canvas.addEventListener("pointerup", (e) => {
     const click = down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 4;
     down = null;
-    if (!click || style !== "inflated" || !infl) return;
+    if (!click || !INFLATED.has(style) || !infl) return;
     // NiiVue picks a 3D point only on double-click: ask it to pick on this draw (it reads
     // the depth under mousePos) and catch the point it reports.
     let picked = null;

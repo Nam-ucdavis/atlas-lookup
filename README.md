@@ -236,7 +236,7 @@ straight away.
   it, using the overlay's own threshold and colours. Only the cortex is shown,
   so subcortical and cerebellar results don't appear in this style. The
   projection runs in your browser, so local overlays still aren't uploaded.
-- **Inflated:** the cortex inflated, so results hidden inside sulci show. It is
+- **Inflated (projection):** the cortex inflated, so results hidden inside sulci show. It is
   fsaverage6 (~41k points per hemisphere), shaded by sulcal depth (dark = sulci,
   light = gyri), with the hemispheres set apart. Results and cortical regions are
   sampled at the folded (pial) cortex, as in Mesh brain, then drawn where each
@@ -250,8 +250,13 @@ straight away.
   - Tracts and region shapes are hidden here; chosen cortical regions are painted on.
   - Needs `atlaslookup setup` once (installs from before 0.18 just run it again): it
     downloads fsaverage6 from OSF through nilearn (~8 MB).
-  - With a CIFTI map open, it shows fsLR 32k instead, painted from the map's own vertex
-    values (see [CIFTI maps](#cifti-maps-dscalarnii)).
+  - A CIFTI map shows only its voxels here (none on the cortex): use Inflated (fsLR).
+- **Inflated (fsLR):** your fsLR 32k surfaces (registered once with `atlaslookup add-fslr`,
+  see [CIFTI maps](#cifti-maps-dscalarnii)), morphed from the midthickness (0 %) to the
+  inflated surface (100 %), with the same Inflation, Both / Left / Right and click controls.
+  CIFTI maps are painted from their own vertex values, with no projection. Volumetric
+  maps are projected onto it (the strongest value within 2 mm either side of the
+  midthickness), so a result and its fsLR version can be compared on the same brain.
   - fsaverage lines up with MNI152 only to within a few mm, and values come from the
     volume: this is for looking, not a surface-based analysis.
 - **Focus:** the brain lobe by lobe, as see-through structures (each a faint tint with
@@ -429,11 +434,11 @@ its own stat map, named `file.dscalar.nii · map k` with the map's own name.
 - **Voxels** (subcortex, cerebellum, brainstem in the HCP 91k layout) are shown on the
   slices on the file's own grid and affine, exactly as stored: no resampling. Clusters,
   the cluster table and the colour range use them (the table says "voxels only").
-- **Cortex** (fsLR vertices) has no voxels, so it is not on the slices. In the 3D view's
-  **Inflated** style the brain becomes fsLR 32k and each vertex is painted with its own
-  value: no projection. **Inflation** morphs from the midthickness to the inflated
-  surface; **Left / Right**, clicking a point, and the crosshair work as for fsaverage6.
-  Other overlays shown at the same time are sampled at the midthickness positions.
+- **Cortex** (fsLR vertices) has no voxels, so it is not on the slices. The 3D view's
+  **Inflated (fsLR)** style paints each vertex with its own value: no projection.
+  **Inflation** morphs from the midthickness to the inflated surface; **Left / Right**,
+  clicking a point, and the crosshair work as on the projection brain. Volumetric
+  overlays shown at the same time are projected around the midthickness.
 - **Readout and peaks:** a point within 3 mm of a cortical vertex reads that vertex's
   value (the readout says "cortex"; hover it for the vertex and distance). **Find peak**
   searches cortical vertices as well as voxels.
