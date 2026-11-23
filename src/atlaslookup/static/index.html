@@ -288,7 +288,11 @@
   .rg-row { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; padding: 4px 2px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--line); }
   .rg-row .muted { grid-column: 2; font-size: 11px; color: var(--muted); }
   .rg-chip { display: grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items: center; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--line); }
-  .rg-chip i { width: 14px; height: 14px; border-radius: 3px; }
+  .rg-chip input[type=color] { width: 14px; height: 14px; padding: 0; border: 0; border-radius: 3px; background: none; cursor: pointer; }
+  .rg-chip input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  .rg-chip input[type=color]::-webkit-color-swatch { border: 0; border-radius: 3px; }
+  .rg-chip input[type=color]::-moz-color-swatch { border: 0; border-radius: 3px; }
+  .rg-chip input[type=color]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .rg-chip .muted { font-size: 11px; color: var(--muted); }
   .rg-note { margin: 0; font-size: 12px; }
   .rg-tracts { flex: 0 0 auto; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 10px; }
@@ -1246,24 +1250,28 @@ $("overlay").addEventListener("change", (e) => setOverlay(e.target.value));
 // Regions chosen in the Regions tab, painted on the slices in their 3D colours (the 3D
 // view draws them as surfaces instead, so it skips this volume: skip3d).
 const REGION_SLICE_OPACITY = 0.5;
-const sliceRegions = { key: "", vol: null, token: 0 };
+const sliceRegions = { sel: "", list: [], vol: null, token: 0 };
+const regionLabelColormap = (list) => ({
+  R: [0, ...list.map((x) => x.color[0])], G: [0, ...list.map((x) => x.color[1])],
+  B: [0, ...list.map((x) => x.color[2])], A: [0, ...list.map(() => 255)],
+  I: [0, ...list.map((_, i) => i + 1)], labels: ["", ...list.map((x) => x.name)],
+});
 async function setSliceRegions(list, redraw = true) {
-  const key = list.map((r) => `${r.atlas}|${r.value}|${r.side}|${r.color.join(":")}`).join(",");
-  if (key === sliceRegions.key) return;
-  sliceRegions.key = key;
+  const sel = list.map((r) => `${r.atlas}|${r.value}|${r.side}`).join(",");
+  sliceRegions.list = list;
+  if (sel === sliceRegions.sel) {  // same regions: recolour in place (a load in flight uses the latest list)
+    if (sliceRegions.vol) { sliceRegions.vol.setColormapLabel(regionLabelColormap(list)); nv?.updateGLVolume(); }
+    return;
+  }
+  sliceRegions.sel = sel;
   const token = ++sliceRegions.token;
   let vol = null;
   if (list.length) {
-    const sel = list.map((r) => `${r.atlas}|${r.value}|${r.side}`).join(",");
     const r = await fetch(`/api/regions/mask.nii.gz?sel=${encodeURIComponent(sel)}`);
     if (!r.ok || token !== sliceRegions.token) return;
     vol = await NVImage.loadFromUrl({ url: "regions.nii.gz", name: "regions.nii.gz", buffer: await r.arrayBuffer() });
     if (token !== sliceRegions.token) return;
-    vol.setColormapLabel({
-      R: [0, ...list.map((x) => x.color[0])], G: [0, ...list.map((x) => x.color[1])],
-      B: [0, ...list.map((x) => x.color[2])], A: [0, ...list.map(() => 255)],
-      I: [0, ...list.map((_, i) => i + 1)], labels: ["", ...list.map((x) => x.name)],
-    });
+    vol.setColormapLabel(regionLabelColormap(sliceRegions.list));
     vol.opacity = REGION_SLICE_OPACITY;
     vol.skip3d = true;
   }

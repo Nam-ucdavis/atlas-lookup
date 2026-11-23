@@ -1,6 +1,6 @@
 // Regions tab of the side panel, for the 3D view: search every atlas's regions, tick the
 // ones to show, and optionally restrict the overlays to inside them. Each chosen region
-// gets its own colour. The choice is remembered and applied live as it changes.
+// gets its own colour (click its swatch to pick another). The choice is remembered and applied live as it changes.
 
 const PALETTE = [  // distinct, readable on black and on the glass brain
   [230, 25, 75], [60, 180, 75], [255, 225, 25], [0, 130, 200], [245, 130, 48], [145, 30, 180],
@@ -23,6 +23,10 @@ const SYNONYMS = {
   pmat: ["(at) system", "(pm) system"], prc: ["perirhinal"], erc: ["entorhinal"], phc: ["parahippocampal"],
   rsc: ["retrosplenial"],
 };
+
+/** [r, g, b] <-> "#rrggbb" (the colour input's format). Exported for tests. */
+export const toHex = (rgb) => "#" + rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+export const fromHex = (hex) => [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16));
 
 /** Does `name` (plus its atlas name) match every word of the query? Exported for tests. */
 export function matches(query, name, atlasName = "") {
@@ -103,7 +107,8 @@ export function createRegionPicker({ button, store, esc, onChange, panel, host }
   function renderChosen() {
     dlg.querySelector(".rg-count").textContent = chosen.length ? `(${chosen.length})` : "";
     list.innerHTML = chosen.length
-      ? chosen.map((c, i) => `<div class="rg-chip"><i style="background:rgb(${c.color.join(",")})"></i>
+      ? chosen.map((c, i) => `<div class="rg-chip"><input type="color" data-color="${i}" value="${toHex(c.color)}"
+          title="Change colour" aria-label="Colour of ${esc(c.name)}">
           <span>${esc(c.name)}<br><span class="muted">${esc(c.atlasName)}</span></span>
           <button type="button" class="btn small" data-remove="${i}" aria-label="Remove ${esc(c.name)}">✕</button></div>`).join("")
       : `<div class="hint">Nothing chosen: the 3D view shows the whole brain. Tick regions above.</div>`;
@@ -126,6 +131,15 @@ export function createRegionPicker({ button, store, esc, onChange, panel, host }
     if (e.target.dataset.remove === undefined) return;
     chosen = chosen.filter((_, i) => i !== +e.target.dataset.remove);
     renderChosen(); renderResults(); emit();
+  });
+  // A swatch: pick any colour for that region; applied live while the picker is open
+  // (at most once a frame) and remembered with the choice.
+  let colorFrame = 0;
+  list.addEventListener("input", (e) => {
+    const i = e.target.dataset.color;
+    if (i === undefined || !chosen[+i]) return;
+    chosen = chosen.map((c, j) => (j === +i ? { ...c, color: fromHex(e.target.value) } : c));
+    if (!colorFrame) colorFrame = requestAnimationFrame(() => { colorFrame = 0; emit(); });
   });
   maskBox.addEventListener("change", () => { maskResults = maskBox.checked; emit(); });
   search.addEventListener("input", renderResults);

@@ -533,9 +533,25 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
 
   // regions: [{ atlas, value, side, color: [r,g,b] }] in display order.
   let wanted = { regions: [], maskResults: false };
+  const regionKeyOf = (r) => `${r.atlas}|${r.value}|${r.side}`;
+  const labelColormap = (regions) => ({
+    R: [0, ...regions.map((r) => r.color[0])], G: [0, ...regions.map((r) => r.color[1])],
+    B: [0, ...regions.map((r) => r.color[2])], A: [0, ...regions.map(() => 255)],
+    I: [0, ...regions.map((_, i) => i + 1)], labels: ["", ...regions.map((r) => r.name)],
+  });
+  // Colours only (a swatch edited): repaint the meshes and the label layer, no reload.
+  // Uses the latest choice, so a load that finishes later still gets the new colours.
+  function recolorRegions() {
+    const color = new Map(wanted.regions.map((r) => [regionKeyOf(r), r.color]));
+    for (const m of regionMeshes) {
+      const c = color.get(m.regionKey);
+      if (c && Array.from(m.rgba255.slice(0, 3)).join() !== c.join()) nv3.setMeshProperty(m.id, "rgba255", new Uint8Array([...c, 255]));
+    }
+    if (regionVol && regionKey === wanted.regions.map(regionKeyOf).join(",")) regionVol.setColormapLabel(labelColormap(wanted.regions));
+  }
   async function loadRegions() {
     const { regions } = wanted;
-    const key = regions.map((r) => `${r.atlas}|${r.value}|${r.side}`).join(",");
+    const key = regions.map(regionKeyOf).join(",");
     if (key !== regionKey) {
       regionKey = key;
       regionVol = null;
@@ -548,7 +564,9 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
             const sel = encodeURIComponent(`${r.atlas}|${r.value}|${r.side}`);
             const res = await fetch(`/api/regions/mesh.gii?sel=${sel}`);
             if (!res.ok) return null;
-            return NVMesh.readMesh(await res.arrayBuffer(), "region.gii", nv3.gl, 1, new Uint8Array([...r.color, 255]), true);
+            const m = await NVMesh.readMesh(await res.arrayBuffer(), "region.gii", nv3.gl, 1, new Uint8Array([...r.color, 255]), true);
+            m.regionKey = regionKeyOf(r);
+            return m;
           })),
         ]);
         if (key !== regionKey) return;  // a newer choice arrived meanwhile
@@ -560,21 +578,24 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
         }
         showShapes();
         regionVol = await NVImage.loadFromUrl({ url: "regions.nii.gz", name: "regions.nii.gz", buffer: buf });
-        regionVol.setColormapLabel({
-          R: [0, ...regions.map((r) => r.color[0])], G: [0, ...regions.map((r) => r.color[1])],
-          B: [0, ...regions.map((r) => r.color[2])], A: [0, ...regions.map(() => 255)],
-          I: [0, ...regions.map((_, i) => i + 1)], labels: ["", ...regions.map((r) => r.name)],
-        });
+        regionVol.setColormapLabel(labelColormap(regions));
       }
     }
+    recolorRegions();
     maskResults = wanted.maskResults && !!regionVol;
     // Results inside a region would be hidden by its solid surface: make regions see-through.
     for (const m of regionMeshes) nv3.setMeshProperty(m.id, "opacity", maskResults ? REGION_SEE_THROUGH : 1);
     sync(true);
   }
   async function setRegions(regions, opts = {}) {
+    const before = wanted;
     wanted = { regions, maskResults: !!opts.maskResults };
     if (!nv3) return;  // applied when the 3D view first opens
+    if (before.maskResults === wanted.maskResults && before.regions.map(regionKeyOf).join() === regions.map(regionKeyOf).join()) {
+      recolorRegions();  // same regions, new colours
+      sync();
+      return;
+    }
     await loadRegions();
     if (regions.length && style === "surface") setHint("Regions inside the brain are easiest to see with Glass brain.");
   }

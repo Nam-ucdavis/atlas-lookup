@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.30.0 (2026-11-23)
+- **Region colours**: click a chosen region's coloured square in the Regions tab to pick
+  any colour. The slices and the 3D view recolour live (no reload of the region shapes),
+  and the colour is remembered with the choice.
+
 ## 0.29.0 (2026-11-21)
 - **Two inflated brains** in the 3D view, chosen by you instead of switched
   automatically: **Inflated (projection)** (fsaverage6, every overlay projected from its
