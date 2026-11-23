@@ -3,6 +3,14 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.30.1 (2026-11-23)
+- Region colours are now chosen from preset squares instead of a free colour picker:
+  clicking a region's square opens Google Calendar's eleven event colours (Tomato,
+  Flamingo, Tangerine, Banana, Sage, Basil, Peacock, Blueberry, Lavender, Grape,
+  Graphite). Esc closes the row.
+- The Regions tab no longer scrolls sideways: the atlas list was as wide as its longest
+  atlas name.
+
 ## 0.30.0 (2026-11-23)
 - **Region colours**: click a chosen region's coloured square in the Regions tab to pick
   any colour. The slices and the 3D view recolour live (no reload of the region shapes),

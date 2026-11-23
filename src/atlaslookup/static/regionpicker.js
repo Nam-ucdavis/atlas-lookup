@@ -1,6 +1,6 @@
 // Regions tab of the side panel, for the 3D view: search every atlas's regions, tick the
 // ones to show, and optionally restrict the overlays to inside them. Each chosen region
-// gets its own colour (click its swatch to pick another). The choice is remembered and applied live as it changes.
+// gets its own colour (click its square to pick another). The choice is remembered and applied live as it changes.
 
 const PALETTE = [  // distinct, readable on black and on the glass brain
   [230, 25, 75], [60, 180, 75], [255, 225, 25], [0, 130, 200], [245, 130, 48], [145, 30, 180],
@@ -24,7 +24,13 @@ const SYNONYMS = {
   rsc: ["retrosplenial"],
 };
 
-/** [r, g, b] <-> "#rrggbb" (the colour input's format). Exported for tests. */
+/** Colours offered for a chosen region: Google Calendar's eleven event colours. */
+export const CHOICES = [
+  ["Tomato", "#d50000"], ["Flamingo", "#e67c73"], ["Tangerine", "#f4511e"], ["Banana", "#f6bf26"],
+  ["Sage", "#33b679"], ["Basil", "#0b8043"], ["Peacock", "#039be5"], ["Blueberry", "#3f51b5"],
+  ["Lavender", "#7986cb"], ["Grape", "#8e24aa"], ["Graphite", "#616161"],
+];
+/** [r, g, b] <-> "#rrggbb". Exported for tests. */
 export const toHex = (rgb) => "#" + rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
 export const fromHex = (hex) => [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16));
 
@@ -39,6 +45,7 @@ export function createRegionPicker({ button, store, esc, onChange, panel, host }
   let atlases = null;  // [{ atlas, atlas_name, regions: [...] }]
   let chosen = store.get("regions3d", []);       // [{ atlas, atlasName, value, side, name, color }]
   let maskResults = store.get("regions3dMask", false);
+  let openSwatch = -1;  // index of the region whose colour row is open
   const showHooks = [];  // run when the tab opens (the tract list refreshes then)
 
   const dlg = host;  // the side panel's Regions section
@@ -107,10 +114,14 @@ export function createRegionPicker({ button, store, esc, onChange, panel, host }
   function renderChosen() {
     dlg.querySelector(".rg-count").textContent = chosen.length ? `(${chosen.length})` : "";
     list.innerHTML = chosen.length
-      ? chosen.map((c, i) => `<div class="rg-chip"><input type="color" data-color="${i}" value="${toHex(c.color)}"
-          title="Change colour" aria-label="Colour of ${esc(c.name)}">
+      ? chosen.map((c, i) => `<div class="rg-chip"><button type="button" class="rg-swatch" data-swatch="${i}"
+          style="background:${toHex(c.color)}" title="Change colour" aria-label="Colour of ${esc(c.name)}"
+          aria-expanded="${openSwatch === i}"></button>
           <span>${esc(c.name)}<br><span class="muted">${esc(c.atlasName)}</span></span>
-          <button type="button" class="btn small" data-remove="${i}" aria-label="Remove ${esc(c.name)}">✕</button></div>`).join("")
+          <button type="button" class="btn small" data-remove="${i}" aria-label="Remove ${esc(c.name)}">✕</button>
+          ${openSwatch === i ? `<div class="rg-colors" role="group" aria-label="Colours">${CHOICES.map(([name, hex]) =>
+            `<button type="button" data-pick="${hex}" style="background:${hex}" title="${name}" aria-label="${name}"
+              aria-pressed="${toHex(c.color) === hex}"></button>`).join("")}</div>` : ""}</div>`).join("")
       : `<div class="hint">Nothing chosen: the 3D view shows the whole brain. Tick regions above.</div>`;
     maskBox.checked = maskResults;
     maskBox.disabled = !chosen.length;
@@ -125,21 +136,37 @@ export function createRegionPicker({ button, store, esc, onChange, panel, host }
     } else if (!e.target.checked) {
       chosen = chosen.filter((c) => keyOf(c) !== key);
     }
+    openSwatch = -1;
     renderChosen(); emit();
   });
   list.addEventListener("click", (e) => {
     if (e.target.dataset.remove === undefined) return;
     chosen = chosen.filter((_, i) => i !== +e.target.dataset.remove);
+    openSwatch = -1;
     renderChosen(); renderResults(); emit();
   });
-  // A swatch: pick any colour for that region; applied live while the picker is open
-  // (at most once a frame) and remembered with the choice.
-  let colorFrame = 0;
-  list.addEventListener("input", (e) => {
-    const i = e.target.dataset.color;
-    if (i === undefined || !chosen[+i]) return;
-    chosen = chosen.map((c, j) => (j === +i ? { ...c, color: fromHex(e.target.value) } : c));
-    if (!colorFrame) colorFrame = requestAnimationFrame(() => { colorFrame = 0; emit(); });
+  // A swatch opens a row of preset colours under its region; picking one recolours the
+  // region (remembered with the choice) and closes the row.
+  list.addEventListener("click", (e) => {
+    const sw = e.target.closest("[data-swatch]"), pick = e.target.closest("[data-pick]");
+    if (sw) {
+      openSwatch = openSwatch === +sw.dataset.swatch ? -1 : +sw.dataset.swatch;
+      renderChosen();
+      list.querySelector(openSwatch >= 0 ? '.rg-colors [aria-pressed="true"], .rg-colors button' : `[data-swatch="${sw.dataset.swatch}"]`)?.focus();
+    } else if (pick && chosen[openSwatch]) {
+      const i = openSwatch;
+      chosen = chosen.map((c, j) => (j === i ? { ...c, color: fromHex(pick.dataset.pick) } : c));
+      openSwatch = -1;
+      renderChosen(); emit();
+      list.querySelector(`[data-swatch="${i}"]`)?.focus();
+    }
+  });
+  list.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && openSwatch >= 0) {
+      const i = openSwatch; openSwatch = -1; renderChosen();
+      list.querySelector(`[data-swatch="${i}"]`)?.focus();
+      e.stopPropagation();
+    }
   });
   maskBox.addEventListener("change", () => { maskResults = maskBox.checked; emit(); });
   search.addEventListener("input", renderResults);

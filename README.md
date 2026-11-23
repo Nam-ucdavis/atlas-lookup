@@ -333,8 +333,9 @@ straight away.
   atlas overlay, under your stat maps). Tick **Show results only inside these regions** to hide everything
   else; the regions then turn see-through so you can see the results inside.
   Deep regions (hippocampus, amygdala) are clearest in Glass brain.
-  Click a region's coloured square to pick another colour; the slices and the 3D view
-  follow as you pick, and the colour is remembered.
+  Click a region's coloured square for a row of preset colours (Google Calendar's
+  eleven event colours) and pick one; the slices and the 3D view follow, and the
+  colour is remembered.
 - **Connecting tracts** (under the chosen regions, same tab) lists the
   white-matter tracts whose core passes near your regions. With one region
   (say the hippocampus) you get the tracts touching it (cingulum, fornix, ...);
