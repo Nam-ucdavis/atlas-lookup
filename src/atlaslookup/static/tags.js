@@ -175,9 +175,9 @@ export function createTags({ store, esc, host, bar, wrap, getNv, getMap, mapName
 
   // --- Tags tab -----------------------------------------------------------------------
   host.innerHTML = `<div class="tags-tab">
-      <div class="tags-head"><b class="tags-for"></b></div>
+      <div class="tags-head"><b class="tags-for"></b>
+        <label class="tags-others"><input type="checkbox"> Show other maps' tags</label></div>
       <div class="tags-list"></div>
-      <label class="tags-others"><input type="checkbox"> Show other maps' tags</label>
       <div class="tags-foot"><a class="btn small" href="/api/tags.csv" download>Export all as CSV</a>
         <span class="hint" style="margin:0">with the regions at each point</span></div>
       <p class="hint">Tags are saved in your Atlas Lookup data folder (tags.json), not in the results

@@ -563,12 +563,14 @@
     color: #ffe14d; font: 600 12px system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; }
   .tag-mark i { width: 8px; height: 8px; border-radius: 50%; background: #ffe14d; box-shadow: 0 0 0 1.5px #000; flex: none; }
   .tag-mark.other { color: #c9c9c9; } .tag-mark.other i { background: #c9c9c9; }
-  .tags-tab { padding: 4px 2px; }
+  /* The list scrolls; the title, the other-maps switch and the export stay in view. */
+  .tags-tab { padding: 4px 2px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .tags-tab .linkish { border: 0; background: none; padding: 0; margin: 0; font: inherit; color: var(--accent); cursor: pointer; }
   .tags-tab .tag-go { color: var(--ink); }
   .tags-tab .linkish:hover { text-decoration: underline; }
-  .tags-head { margin-bottom: 8px; }
-  .tags-list { display: flex; flex-direction: column; }
+  .tags-head { margin-bottom: 8px; flex: none; }
+  .tags-list { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .tags-list > * { flex: none; }
   .tag-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
   .tag-row .tag-go { font-weight: 600; text-align: left; }
   .tag-row .tag-mm, .tag-row .tag-map { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
@@ -588,8 +590,8 @@
   .tag-edit .danger { margin-left: auto; color: #c0392b; border-color: currentColor; background: none; }
   .tag-acts { display: flex; gap: 8px; font-size: 12px; }
   .tags-sub { margin-top: 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
-  .tags-others { display: flex; gap: 6px; align-items: center; margin: 12px 0 8px; }
-  .tags-foot { display: flex; gap: 8px; align-items: center; }
+  .tags-others { display: flex; gap: 6px; align-items: center; margin: 6px 0 0; font-size: 13px; }
+  .tags-foot { display: flex; gap: 8px; align-items: center; flex: none; margin-top: 10px; }
   .slice-labels span { position: absolute; transform: translateY(-100%); pointer-events: none;
     color: #fff; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; text-shadow: 0 0 3px #000; white-space: nowrap; }
   .cbars { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 12px; }

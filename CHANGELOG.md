@@ -3,6 +3,12 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.30.3 (2026-11-23)
+- Fixed: with **Show other maps' tags** on, a long tag list ran off the bottom of the
+  Tags tab, which could not scroll, so the switch (below the list) could not be reached
+  to turn it off. The list now scrolls on its own, with the switch moved up under the
+  title and the CSV export kept in view below.
+
 ## 0.30.2 (2026-11-23)
 - **3D captures**: the brain is cropped to fill the image height (it was letterboxed
   inside the whole canvas), and NiiVue's orientation cube in the corner is replaced by
