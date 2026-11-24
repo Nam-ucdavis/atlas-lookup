@@ -1398,3 +1398,28 @@ def test_only_local_host_names_are_answered():
     for host in ("evil.example:8765", "127.0.0.1.evil.example", "example.com"):
         assert c.get("/api/results", headers={"host": host}).status_code == 400, host
     assert _host_name("[::1]:8765") == "[::1]" and _host_name("localhost") == "localhost"
+
+
+def test_axis_cross_for_3d_captures():
+    """The axis cross in a 3D capture shows the axes lying in the screen, not the one
+    pointing at the viewer, with the letters of both ends."""
+    import json
+
+    import atlaslookup
+
+    static = Path(atlaslookup.__file__).parent / "static"
+    out = _node(f"""
+      import {{ axisCrossFrom }} from {str(static / "viewer3d.js")!r};
+      // left lateral view: R points into the screen, A to the left, S up (y down on screen)
+      const lateral = axisCrossFrom([[0, 0], [-50, 0], [0, -50]]);
+      // tilted 15 degrees: R barely shows (sin 15 = 0.26), so it is left out
+      const tilted = axisCrossFrom([[0, -13], [-50, 0], [0, -48]]);
+      // an oblique view shows all three
+      const oblique = axisCrossFrom([[35, 20], [-35, 20], [0, -50]]);
+      console.log(JSON.stringify({{ lateral, tilted: tilted.map((a) => a.plus), oblique: oblique.length }}));
+    """)
+    r = json.loads(out)
+    assert [(a["plus"], a["minus"]) for a in r["lateral"]] == [("A", "P"), ("S", "I")]
+    assert r["lateral"][0]["dir"] == [-1, 0] and r["lateral"][1]["dir"] == [0, -1]
+    assert r["tilted"] == ["A", "S"]
+    assert r["oblique"] == 3

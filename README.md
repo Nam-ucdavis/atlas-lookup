@@ -357,7 +357,9 @@ straight away.
 - **Crosshair and capture:** the slice crosshair is shown in 3D too (the
   Crosshair checkbox applies to both). The **camera** button saves the 3D view with its
   colour bars, at the same size as a three-slice capture, on the background you choose
-  (the views choice does not apply).
+  (the views choice does not apply). The image is cropped so the brain fills its
+  height, and a small axis cross beside the brain (e.g. A–P, S–I for a side view)
+  replaces the orientation cube.
 
 To look up a point, click on the slices; clicks in 3D only rotate. The app
 remembers which tab and style you used last. The quiz has its own 3D view next to

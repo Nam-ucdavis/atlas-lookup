@@ -823,6 +823,7 @@ export function createFocusView({ Niivue, NVImage, canvas, legend, controls, sto
     setView: (az, el) => nv?.setRenderAzimuthElevation(az, el),
     get active() { return active; },
     get canvas() { return canvas; },
+    get nv() { return nv; },
     get parts() { return parts; },
     structureAt, distanceTo, insidePoint, highlight,
     redraw: () => drawNow?.(),

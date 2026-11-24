@@ -74,6 +74,77 @@ const REGION_SEE_THROUGH = 0.35;
 const TRACT_OPACITY = 0.9;  // a touch see-through, so regions behind a tract still show  // region opacity when results are shown only inside them
 const W = 2400, H = 800, BAND = 160;  // capture size, matching the slice captures
 
+const FILL = 0.9;  // share of the capture height the brain fills
+const AXIS_R = 34, AXIS_GAP = 36;  // axis cross: arm length and gap to the brain (capture px)
+
+/** The part of a black-background render that is not black (padded a little), so a
+ *  capture can crop to the brain. The whole canvas if it is all black. */
+function contentBox(canvas) {
+  const { width: w, height: h } = canvas;
+  const d = canvas.getContext("2d").getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = 4 * (y * w + x);
+      if (d[i] > 10 || d[i + 1] > 10 || d[i + 2] > 10) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) return { x: 0, y: 0, w, h };
+  const pad = Math.round(0.03 * Math.max(x1 - x0, y1 - y0));
+  x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
+  x1 = Math.min(w - 1, x1 + pad); y1 = Math.min(h - 1, y1 + pad);
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+/** On-screen directions of the anatomical axes for a NiiVue camera: for each axis that
+ *  is not pointing (mostly) into the screen, a unit 2D vector (y down) towards its
+ *  positive end and the letters of both ends. */
+function axisCross(nv) {
+  const w = nv.gl.canvas.width, h = nv.gl.canvas.height;
+  const [m] = nv.calculateMvpMatrix(null, [0, 0, w, h], nv.scene.renderAzimuth, nv.scene.renderElevation);
+  const proj = (X, Y, Z) => {
+    const cw = m[3] * X + m[7] * Y + m[11] * Z + m[15];
+    return [((m[0] * X + m[4] * Y + m[8] * Z + m[12]) / cw + 1) / 2 * w, (1 - (m[1] * X + m[5] * Y + m[9] * Z + m[13]) / cw) / 2 * h];
+  };
+  const o = proj(0, 0, 0);
+  return axisCrossFrom([[1, 0, 0], [0, 1, 0], [0, 0, 1]].map((d) => {
+    const p = proj(...d);
+    return [p[0] - o[0], p[1] - o[1]];
+  }));
+}
+
+/** From the screen vectors of the R, A and S unit axes: the axes to draw. An axis's
+ *  on-screen length is compared with that of an axis lying flat in the screen. */
+export function axisCrossFrom(vecs) {
+  const NAMES = [["R", "L"], ["A", "P"], ["S", "I"]];
+  const full = Math.sqrt(vecs.reduce((s, [x, y]) => s + x * x + y * y, 0) / 2) || 1;
+  return vecs.map(([x, y], i) => {
+    const len = Math.hypot(x, y) / full;
+    return len < 0.4 ? null : { dir: [x / Math.hypot(x, y), y / Math.hypot(x, y)], plus: NAMES[i][0], minus: NAMES[i][1] };
+  }).filter(Boolean);
+}
+
+/** A small cross: one thin line per shown axis, a letter at each end. */
+function drawAxisCross(ctx, axes, cx, cy, ink) {
+  ctx.save();
+  ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.globalAlpha = 0.85;
+  ctx.lineWidth = 2; ctx.lineCap = "round";
+  ctx.font = "600 20px system-ui, -apple-system, Helvetica, Arial, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const { dir: [ux, uy], plus, minus } of axes) {
+    ctx.beginPath();
+    ctx.moveTo(cx - ux * AXIS_R, cy - uy * AXIS_R);
+    ctx.lineTo(cx + ux * AXIS_R, cy + uy * AXIS_R);
+    ctx.stroke();
+    const t = AXIS_R + 16;
+    ctx.fillText(plus, cx + ux * t, cy + uy * t);
+    ctx.fillText(minus, cx - ux * t, cy - uy * t);
+  }
+  ctx.restore();
+}
+
 // --- sampling volumes at mesh vertices (pure, exported for tests) ---------------------
 
 function invert4(m) {
@@ -676,25 +747,53 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   });
 
   // The camera button while the 3D tab is open: the render plus the colour bars (unless
-  // bars is false), the same
-  // size as a three-slice capture. Copy right after a redraw (the WebGL canvas is not
-  // preserved). A white or transparent background replaces the black around the brain.
+  // bars is false), the same size as a three-slice capture. The brain is cropped to fill
+  // the height, and NiiVue's orientation cube is replaced by a small axis cross drawn
+  // beside the brain. Copy right after a redraw (the WebGL canvas is not preserved). A
+  // white or transparent background replaces the black around the brain.
   function capture(drawBars, { background = "black", bars = true } = {}) {
     const bg = BACKGROUNDS[background] || BACKGROUNDS.black;
+    const view = focused ? focus.nv : nv3;
+    const src = focused ? focus.canvas : nv3.canvas;
     // must be synchronous: the WebGL canvas is copied right after
-    if (focused) focus.redraw(); else drawNow();
-    const src = focused ? focus.canvas : nv3.canvas, out = document.createElement("canvas");
+    const redraw = () => (focused ? focus.redraw() : drawNow());
+    const copy = () => {
+      const c = document.createElement("canvas");
+      c.width = src.width; c.height = src.height;
+      c.getContext("2d").drawImage(src, 0, 0);
+      return c;
+    };
+    const { isOrientCube: cube, show3Dcrosshair: cross } = view.opts;
+    // The crop comes from a render without the crosshair (its lines reach past the
+    // brain); the image itself keeps the crosshair if it is on.
+    view.opts.isOrientCube = false;
+    view.opts.show3Dcrosshair = false;
+    redraw();
+    const box = contentBox(copy());
+    view.opts.show3Dcrosshair = cross;
+    redraw();
+    const raw = copy();
+    view.opts.isOrientCube = cube;
+    view.drawScene();
+    const axes = axisCross(view);
+
+    const out = document.createElement("canvas");
     out.width = W; out.height = H + (bars ? BAND : 0);
     const ctx = out.getContext("2d");
     const pic = document.createElement("canvas");
     pic.width = W; pic.height = H;
     const pctx = pic.getContext("2d");
     pctx.fillStyle = "#000"; pctx.fillRect(0, 0, W, H);
-    const k = Math.min(W / src.width, H / src.height);
-    pctx.drawImage(src, (W - src.width * k) / 2, (H - src.height * k) / 2, src.width * k, src.height * k);
+    const k = Math.min((W * 0.8) / box.w, (H * FILL) / box.h);
+    const dw = box.w * k, dh = box.h * k, dx = (W - dw) / 2, dy = (H - dh) / 2;
+    pctx.drawImage(raw, box.x, box.y, box.w, box.h, dx, dy, dw, dh);
     if (background !== "black") knockOut(pic);
     if (bg.fill) { ctx.fillStyle = bg.fill; ctx.fillRect(0, 0, out.width, out.height); }
     ctx.drawImage(pic, 0, 0);
+    // The axis cross just left of the brain's lower corner (inside the image if the brain
+    // is too wide to leave room).
+    const cx = Math.max(AXIS_R + 40, dx - AXIS_GAP - AXIS_R), cy = Math.min(H - AXIS_R - 30, dy + dh - AXIS_R);
+    drawAxisCross(ctx, axes, cx, cy, bg.ink);
     if (bars) drawBars(ctx, H, { width: W, height: BAND, ink: bg.ink });
     return new Promise((resolve) => out.toBlob(resolve, "image/png"));
   }

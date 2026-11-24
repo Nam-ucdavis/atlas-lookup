@@ -3,6 +3,13 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.30.2 (2026-11-23)
+- **3D captures**: the brain is cropped to fill the image height (it was letterboxed
+  inside the whole canvas), and NiiVue's orientation cube in the corner is replaced by
+  a small, thin axis cross with letters (A–P, S–I, R–L as the camera shows them) just
+  beside the brain. Axes pointing mostly into the screen are left out. The on-screen
+  view keeps its orientation cube.
+
 ## 0.30.1 (2026-11-23)
 - Region colours are now chosen from preset squares instead of a free colour picker:
   clicking a region's square opens Google Calendar's eleven event colours (Tomato,
