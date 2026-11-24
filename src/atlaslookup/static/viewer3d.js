@@ -557,18 +557,30 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
   }
   showFocusMode();
 
+  // Camera of a saved view (rotation and zoom), applied the first time the view it was
+  // taken in (whole brain or focus) is shown.
+  let pendingCamera = null;
+  function applyCamera(view, isFocus) {
+    const c = pendingCamera;
+    if (!c || !view || !!c.focus !== isFocus) return;
+    pendingCamera = null;
+    if (Number.isFinite(c.zoom)) view.scene.volScaleMultiplier = c.zoom;
+    if (Number.isFinite(c.az) && Number.isFinite(c.el)) view.setRenderAzimuthElevation(c.az, c.el);
+    view.drawScene();
+  }
   async function show(on) {
     active = on;
     wrap.hidden = !on;
     controls.bar.hidden = !on;
     if (focus && (!on || focused)) {
       await focus.show(on && focused);
-      if (on) { focusSources(); return; }
+      if (on) { focusSources(); applyCamera(focus.nv, true); return; }
     }
     if (!on) return;
     if (!ready) ready = init().then(() => Promise.all([loadRegions(), loadTracts()]));
     await ready;
     await applyStyle();
+    applyCamera(nv3, false);
     nv3.resizeListener?.();
     nv3.drawScene();
     setHint(INFLATED.has(style) && infl ? "3D: drag to rotate, scroll to zoom. Click the inflated brain (or the slices) to look up a point."
@@ -804,6 +816,16 @@ export function createViewer3D({ Niivue, NVImage, getNv, store, wrap, canvas, co
     setTracts,
     get active() { return active; },
     get nv() { return nv3; },
+    /** The camera on screen ({az, el, zoom, focus}), or null before the 3D view has opened. */
+    camera() {
+      const v = focused ? focus?.nv : nv3;
+      return v ? { az: v.scene.renderAzimuth, el: v.scene.renderElevation, zoom: v.scene.volScaleMultiplier, focus: focused } : null;
+    },
+    /** Use this camera the next time the 3D view (whole brain or focus, as saved) opens. */
+    setCamera(c) {
+      pendingCamera = c || null;
+      if (active) applyCamera(focused ? focus?.nv : nv3, focused);
+    },
     follow: () => active && sync(),
     capture: (drawBars, opts) => (active && (focused || nv3) ? capture(drawBars, opts) : null),
   };

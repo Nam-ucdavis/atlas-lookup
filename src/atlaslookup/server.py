@@ -43,6 +43,12 @@ POST /api/tags  {"label", "mm", "map", "note"}   tag a point (JSON only); saved 
 PATCH /api/tags/{id}  {"label"?, "note"?, "mm"?}   rename / annotate / move a tag (JSON only)
 DELETE /api/tags/{id}                    remove a tag
 GET /api/tags.csv                        every tag, with the regions at each point
+GET /api/views                           saved views: name, when saved
+GET /api/views/{name}                    one view: {"settings", "hash", "camera", "saved"}
+PUT /api/views/{name}  {"settings", "hash", "camera"}   save (or replace) a view (JSON only);
+                                         in DATA_DIR/views.json
+DELETE /api/views/{name}                 remove a view
+GET /{name}                              the app, opened with that saved view
 
 The lookup endpoint is stateless (one coordinate in, all atlas readouts out);
 the viewer in the UI calls it on every click.
@@ -57,7 +63,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .atlas import LABEL_FILE, OVERLAY_FILE, load_atlases
 from .config import (TAGS_FILE, IMAGE_DIR, INFLATED_MESH_FILE, INFLATED_MORPH_FILE, MESH_FILE, STATIC_DIR, TEMPLATE_FILE,
-                     FSLR_MESH_FILE, FSLR_MORPH_FILE, LINKS_FILE)
+                     FSLR_MESH_FILE, FSLR_MORPH_FILE, LINKS_FILE, VIEWS_FILE)
 from .links import LinkStore, suggest as suggest_links
 from . import cifti
 from .grids import load_grids
@@ -67,12 +73,14 @@ from .results import Results, configured_dir, list_folders, repo_warning, save_r
 from .tags import TagStore, belongs, file_key, to_csv
 from .query import best_guess, peak_atlases, query, resolve_mm
 from .version import version_info
+from .views import NAME as VIEW_NAME, ViewStore, check_name
 
 app = FastAPI(title="Atlas lookup")
 ATLASES = load_atlases()
 GRIDS = load_grids()
 RESULTS = Results(configured_dir())
 TAGS = TagStore(TAGS_FILE)
+VIEWS = ViewStore(VIEWS_FILE)
 
 
 # Host names this server answers to. A web page can point its own domain at 127.0.0.1
@@ -108,7 +116,8 @@ async def no_stale_ui(request, call_next):
     # Make browsers revalidate the page and its scripts, so a restart after
     # an update is enough (they otherwise keep serving a cached old UI).
     response = await call_next(request)
-    if request.url.path == "/" or request.url.path.startswith("/static/"):
+    path = request.url.path
+    if path == "/" or path.startswith("/static/") or VIEW_NAME.match(path[1:]):
         response.headers["Cache-Control"] = "no-cache"
     return response
 
@@ -629,8 +638,56 @@ def tags_csv():
                     headers={"Content-Disposition": 'attachment; filename="atlas-lookup-tags.csv"'})
 
 
+def _views_or_500() -> dict:
+    try:
+        return VIEWS.all()
+    except ValueError as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/api/views")
+def views_list():
+    views = _views_or_500()
+    return {"views": [{"name": n, "saved": v.get("saved")} for n, v in sorted(views.items(), key=lambda x: x[0].lower())]}
+
+
+@app.get("/api/views/{name}")
+def views_get(name: str):
+    v = _views_or_500().get(name)
+    if v is None:
+        raise HTTPException(404, f"No saved view {name!r}")
+    return {"name": name, **v}
+
+
+@app.put("/api/views/{name}")
+async def views_save(name: str, request: Request):
+    b = await _json_body(request)
+    try:
+        return {"name": check_name(name), **VIEWS.save(name, b.get("settings"), b.get("hash", ""), b.get("camera"))}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.delete("/api/views/{name}")
+def views_delete(name: str):
+    try:
+        VIEWS.delete(name)
+    except KeyError:
+        raise HTTPException(404, f"No saved view {name!r}")
+    return {"ok": True}
+
+
 @app.get("/")
 def index():
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/{name}")
+def view_page(name: str):
+    """The app, opened with a saved view (the page reads the view by its own path)."""
+    if not VIEW_NAME.match(name) or name not in _views_or_500():
+        return Response(f"No saved view named {name!r}. Open the app at / to see your saved views.",
+                        status_code=404, media_type="text/plain")
     return FileResponse(STATIC_DIR / "index.html")
 
 

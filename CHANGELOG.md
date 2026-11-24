@@ -3,6 +3,17 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.33.0 (2026-11-24)
+- **Saved views:** the **Views** menu (next to the version badge) saves the current setup
+  under a name, and opens at `http://127.0.0.1:8765/<name>`. A view keeps:
+  - the open stat maps and their settings, and the active map;
+  - the coordinate;
+  - slices or 3D, with the 3D camera;
+  - regions, tracts, atlases and image options.
+
+  Changes made inside a view stay in that page until you **Update** the view, and never
+  touch your own settings. Views are saved in `~/.atlaslookup/views.json`.
+
 ## 0.32.0 (2026-11-24)
 - **Show on slices:** a switch next to the tag box (and in the Tags tab) hides or shows
   the tags' dots and names on the slices, without touching the tags themselves. The

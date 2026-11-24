@@ -59,6 +59,13 @@
   .ver-menu .badge { margin-left: 6px; }
   .ver-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
   .ver-menu .ver-note { font-size: 12px; color: var(--muted); padding: 6px 8px 4px; max-width: 300px; }
+  .ver-menu a { display: grid; grid-template-columns: 16px 1fr auto; gap: 6px; align-items: baseline; padding: 6px 8px;
+    border-radius: 6px; color: inherit; text-decoration: none; font-size: 13px; }
+  .ver-menu a:hover, .ver-menu a:focus-visible { background: var(--accent-soft); outline: none; }
+  .ver-menu .view-link { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; user-select: all;
+    word-break: break-all; color: var(--ink); }
+  .views-btn.in-view { color: var(--accent); border-color: var(--accent); }
+  .views-btn .dirty { color: var(--warn); margin-left: 4px; }
   main { display: grid; grid-template-columns: 300px 1fr; gap: 20px; padding: 14px 24px 40px; align-items: start; }
   /* Left sidebar: stays in view while the page scrolls, collapses with the header button. */
   main > aside { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; overscroll-behavior: contain; }
@@ -615,7 +622,8 @@
 <header>
   <div class="titlebar"><button type="button" class="icon-btn" id="leftToggle" aria-controls="leftBar" aria-expanded="true" title="Hide sidebar" aria-label="Hide sidebar">
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="1.8" y="2.8" width="14.4" height="12.4" rx="2.2"/><line x1="6.6" y1="2.8" x2="6.6" y2="15.2"/></svg></button><h1>Atlas Lookup</h1><span class="ver-wrap"><button type="button" class="version" id="version" aria-haspopup="menu" aria-expanded="false" aria-controls="verMenu" title="Live version · click to switch version">…</button>
-      <div class="ver-menu" id="verMenu" role="menu" aria-label="Switch version" hidden></div></span>
+      <div class="ver-menu" id="verMenu" role="menu" aria-label="Switch version" hidden></div></span><span class="ver-wrap views-wrap"><button type="button" class="version views-btn" id="viewsBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="viewsMenu" title="Saved views: settings under a name, each with its own link">Views<span class="caret" aria-hidden="true">▾</span></button>
+      <div class="ver-menu" id="viewsMenu" role="menu" aria-label="Saved views" hidden></div></span>
     <span class="grow"></span><button type="button" class="icon-btn" id="themeToggle" title="Switch to dark mode" aria-label="Switch to dark mode">
       <svg class="ico-moon" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M14.5 11.2A6.2 6.2 0 0 1 6.8 3.5a6.2 6.2 0 1 0 7.7 7.7Z"/></svg>
       <svg class="ico-sun" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="3.2"/><path d="M9 1.8v1.6M9 14.6v1.6M1.8 9h1.6M14.6 9h1.6M3.9 3.9l1.1 1.1M13 13l1.1 1.1M3.9 14.1 5 13M13 5l1.1-1.1"/></svg></button><button type="button" class="btn quiz-only" id="progressBtn" title="Your learning progress by brain division">Progress</button>
@@ -843,10 +851,47 @@ import { createRegionPicker } from "/static/regionpicker.js";
 import { createTractPanel } from "/static/tracts.js";
 import { createSidePanel } from "/static/sidepanel.js";
 const $ = (id) => document.getElementById(id);
-const store = {
+const local = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
+// Saved views (views.py): the page opened at /<name> runs on that view's settings, kept in
+// memory, so changes made there never touch your own settings (in browser storage) until
+// you update the view. Settings that are yours rather than a view's stay in browser storage.
+const PERSONAL = new Set(["theme", "leftBar", "history", "quizStats", "quizPractise", "quizFoci", "quizTypes",
+                          "cbpHidTal", "shotFolder", "shotReveal"]);
+const VIEW_NAME = /^\/([A-Za-z0-9][A-Za-z0-9_-]{0,63})\/?$/.exec(location.pathname)?.[1] || null;
+let viewData = VIEW_NAME ? await fetch(`/api/views/${encodeURIComponent(VIEW_NAME)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null;
+let viewSettings = viewData ? structuredClone(viewData.settings || {}) : null;
+if (viewData && !location.hash && viewData.hash) history.replaceState(null, "", "#" + viewData.hash);
+const copyJSON = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
+const store = {
+  get(k, d) {
+    if (!viewSettings || PERSONAL.has(k)) return local.get(k, d);
+    return k in viewSettings && viewSettings[k] !== undefined ? copyJSON(viewSettings[k]) : d;
+  },
+  set(k, v) {
+    if (!viewSettings || PERSONAL.has(k)) return local.set(k, v);
+    viewSettings[k] = copyJSON(v);
+    showViewState();
+  },
+};
+// The settings a new view would save: this page's (a view's, or yours from browser storage).
+function currentSettings() {
+  if (viewSettings) return structuredClone(viewSettings);
+  const out = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (PERSONAL.has(k)) continue;
+      try { out[k] = JSON.parse(localStorage.getItem(k)); } catch {}
+    }
+  } catch {}
+  return out;
+}
+const stable = (v) => JSON.stringify(v, (_, x) => (x && typeof x === "object" && !Array.isArray(x)
+  ? Object.fromEntries(Object.keys(x).sort().filter((k) => x[k] !== undefined).map((k) => [k, x[k]])) : x));
+const viewDirty = () => !!viewSettings && stable(viewSettings) !== stable(viewData.settings || {});
 const state = { mode: "mm", base: 1, atlases: [], grids: [], hidden: new Set(store.get("hidden", [])) };
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const pct = (p) => (p * 100 >= 10 ? Math.round(p * 100) : (p * 100).toFixed(p < 0.01 ? 1 : 0)) + "%";
@@ -897,6 +942,91 @@ fetch("/api/version").then((r) => r.json()).then((v) => {
   $("version").classList.toggle("modified", v.modified);
   $("version").title = (v.modified ? "Running files differ from the committed version" : "Live version") + " · click to switch version";
 }).catch(() => ($("version").textContent = "version unknown"));
+
+// Views menu: save the current settings under a name (a link of their own), open one,
+// and, in a view, update or delete it or go back to your own settings.
+const viewURL = (name) => `${location.origin}/${encodeURIComponent(name)}`;
+function showViewState() {
+  const b = $("viewsBtn");
+  b.classList.toggle("in-view", !!viewData);
+  b.innerHTML = viewData
+    ? `View: ${esc(viewData.name)}${viewDirty() ? '<span class="dirty" title="Changed since saved">●</span>' : ""}<span class="caret" aria-hidden="true">▾</span>`
+    : `Views<span class="caret" aria-hidden="true">▾</span>`;
+  b.title = viewData ? `Saved view "${viewData.name}"${viewDirty() ? " · changed since it was saved (Update to keep the changes)" : ""}`
+    : "Saved views: settings under a name, each with its own link";
+}
+if (viewData) document.title = `${viewData.name} · Atlas Lookup`;
+showViewState();
+function closeViewsMenu() { $("viewsMenu").hidden = true; $("viewsBtn").setAttribute("aria-expanded", "false"); }
+async function openViewsMenu(note = "") {
+  const menu = $("viewsMenu");
+  menu.hidden = false; $("viewsBtn").setAttribute("aria-expanded", "true");
+  const d = await fetch("/api/views").then((r) => r.json()).catch(() => ({ views: [] }));
+  const item = (act, label, extra = "") => `<button type="button" role="menuitem" data-act="${act}"><span></span><span>${label}</span><span class="ver-date">${extra}</span></button>`;
+  const cur = viewData?.name;
+  menu.innerHTML = (cur ? `<div class="ver-title">This view</div>
+      <div class="ver-note"><span class="view-link">${esc(viewURL(cur))}</span></div>` +
+      item("update", `Update “${esc(cur)}” with the current settings`, viewDirty() ? "changed" : "") +
+      item("copy", "Copy its link") + item("delete", `Delete “${esc(cur)}”…`) +
+      `<a href="/${esc(location.hash)}" role="menuitem"><span></span><span>Back to your own settings</span><span></span></a><hr>` : "") +
+    `<div class="ver-title">Save</div>` + item("new", cur ? "Save as a new view…" : "Save the current settings as a view…") +
+    (note ? `<div class="ver-note">${note}</div>` : "") +
+    `<hr><div class="ver-title">Saved views</div>` +
+    (d.views?.length ? d.views.map((v) => `<a href="/${encodeURIComponent(v.name)}" role="menuitemradio" aria-checked="${v.name === cur}">
+        <span class="tick">${v.name === cur ? "✓" : ""}</span><span class="ver-tag">${esc(v.name)}</span>
+        <span class="ver-date">${esc((v.saved || "").slice(0, 10))}</span></a>`).join("")
+      : `<div class="ver-note">None yet. A view keeps the open stat maps and their settings, the coordinate,
+          slices or 3D (with the 3D camera), regions, tracts and image options, and opens at its own link.</div>`);
+  menu.querySelector("button, a")?.focus();
+}
+async function putView(name) {
+  const camera = view3d?.camera?.() || viewData?.camera || null;
+  const body = { settings: currentSettings(), hash: location.hash.slice(1), camera };
+  const r = await fetch(`/api/views/${encodeURIComponent(name)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || r.status);
+  return d;
+}
+const copyText = (t) => navigator.clipboard?.writeText(t).then(() => true, () => false) ?? Promise.resolve(false);
+$("viewsBtn").addEventListener("click", (e) => { e.stopPropagation(); $("viewsMenu").hidden ? openViewsMenu() : closeViewsMenu(); });
+document.addEventListener("click", (e) => { if (!e.target.closest(".views-wrap")) closeViewsMenu(); });
+$("viewsMenu").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { closeViewsMenu(); $("viewsBtn").focus(); }
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    const items = [...$("viewsMenu").querySelectorAll("button, a")], i = items.indexOf(document.activeElement);
+    items[(i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
+  }
+});
+$("viewsMenu").addEventListener("click", async (e) => {
+  const act = e.target.closest("button[data-act]")?.dataset.act;
+  if (!act) return;
+  e.stopPropagation();
+  const cur = viewData?.name;
+  try {
+    if (act === "new") {
+      const name = prompt("Name of the view (letters, digits, - or _). It opens at\n" + viewURL("<name>"), "")?.trim();
+      if (!name) return;
+      const exists = (await fetch("/api/views").then((r) => r.json())).views?.some((v) => v.name === name);
+      if (exists && !confirm(`A view named "${name}" exists. Replace it with the current settings?`)) return;
+      await putView(name);
+      const copied = await copyText(viewURL(name));
+      openViewsMenu(`Saved. Open it at <a class="view-link" href="/${encodeURIComponent(name)}">${esc(viewURL(name))}</a>${copied ? " (link copied)" : ""}.`);
+    } else if (act === "update") {
+      viewData = await putView(cur);
+      viewSettings = structuredClone(viewData.settings);
+      showViewState();
+      openViewsMenu(`Updated “${esc(cur)}”.`);
+    } else if (act === "copy") {
+      openViewsMenu((await copyText(viewURL(cur))) ? "Link copied." : "Copy the link above.");
+    } else if (act === "delete") {
+      if (!confirm(`Delete the saved view "${cur}"? Its link will stop working. Your maps and tags are not affected.`)) return;
+      const r = await fetch(`/api/views/${encodeURIComponent(cur)}`, { method: "DELETE" });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.status);
+      location.href = "/" + location.hash;
+    }
+  } catch (err) { openViewsMenu(`Failed: ${esc(err.message)}`); }
+});
 
 // Version menu: switch the running app to a tagged release (or back to the checkout).
 // The server restarts itself on the same port; the page reloads once it answers again.
@@ -1046,6 +1176,7 @@ async function initViewer() {
                 whole: $("v3Whole") },
     onPick: (mm) => lookupAtMM(mm),  // a click on the inflated brain
   });
+  if (viewData?.camera) view3d.setCamera(viewData.camera);  // a saved view's 3D camera
   // Results browser and Regions picker share a side panel docked on the right.
   sidePanel = createSidePanel({
     store, tabs: [{ id: "results", label: "Results" }, { id: "regions", label: "Regions" }, { id: "tags", label: "Tags" }],

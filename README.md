@@ -169,6 +169,32 @@ Name a point and keep it: under the coordinate, type a name (e.g. `dmFC`) and pr
 - Tags are for results-folder maps; dropped local overlays don't carry tags (a tag made
   while only a local overlay is open belongs to no map).
 
+### Saved views
+
+A saved view is the app's current setup under a name, with a link of its own:
+`http://127.0.0.1:8765/<name>`. Open the link (or pick the view from the **Views** menu
+next to the version badge) and the app starts with that setup.
+
+- **What a view keeps:**
+  - the stat maps that were open, with their thresholds, signs, colours and opacity, and
+    which map was active;
+  - the coordinate;
+  - slices or 3D, the 3D style and settings, and the 3D camera (rotation and zoom);
+  - the atlases shown, the overlay, the chosen regions and tracts;
+  - the side panel, the tag switches and the Save image options.
+- **What a view doesn't keep:** the theme, the lookup history, quiz progress and where
+  images are saved. These stay yours whichever view is open.
+- **Save one:** **Views → Save the current settings as a view…**, then type a name
+  (letters, digits, `-` or `_`). The link is copied when the browser allows it.
+- **Changes inside a view stay in that page.** Your own settings, the ones you get at
+  `http://127.0.0.1:8765/`, are not touched. A ● on the **View:** button means the view
+  has changed since it was saved. **Update "name"** saves the changes into the view;
+  reloading the page or leaving it drops them. **Back to your own settings** leaves the
+  view.
+- **Where views are saved:** `~/.atlaslookup/views.json`, not the results folder. A view
+  points at maps by their path in the results folder; a map that is no longer there is
+  skipped.
+
 ### Brodmann areas (Oxford connectivity-based parcellations)
 
 The **Brodmann area** card can come from the Rushworth lab's connectivity-based
