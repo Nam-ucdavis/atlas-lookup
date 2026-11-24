@@ -124,6 +124,18 @@ export function barEnds({ sign, from, to, mode, df }, minus = "−") {
   return { unit: "T", lo: s + from.toFixed(2), hi: s + to.toFixed(2) };
 }
 
+const COMPACT_W = 720;  // px a map's compact colour-bar pair needs at full size
+
+/** Colour-bar entries grouped per map (in legend order): { name, neg, pos }. */
+export function barGroups(list) {
+  const groups = new Map();
+  for (const e of list) {
+    if (!groups.has(e.key)) groups.set(e.key, { name: e.name, neg: null, pos: null });
+    groups.get(e.key)[e.sign === "+" ? "pos" : "neg"] = e;
+  }
+  return [...groups.values()];
+}
+
 export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, wrap, toggle, altCapture, barsHost, barHost, getMarks = () => [] }) {
   const nv = getNv();
   const box = document.createElement("div");
@@ -228,15 +240,21 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
 
   // Colour bars per row for a capture `width` px wide (four across three tiles).
   const perRow = (width) => Math.max(1, Math.round((width / (TILE * 3)) * BARS_PER_ROW));
-  // Height of the colour-bar band: fixed for a full-width capture (so those always match),
-  // otherwise a row per line of bars (none without bars).
-  function bandHeight(width) {
+  // Height of the colour-bar band (none without bars). Detailed: fixed for a full-width
+  // capture (so those always match), otherwise a row per line of bars. Compact: a row
+  // per line of maps.
+  function bandHeight(width, style = "compact") {
+    if (style === "compact") {
+      const n = barGroups(getLegend()).length;
+      return n ? BAND * Math.ceil(n / Math.max(1, Math.floor(width / COMPACT_W))) : 0;
+    }
     const n = getLegend().length;
     if (width >= TILE * 3) return BAND;
     return n ? BAND * Math.ceil(n / perRow(width)) : 0;
   }
 
-  function drawBars(ctx, y0, { width = TILE * 3, height = BAND, ink = "#fff", x0 = 0 } = {}) {
+  function drawBars(ctx, y0, { width = TILE * 3, height = BAND, ink = "#fff", x0 = 0, style = "compact" } = {}) {
+    if (style === "compact") return drawCompactBars(ctx, y0, { width, height, ink, x0 });
     const list = getLegend();
     if (!list.length || !height) return;
     const per = perRow(width);
@@ -262,6 +280,59 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
       ctx.fillText(hi, x + w, by + bh + font * 0.25);
     });
     ctx.textAlign = "left";
+  }
+
+  // Compact colour bars (the default): per map, the − bar (−max … −threshold, so it meets
+  // the + bar at the threshold) and the + bar (threshold … max) side by side, the end
+  // values under each bar and the unit (t or p) centred below. No file name when one map
+  // is shown; with several, a short name above each pair tells them apart.
+  function drawCompactBars(ctx, y0, { width, height, ink, x0 }) {
+    const groups = barGroups(getLegend());
+    if (!groups.length || !height) return;
+    const per = Math.min(groups.length, Math.max(1, Math.floor(width / COMPACT_W)));
+    const rows = Math.ceil(groups.length / per), cw = width / per, ch = height / rows;
+    const named = groups.length > 1;
+    const f = Math.min(1, ch / BAND);  // shrink when rows share a band
+    const nameH = named ? 30 * f : 0, bh = 24 * f, tick = 6 * f, numH = 26 * f, unitGap = 8 * f, unitH = 30 * f;
+    const total = nameH + bh + tick + numH + unitGap + unitH;
+    const sans = `Helvetica, Arial, -apple-system, "Segoe UI", sans-serif`;
+    ctx.save();
+    ctx.fillStyle = ink; ctx.strokeStyle = ink;
+    groups.forEach((g, n) => {
+      const both = !!(g.neg && g.pos), gap = both ? 70 * f : 0;
+      const bw = Math.min((both ? 300 : 360) * f, (cw * 0.9 - gap) / (both ? 2 : 1));
+      const cx = x0 + (n % per) * cw + cw / 2;
+      let y = y0 + Math.floor(n / per) * ch + (ch - total) / 2;
+      if (named) {
+        ctx.font = `${Math.round(20 * f)}px ${sans}`;
+        ctx.textAlign = "center"; ctx.textBaseline = "top";
+        let name = g.name;
+        while (name.length > 4 && ctx.measureText(name).width > cw * 0.9) name = "…" + name.slice(2);
+        ctx.globalAlpha = 0.8; ctx.fillText(name, cx, y); ctx.globalAlpha = 1;
+        y += nameH;
+      }
+      let x = cx - (bw * (both ? 2 : 1) + gap) / 2;
+      ctx.font = `${Math.round(numH)}px ${sans}`; ctx.textBaseline = "top";
+      for (const e of [g.neg, g.pos]) {
+        if (!e) continue;
+        const neg = e === g.neg, c = lut(e.cmap);
+        for (let i = 0; i < 256; i++) {
+          ctx.fillStyle = `rgb(${c[neg ? 255 - i : i].join(",")})`;
+          ctx.fillRect(x + (bw * i) / 256, y, bw / 256 + 1, bh);
+        }
+        ctx.globalAlpha = 0.35; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, bw - 1, bh - 1); ctx.globalAlpha = 1;
+        const { lo, hi } = barEnds(e);
+        ctx.fillStyle = ink;
+        ctx.textAlign = "left"; ctx.fillText(neg ? hi : lo, x, y + bh + tick);
+        ctx.textAlign = "right"; ctx.fillText(neg ? lo : hi, x + bw, y + bh + tick);
+        x += bw + gap;
+      }
+      const unit = barEnds(g.pos || g.neg).unit === "p" ? "p" : "t";
+      ctx.font = `italic ${Math.round(unitH)}px ${sans}`;
+      ctx.textAlign = "center";
+      ctx.fillText(unit, cx, y + bh + tick + numH + unitGap);
+    });
+    ctx.restore();
   }
 
   // The canvas is WebGL without preserveDrawingBuffer, so copy it right after a redraw,
@@ -293,7 +364,7 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
 
   // views: in the order to draw them. layout: "row" (side by side), "column" (stacked)
   // or "grid" (two per row). The colour bars go underneath, or in the grid's empty cell.
-  function capture({ views = [0, 1, 2], background = "black", tags = false, bars = true, layout = "row" } = {}) {
+  function capture({ views = [0, 1, 2], background = "black", tags = false, bars = true, layout = "row", barStyle = "compact" } = {}) {
     const bg = BACKGROUNDS[background] || BACKGROUNDS.black;
     const order = [...new Set(views)].filter((v) => [0, 1, 2].includes(v));
     if (!order.length) return Promise.resolve(null);
@@ -304,7 +375,7 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
     const src = nv.canvas, out = document.createElement("canvas");
     // A grid with an odd number of views has an empty last cell: the bars go there.
     const inCell = bars && cols > 1 && order.length % cols !== 0 && getLegend().length > 0;
-    const width = TILE * cols, band = bars && !inCell ? bandHeight(width) : 0, top = TILE * rows;
+    const width = TILE * cols, band = bars && !inCell ? bandHeight(width, barStyle) : 0, top = TILE * rows;
     out.width = width; out.height = top + band;
     const ctx = out.getContext("2d");
     if (bg.fill) { ctx.fillStyle = bg.fill; ctx.fillRect(0, 0, out.width, out.height); }
@@ -333,16 +404,17 @@ export function createViewerTools({ getNv, getCoords, getLegend, isQuiz, store, 
     }
     if (inCell) {
       // Centred in the cell, a band per bar (as tall as a full-width band at most).
-      const n = getLegend().length, h = Math.min(TILE, BAND * 1.6 * n), [x, y] = at(order.length);
-      drawBars(ctx, y + (TILE - h) / 2, { width: TILE, height: h, ink: bg.ink, x0: x });
-    } else drawBars(ctx, top, { width, height: band, ink: bg.ink });
+      const n = barStyle === "compact" ? barGroups(getLegend()).length : getLegend().length;
+      const h = Math.min(TILE, BAND * (barStyle === "compact" ? 1 : 1.6) * n), [x, y] = at(order.length);
+      drawBars(ctx, y + (TILE - h) / 2, { width: TILE, height: h, ink: bg.ink, x0: x, style: barStyle });
+    } else drawBars(ctx, top, { width, height: band, ink: bg.ink, style: barStyle });
     return new Promise((resolve) => out.toBlob(resolve, "image/png"));
   }
 
   /** The image for the Save image dialog: the 3D view's render when that tab is open
    * (altCapture), else the chosen slices. */
   const captureView = async (opts = {}) =>
-    (await altCapture?.((ctx, y0, o) => drawBars(ctx, y0, o), opts)) || capture(opts);
+    (await altCapture?.((ctx, y0, o) => drawBars(ctx, y0, { ...o, style: opts.barStyle || "compact" }), opts)) || capture(opts);
 
   nv.drawScene();
   return { capture, captureView, labels, legend, drawBars, refreshLegend: () => { shape = ""; legend(); } };

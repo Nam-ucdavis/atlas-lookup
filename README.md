@@ -123,6 +123,9 @@ The **camera** button opens **Save image**, with a preview of the PNG as it will
     how many tags are on the chosen slices; with none it is greyed out. Not in the 3D tab.
   - **Colour bars:** untick to leave out the colour-bar band (all three views:
     2400 × 800 px instead of 960). In the 3D tab too.
+    **Compact** (the default) draws each map's bars meeting at the threshold, the end
+    values under them and *t* (or *p*) below, with no file name when one map is shown;
+    **With names** puts each map's name over its bars.
 - **Background:** black, white or transparent. On white or transparent the black around
   the brain is removed (with its soft edge, so there is no dark outline) and the
   coordinate and colour-bar text turns black.

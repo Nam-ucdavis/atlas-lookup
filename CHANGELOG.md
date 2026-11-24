@@ -3,6 +3,14 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.31.0 (2026-11-24)
+- **Compact colour bars** are now the default in saved images (slices and 3D): per map,
+  the − bar (−max … −threshold) meets the + bar (threshold … max) at the threshold, with
+  the end values under each bar and *t* (or *p*) centred below, and no file name when
+  one map is shown (several maps each get a short name). The previous style, with each
+  map's name over its bars, is still available as **With names** next to Colour bars in
+  the Save image dialog.
+
 ## 0.30.3 (2026-11-23)
 - Fixed: with **Show other maps' tags** on, a long tag list ran off the bottom of the
   Tags tab, which could not scroll, so the switch (below the list) could not be reached

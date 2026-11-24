@@ -4,7 +4,8 @@
 //    shown (drag a view, or Alt+arrow on its checkbox, to move it).
 //  - Layout: the views in a row, in a column, or in a grid of two per row.
 //    In the 3D tab the image is the 3D render, so there is no choice of views or layout.
-//  - Include: the tags shown on the slices (dot and name), and the colour bars.
+//  - Include: the tags shown on the slices (dot and name), and the colour bars, compact
+//    (the default: bars meeting at the threshold, t below) or with each map's name.
 //  - Background: black, white or transparent (the black around the brain is replaced;
 //    text and colour-bar labels turn black on white or transparent).
 //  - Name: a suggested name from the stat map, the point and the views; type your own.
@@ -38,6 +39,8 @@ export function createShotDialog({ button, capture, is3D, tagMarks = () => [], s
           <fieldset class="shot-incl"><legend>Include</legend>
             <label class="shot-tags"><input type="checkbox" name="tags"> Tags <span class="shot-tagn muted"></span></label>
             <label><input type="checkbox" name="bars"> Colour bars</label>
+            <select name="barStyle" aria-label="Colour bar style" title="Compact: the bars only, meeting at the threshold, with t (or p) below. With names: each map's name over its bars.">
+              <option value="compact">Compact</option><option value="detailed">With names</option></select>
           </fieldset>
           <fieldset><legend>Background</legend>
             <div class="seg shot-bg" role="group" aria-label="Background">
@@ -72,6 +75,7 @@ export function createShotDialog({ button, capture, is3D, tagMarks = () => [], s
 
   form.elements.tags.checked = store.get("shotTags", true);
   form.elements.bars.checked = store.get("shotBars", true);
+  form.elements.barStyle.value = store.get("shotBarStyle", "compact") === "detailed" ? "detailed" : "compact";
   let views = store.get("shotViews", [0, 1, 2]), background = store.get("shotBg", "black");
   // order: all three views, in the order they are drawn; views: the ticked ones.
   let order = store.get("shotOrder", [0, 1, 2]), layout = store.get("shotLayout", "row");
@@ -79,7 +83,8 @@ export function createShotDialog({ button, capture, is3D, tagMarks = () => [], s
   const chosen = () => order.filter((v) => views.includes(v));
   let defaultFolder = "", named = false, url = null, blob = null, pickAt = null, busy = false;
 
-  const opts = () => ({ views: chosen(), layout, background, tags: form.elements.tags.checked, bars: form.elements.bars.checked });
+  const opts = () => ({ views: chosen(), layout, background, tags: form.elements.tags.checked, bars: form.elements.bars.checked,
+    barStyle: form.elements.barStyle.value });
   const say = (html, bad = false) => { msg.innerHTML = html; msg.classList.toggle("bad", bad); };
 
   function syncControls() {
@@ -200,6 +205,7 @@ export function createShotDialog({ button, capture, is3D, tagMarks = () => [], s
       store.set("shotBg", background);
       store.set("shotTags", form.elements.tags.checked);
       store.set("shotBars", form.elements.bars.checked);
+      store.set("shotBarStyle", form.elements.barStyle.value);
       store.set("shotReveal", form.elements.reveal.checked);
       dlg.close();
       setHint(`Saved ${d.file} in ${d.folder}`);
@@ -286,7 +292,9 @@ export function createShotDialog({ button, capture, is3D, tagMarks = () => [], s
     preview();
   });
   form.elements.tags.addEventListener("change", preview);
-  form.elements.bars.addEventListener("change", preview);
+  form.elements.bars.addEventListener("change", () => { form.elements.barStyle.disabled = !form.elements.bars.checked; preview(); });
+  form.elements.barStyle.disabled = !form.elements.bars.checked;
+  form.elements.barStyle.addEventListener("change", preview);
   nameIn.addEventListener("input", () => { named = true; });
   folderIn.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !pick.hidden) { e.preventDefault(); browse(folderIn.value.trim()); }
