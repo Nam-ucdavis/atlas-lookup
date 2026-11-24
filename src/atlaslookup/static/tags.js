@@ -12,6 +12,7 @@
 //  - The editor: name, note, "Move to the crosshair" (click the new spot while it is open,
 //    then tick it), Save, Delete. Esc or Cancel closes it.
 //  - Markers on the slices: a dot and the name for each tag within SLICE_MM of a slice.
+//    "Show on slices" (in the tag bar and the Tags tab) turns them off and on; remembered.
 
 const NEAR_MM = 3;   // a tag this close to the crosshair counts as "here"
 const SLICE_MM = 2.5;  // a tag this close to a slice's plane is drawn on it
@@ -19,6 +20,7 @@ const AXIS = [2, 1, 0];  // NiiVue axCorSag -> world axis cut across
 
 export function createTags({ store, esc, host, bar, wrap, getNv, getMap, mapName, goTo, onChange = () => {} }) {
   let tags = [], map = null, point = null, showOthers = store.get("tagsShowOthers", false);
+  let showMarks = store.get("tagsShowMarks", true);
   let editing = null;  // {id, where: "bar" | "tab"}: the tag whose editor is open
   const mine = () => tags.filter((t) => t.mine);
   const shown = () => tags.filter((t) => t.mine || showOthers);
@@ -48,7 +50,8 @@ export function createTags({ store, esc, host, bar, wrap, getNv, getMap, mapName
   bar.innerHTML = `<form class="tag-form" autocomplete="off">
       <input type="text" maxlength="80" placeholder="Tag this point, e.g. dmFC" aria-label="Tag name for the point at the crosshair">
       <button type="submit" class="btn small">Add tag</button>
-    </form><span class="tag-here"></span><span class="tag-msg hint"></span><div class="tag-edit-host"></div>`;
+    </form><label class="tags-marks-toggle" title="Show the tags' dots and names on the slices">
+      <input type="checkbox" data-show-marks> Show on slices</label><span class="tag-here"></span><span class="tag-msg hint"></span><div class="tag-edit-host"></div>`;
   const form = bar.querySelector("form"), input = form.querySelector("input");
   const here = bar.querySelector(".tag-here"), msg = bar.querySelector(".tag-msg");
   const barEdit = bar.querySelector(".tag-edit-host");
@@ -176,19 +179,31 @@ export function createTags({ store, esc, host, bar, wrap, getNv, getMap, mapName
   // --- Tags tab -----------------------------------------------------------------------
   host.innerHTML = `<div class="tags-tab">
       <div class="tags-head"><b class="tags-for"></b>
-        <label class="tags-others"><input type="checkbox"> Show other maps' tags</label></div>
+        <label class="tags-others"><input type="checkbox" data-show-marks> Show tags on the slices</label>
+        <label class="tags-others"><input type="checkbox" data-show-others> Show other maps' tags</label></div>
       <div class="tags-list"></div>
       <div class="tags-foot"><a class="btn small" href="/api/tags.csv" download>Export all as CSV</a>
         <span class="hint" style="margin:0">with the regions at each point</span></div>
       <p class="hint">Tags are saved in your Atlas Lookup data folder (tags.json), not in the results
         folder, and follow each map even if it is moved or renamed.</p>
     </div>`;
-  const list = host.querySelector(".tags-list"), others = host.querySelector(".tags-others input");
+  const list = host.querySelector(".tags-list"), others = host.querySelector("[data-show-others]");
   others.checked = showOthers;
   others.addEventListener("change", () => {
     showOthers = others.checked;
     store.set("tagsShowOthers", showOthers);
     renderAll();
+  });
+  const markBoxes = [bar, host].map((el) => el.querySelector("[data-show-marks]"));
+  function setShowMarks(on) {
+    showMarks = on;
+    store.set("tagsShowMarks", on);
+    markBoxes.forEach((b) => { b.checked = on; });
+    drawMarks();
+  }
+  markBoxes.forEach((b) => {
+    b.checked = showMarks;
+    b.addEventListener("change", () => setShowMarks(b.checked));
   });
   function row(t) {
     if (editing?.where === "tab" && editing.id === t.id)
@@ -225,7 +240,7 @@ export function createTags({ store, esc, host, bar, wrap, getNv, getMap, mapName
   // The tags drawn on the slices now: canvas pixel position, the slice (axCorSag) and label.
   function markList() {
     const nv = getNv();
-    if (!nv?.volumes?.length || !nv.screenSlices) return [];
+    if (!showMarks || !nv?.volumes?.length || !nv.screenSlices) return [];
     const at = Array.from(nv.frac2mm(nv.scene.crosshairPos)).slice(0, 3);
     const out = [];
     for (const s of nv.screenSlices) {
@@ -268,5 +283,7 @@ export function createTags({ store, esc, host, bar, wrap, getNv, getMap, mapName
     /** The active stat map changed (getMap() has the new one). */
     refresh: load,
     redraw: drawMarks,
+    /** Turn the markers on the slices on or off (also the "Show on slices" boxes). */
+    showMarks: setShowMarks,
   };
 }

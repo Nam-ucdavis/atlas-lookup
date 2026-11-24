@@ -151,7 +151,8 @@ Name a point and keep it: under the coordinate, type a name (e.g. `dmFC`) and pr
   map, if none is open). Open that map again and its tags come back.
 - **Where you see them:** as a yellow dot and name on any slice within 2.5 mm of the tag,
   and as a chip under the coordinate when the crosshair is within 3 mm (click it to go
-  there).
+  there). Untick **Show on slices** (next to the tag box, or in the Tags tab) to hide the
+  dots and names while you look; tick it to bring them back. The choice is remembered.
 - **Edit or remove a tag:** click its chip under the coordinate (that takes you to its
   exact point and opens an editor there), or click **Edit** in the Tags tab. Change the
   name, add a **note**, or move it: with the editor open, click the new spot on the brain,

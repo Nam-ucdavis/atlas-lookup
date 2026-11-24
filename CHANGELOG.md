@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.32.0 (2026-11-24)
+- **Show on slices:** a switch next to the tag box (and in the Tags tab) hides or shows
+  the tags' dots and names on the slices, without touching the tags themselves. The
+  choice is remembered. Hidden tags are also left out of saved images.
+
 ## 0.31.0 (2026-11-24)
 - **Compact colour bars** are now the default in saved images (slices and 3D): per map,
   the − bar (−max … −threshold) meets the + bar (threshold … max) at the threshold, with
