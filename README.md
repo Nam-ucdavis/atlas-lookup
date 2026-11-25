@@ -437,7 +437,9 @@ page switches to one column with the viewer on top.
 
 - **Overlay:** thresholded at **T ≥** your value; both signs or one sign only.
   Each map's row has a colormap for each sign (**hot** for positive and **cold** for
-  negative by default; remembered per map). Type a **label** in a map's row to tell
+  negative by default; remembered per map). The box before each colormap turns that
+  sign's effects on or off, for any open map (one sign always stays on; the box at the
+  start of the row hides the whole map). Type a **label** in a map's row to tell
   maps with the same file name apart: it names the map's colour bars in camera-button
   captures. Labels are not saved; they are gone when you close the page. **Opacity** sets how see-through it is (remembered,
   and applied in the 3D view too). The equivalent p is shown, using the df from the SPM

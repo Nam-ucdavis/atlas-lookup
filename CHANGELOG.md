@@ -3,6 +3,13 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.33.1 (2026-11-24)
+- **Positive and negative effects on or off per map:** each open stat map's row has a
+  box before its + and − colormaps. Untick one to hide that sign's effects on the slices,
+  in 3D and in the colour bars. The cluster table follows the active map. One sign always
+  stays on; the box at the start of the row still hides the whole map. Saved with the
+  map, and in saved views.
+
 ## 0.33.0 (2026-11-24)
 - **Saved views:** the **Views** menu (next to the version badge) saves the current setup
   under a name, and opens at `http://127.0.0.1:8765/<name>`. A view keeps:

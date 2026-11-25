@@ -510,6 +510,8 @@
   .sl-label:placeholder-shown { border-style: dashed; }
   .sl-cm { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
   .sl-cm select { width: auto; padding: 2px 4px; font-size: 12px; }
+  .sl-sign { margin: 0 -4px 0 4px; }
+  .sl-sign:not(:checked) + .sl-cm { opacity: .45; }
   .sl-op { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
   .sl-op input { width: 90px; }
   .stat-ctl .sr-for { color: var(--muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1691,14 +1693,32 @@ function renderStatList() {
         ${e.error ? `<span class="err" title="${esc(e.error)}">could not load</span>` : ""}
         <input type="text" class="sl-label" data-k="label" value="${esc(e.label || "")}" placeholder="label" maxlength="60"
           title="Your own name for this map, shown in scr captures. Not saved: it is gone when you close the page." aria-label="Label for ${esc(e.map)}">
-        <label class="sl-cm" title="Colormap for positive T">+ <select data-k="cmap" aria-label="Positive colormap of ${esc(e.map)}">${cmapOptions(POS_MAPS, e.cmap)}</select></label>
-        <label class="sl-cm" title="Colormap for negative T">− <select data-k="cmapNeg" aria-label="Negative colormap of ${esc(e.map)}">${cmapOptions(NEG_MAPS, e.cmapNeg)}</select></label>
+        ${signBox(e, "pos")}<label class="sl-cm" title="Colormap for positive T">+ <select data-k="cmap" aria-label="Positive colormap of ${esc(e.map)}">${cmapOptions(POS_MAPS, e.cmap)}</select></label>
+        ${signBox(e, "neg")}<label class="sl-cm" title="Colormap for negative T">− <select data-k="cmapNeg" aria-label="Negative colormap of ${esc(e.map)}">${cmapOptions(NEG_MAPS, e.cmapNeg)}</select></label>
         <label class="sl-op">Opacity <input type="range" data-k="opacity" min="0" max="1" step="0.05" value="${e.opacity}" aria-label="Opacity of ${esc(e.map)}"></label>
         <button type="button" class="btn small" data-act="remove" title="Close this map" aria-label="Close ${esc(e.map)}">✕</button>
         <div class="sl-bars" data-map="${esc(e.map)}"></div>
       </div>`;
     }).join("");
   viewerTools?.refreshLegend();  // put the colour bars back into the new rows
+}
+// Show or hide each sign of a map (its "sign": both, pos or neg). One always stays on: the
+// box at the left of the row hides the whole map.
+function signBox(e, s) {
+  const on = e.sign === "both" || e.sign === s, last = e.sign === s;
+  const what = s === "pos" ? "positive" : "negative";
+  return `<input type="checkbox" class="sl-sign" data-sign="${s}" ${on ? "checked" : ""} ${last ? "disabled" : ""}
+    aria-label="Show ${what} T of ${esc(e.map)}" title="${last ? `Only the ${what} effects are shown (untick the box at the left to hide the map)`
+      : `Show ${what} effects`}">`;
+}
+async function setSign(e, sign) {
+  if (e.sign === sign) return;
+  e.sign = sign;
+  await refreshStat(e);
+  renderStatList();
+  await rebuildOverlays();
+  saveStats();
+  if (e === state.stat) lookup();
 }
 const cmapOptions = (all, cur) => all.map((c) => `<option ${c === cur ? "selected" : ""}>${esc(c)}</option>`).join("");
 const entryOf = (ev) => state.stats[+ev.target.closest(".sl-row")?.dataset.i];
@@ -1710,6 +1730,11 @@ $("statList").addEventListener("click", (ev) => {
 });
 $("statList").addEventListener("change", (ev) => {
   const e = entryOf(ev), k = ev.target.dataset.k;
+  if (e && ev.target.dataset.sign) {
+    const row = ev.target.closest(".sl-row"), pos = row.querySelector('[data-sign="pos"]').checked, neg = row.querySelector('[data-sign="neg"]').checked;
+    setSign(e, pos && neg ? "both" : pos ? "pos" : "neg");
+    return;
+  }
   if (e && (k === "cmap" || k === "cmapNeg")) {
     e[k] = ev.target.value;
     restyleStat(e); viewerTools?.refreshLegend(); saveStats();
@@ -1744,6 +1769,7 @@ $("statMap").addEventListener("change", async () => {
   if (!e) return;
   e.threshold = +$("statThr").value; e.sign = $("statSign").value; e.k = +$("statK").value;
   await refreshStat(e);
+  renderStatList();  // the row's + / − boxes follow the sign
   await rebuildOverlays();
   saveStats();
   lookup();
