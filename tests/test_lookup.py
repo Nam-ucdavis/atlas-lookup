@@ -1433,8 +1433,13 @@ def test_saved_views(tmp_path, monkeypatch):
 
     monkeypatch.setattr(server, "VIEWS", ViewStore(tmp_path / "views.json"))
     c = TestClient(server.app)
-    assert c.get("/api/views").json() == {"views": []}
+    assert c.get("/api/views").json() == {"views": [{"name": "default", "saved": None, "builtin": True}]}
     assert c.get("/my-view").status_code == 404  # no such view yet
+    # Built in: /default opens the app with no maps and default settings; it can't be changed.
+    assert c.get("/default").status_code == 200
+    assert c.get("/api/views/default").json()["settings"] == {}
+    assert c.put("/api/views/default", json={"settings": {"statMap": "x"}}).status_code == 400
+    assert c.delete("/api/views/default").status_code == 400
     body = {"settings": {"statMap": "a/spmT_0001.nii", "viewTab": "3d"}, "hash": "#c=1,2,3&mode=mm",
             "camera": {"az": 90, "el": 0, "zoom": 1.5, "focus": False}}
     assert c.put("/api/views/my-view", content=json.dumps(body)).status_code == 415  # JSON only
@@ -1444,7 +1449,7 @@ def test_saved_views(tmp_path, monkeypatch):
     assert v["settings"]["viewTab"] == "3d" and v["camera"]["az"] == 90
     page = c.get("/my-view")
     assert page.status_code == 200 and "<html" in page.text.lower()
-    assert [x["name"] for x in c.get("/api/views").json()["views"]] == ["my-view"]
+    assert [x["name"] for x in c.get("/api/views").json()["views"]] == ["default", "my-view"]
     for bad in ("api", "static", "-x", "a b", "x" * 65):
         assert c.put(f"/api/views/{bad}", json=body).status_code in (400, 404, 405)
     assert c.delete("/api/views/my-view").json() == {"ok": True}

@@ -182,6 +182,9 @@ next to the version badge) and the app starts with that setup.
   - slices or 3D, the 3D style and settings, and the 3D camera (rotation and zoom);
   - the atlases shown, the overlay, the chosen regions and tracts;
   - the side panel, the tag switches and the Save image options.
+- **The built-in `default` view** (`http://127.0.0.1:8765/default`) opens the app with no
+  stat maps and every setting at its default. It's a clean start that leaves your own
+  setup alone. It can't be changed or deleted; save what you set up there as a new view.
 - **What a view doesn't keep:** the theme, the lookup history, quiz progress and where
   images are saved. These stay yours whichever view is open.
 - **Save one:** **Views → Save the current settings as a view…**, then type a name

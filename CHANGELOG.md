@@ -3,6 +3,11 @@
 Each release is a git tag `vX.Y.Z`. The live version is shown next to the
 title in the app (and at `/api/version`, or `atlaslookup --version`).
 
+## 0.33.2 (2026-11-25)
+- **Built-in `default` view:** `http://127.0.0.1:8765/default` (also in the **Views** menu)
+  opens the app with no stat maps and every setting at its default, without touching your
+  own setup. It can't be updated or deleted, and `default` can't be used as a view's name.
+
 ## 0.33.1 (2026-11-24)
 - **Positive and negative effects on or off per map:** each open stat map's row has a
   box before its + and − colormaps. Untick one to hide that sign's effects on the slices,

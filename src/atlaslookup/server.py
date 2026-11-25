@@ -49,6 +49,7 @@ PUT /api/views/{name}  {"settings", "hash", "camera"}   save (or replace) a view
                                          in DATA_DIR/views.json
 DELETE /api/views/{name}                 remove a view
 GET /{name}                              the app, opened with that saved view
+                                         (built in: /default, no maps open, default settings)
 
 The lookup endpoint is stateless (one coordinate in, all atlas readouts out);
 the viewer in the UI calls it on every click.
@@ -73,7 +74,7 @@ from .results import Results, configured_dir, list_folders, repo_warning, save_r
 from .tags import TagStore, belongs, file_key, to_csv
 from .query import best_guess, peak_atlases, query, resolve_mm
 from .version import version_info
-from .views import NAME as VIEW_NAME, ViewStore, check_name
+from .views import BUILTIN as BUILTIN_VIEWS, NAME as VIEW_NAME, ViewStore, check_name
 
 app = FastAPI(title="Atlas lookup")
 ATLASES = load_atlases()
@@ -648,12 +649,13 @@ def _views_or_500() -> dict:
 @app.get("/api/views")
 def views_list():
     views = _views_or_500()
-    return {"views": [{"name": n, "saved": v.get("saved")} for n, v in sorted(views.items(), key=lambda x: x[0].lower())]}
+    return {"views": [{"name": n, "saved": None, "builtin": True} for n in BUILTIN_VIEWS] +
+                     [{"name": n, "saved": v.get("saved")} for n, v in sorted(views.items(), key=lambda x: x[0].lower())]}
 
 
 @app.get("/api/views/{name}")
 def views_get(name: str):
-    v = _views_or_500().get(name)
+    v = BUILTIN_VIEWS.get(name) or _views_or_500().get(name)
     if v is None:
         raise HTTPException(404, f"No saved view {name!r}")
     return {"name": name, **v}
@@ -672,6 +674,8 @@ async def views_save(name: str, request: Request):
 def views_delete(name: str):
     try:
         VIEWS.delete(name)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     except KeyError:
         raise HTTPException(404, f"No saved view {name!r}")
     return {"ok": True}
@@ -685,7 +689,7 @@ def index():
 @app.get("/{name}")
 def view_page(name: str):
     """The app, opened with a saved view (the page reads the view by its own path)."""
-    if not VIEW_NAME.match(name) or name not in _views_or_500():
+    if not VIEW_NAME.match(name) or (name not in BUILTIN_VIEWS and name not in _views_or_500()):
         return Response(f"No saved view named {name!r}. Open the app at / to see your saved views.",
                         status_code=404, media_type="text/plain")
     return FileResponse(STATIC_DIR / "index.html")

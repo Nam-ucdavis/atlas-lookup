@@ -893,7 +893,8 @@ function currentSettings() {
 }
 const stable = (v) => JSON.stringify(v, (_, x) => (x && typeof x === "object" && !Array.isArray(x)
   ? Object.fromEntries(Object.keys(x).sort().filter((k) => x[k] !== undefined).map((k) => [k, x[k]])) : x));
-const viewDirty = () => !!viewSettings && stable(viewSettings) !== stable(viewData.settings || {});
+// A built-in view (/default: no maps, default settings) can't be updated, so it is never "changed".
+const viewDirty = () => !!viewSettings && !viewData.builtin && stable(viewSettings) !== stable(viewData.settings || {});
 const state = { mode: "mm", base: 1, atlases: [], grids: [], hidden: new Set(store.get("hidden", [])) };
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const pct = (p) => (p * 100 >= 10 ? Math.round(p * 100) : (p * 100).toFixed(p < 0.01 ? 1 : 0)) + "%";
@@ -968,16 +969,19 @@ async function openViewsMenu(note = "") {
   const cur = viewData?.name;
   menu.innerHTML = (cur ? `<div class="ver-title">This view</div>
       <div class="ver-note"><span class="view-link">${esc(viewURL(cur))}</span></div>` +
-      item("update", `Update “${esc(cur)}” with the current settings`, viewDirty() ? "changed" : "") +
-      item("copy", "Copy its link") + item("delete", `Delete “${esc(cur)}”…`) +
+      (viewData.builtin ? `<div class="ver-note">Built in: no stat maps open, every setting at its default. Changes here
+          are not kept; save them as a new view to keep them.</div>` + item("copy", "Copy its link")
+        : item("update", `Update “${esc(cur)}” with the current settings`, viewDirty() ? "changed" : "") +
+          item("copy", "Copy its link") + item("delete", `Delete “${esc(cur)}”…`)) +
       `<a href="/${esc(location.hash)}" role="menuitem"><span></span><span>Back to your own settings</span><span></span></a><hr>` : "") +
     `<div class="ver-title">Save</div>` + item("new", cur ? "Save as a new view…" : "Save the current settings as a view…") +
     (note ? `<div class="ver-note">${note}</div>` : "") +
     `<hr><div class="ver-title">Saved views</div>` +
-    (d.views?.length ? d.views.map((v) => `<a href="/${encodeURIComponent(v.name)}" role="menuitemradio" aria-checked="${v.name === cur}">
+    (d.views || []).map((v) => `<a href="/${encodeURIComponent(v.name)}" role="menuitemradio" aria-checked="${v.name === cur}"
+        title="${v.builtin ? "No stat maps open, every setting at its default" : ""}">
         <span class="tick">${v.name === cur ? "✓" : ""}</span><span class="ver-tag">${esc(v.name)}</span>
-        <span class="ver-date">${esc((v.saved || "").slice(0, 10))}</span></a>`).join("")
-      : `<div class="ver-note">None yet. A view keeps the open stat maps and their settings, the coordinate,
+        <span class="ver-date">${v.builtin ? "no maps · built in" : esc((v.saved || "").slice(0, 10))}</span></a>`).join("") +
+    (d.views?.some((v) => !v.builtin) ? "" : `<div class="ver-note">No views of your own yet. A view keeps the open stat maps and their settings, the coordinate,
           slices or 3D (with the 3D camera), regions, tracts and image options, and opens at its own link.</div>`);
   menu.querySelector("button, a")?.focus();
 }

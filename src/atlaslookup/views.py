@@ -22,7 +22,10 @@ from pathlib import Path
 
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 # Paths the app itself uses: never a view's name.
-RESERVED = {"api", "static", "docs", "redoc", "openapi", "index", "favicon"}
+RESERVED = {"api", "static", "docs", "redoc", "openapi", "index", "favicon", "default"}
+# Built-in views, always there and never saved over: "default" starts the app as on
+# first use, with no stat maps open and every setting at its default.
+BUILTIN = {"default": {"settings": {}, "hash": "", "camera": None, "saved": None, "builtin": True}}
 MAX_BYTES = 512 * 1024  # one view's JSON
 _lock = threading.Lock()
 
@@ -63,6 +66,8 @@ class ViewStore:
             return self._read()
 
     def get(self, name: str) -> dict:
+        if name in BUILTIN:
+            return dict(BUILTIN[name])
         v = self.all().get(name)
         if v is None:
             raise KeyError(name)
@@ -84,6 +89,8 @@ class ViewStore:
         return view
 
     def delete(self, name: str) -> None:
+        if name in BUILTIN:
+            raise ValueError(f"{name!r} is built in and cannot be deleted")
         with _lock:
             views = self._read()
             if name not in views:
